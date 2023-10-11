@@ -2057,7 +2057,6 @@ static const __DRIimageExtension dri2ImageExtensionTempl = {
     .queryDmaBufFormats           = NULL,
     .queryDmaBufModifiers         = NULL,
     .queryDmaBufFormatModifierAttribs = NULL,
-    .createImageFromRenderbuffer2 = dri2_create_image_from_renderbuffer2,
     .createImageWithModifiers2    = NULL,
     .queryCompressionRates        = NULL,
     .queryCompressionModifiers    = NULL,
@@ -2088,7 +2087,6 @@ const __DRIimageExtension driVkImageExtension = {
     .queryDmaBufFormats           = dri2_query_dma_buf_formats,
     .queryDmaBufModifiers         = dri2_query_dma_buf_modifiers,
     .queryDmaBufFormatModifierAttribs = dri2_query_dma_buf_format_modifier_attribs,
-    .createImageFromRenderbuffer2 = dri2_create_image_from_renderbuffer2,
     .createImageWithModifiers2    = dri2_create_image_with_modifiers2,
 };
 
@@ -2111,7 +2109,6 @@ const __DRIimageExtension driVkImageExtensionSw = {
     .getCapabilities              = dri2_get_capabilities,
     .mapImage                     = dri2_map_image,
     .unmapImage                   = dri2_unmap_image,
-    .createImageFromRenderbuffer2 = dri2_create_image_from_renderbuffer2,
 };
 
 static const __DRIrobustnessExtension dri2Robustness = {
