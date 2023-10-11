@@ -1687,7 +1687,7 @@ struct __DRIimageExtensionRec {
                                                unsigned *error);
 
    /**
-    * Like createImageFromFds, but takes additional attributes.
+    * Creates a DRI image from an array of dmabuf fds and their modifier.
     *
     * See __DRI_IMAGE_*_FLAG for valid definitions of flags.
     */
