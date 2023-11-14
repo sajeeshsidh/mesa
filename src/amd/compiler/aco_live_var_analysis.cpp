@@ -138,6 +138,49 @@ handle_phi_operands(live_ctx& ctx)
 }
 
 void
+procsss_phi_reg_changes(live_ctx& ctx, Block* block, IDSet& live)
+{
+   for (unsigned pred_idx : block->linear_preds)
+      ctx.phi_info[pred_idx].linear_phi_ops = 0;
+   for (unsigned pred_idx : block->logical_preds)
+      ctx.phi_info[pred_idx].logical_phi_sgpr_ops = 0;
+   uint16_t linear_phi_defs = 0;
+
+   for (unsigned j = 0; j < block->instructions.size(); j++) {
+      Instruction* insn = block->instructions[j].get();
+      if (!is_phi(insn))
+         break;
+
+      Block::edge_vec& preds =
+         insn->opcode == aco_opcode::p_phi ? block->logical_preds : block->linear_preds;
+      for (unsigned i = 0; i < preds.size(); ++i) {
+         Operand& operand = insn->operands[i];
+         if (!operand.isTemp())
+            continue;
+
+         const bool kill = !live.count(operand.tempId());
+         operand.setKill(kill);
+         if (kill) {
+            if (insn->opcode == aco_opcode::p_phi && operand.getTemp().type() == RegType::sgpr) {
+               ctx.phi_info[preds[i]].logical_phi_sgpr_ops += operand.size();
+            } else if (insn->opcode == aco_opcode::p_linear_phi) {
+               assert(operand.getTemp().type() == RegType::sgpr);
+               ctx.phi_info[preds[i]].linear_phi_ops += operand.size();
+            }
+         }
+      }
+
+      if (insn->opcode == aco_opcode::p_linear_phi && insn->definitions[0].isTemp()) {
+         assert(insn->definitions[0].getTemp().type() == RegType::sgpr);
+         linear_phi_defs += insn->definitions[0].size();
+      }
+   }
+
+   for (unsigned pred_idx : block->linear_preds)
+      ctx.phi_info[pred_idx].linear_phi_defs = linear_phi_defs;
+}
+
+void
 process_live_temps_per_block(live_ctx& ctx, Block* block)
 {
    std::vector<RegisterDemand>& register_demand = ctx.program->live.register_demand[block->index];
@@ -154,8 +197,6 @@ process_live_temps_per_block(live_ctx& ctx, Block* block)
    int idx;
    for (idx = block->instructions.size() - 1; idx >= 0; idx--) {
       Instruction* insn = block->instructions[idx].get();
-      if (is_phi(insn))
-         break;
 
       ctx.program->needs_vcc |= instr_needs_vcc(insn);
       register_demand[idx] = RegisterDemand(new_demand.vgpr, new_demand.sgpr);
@@ -171,17 +212,17 @@ process_live_temps_per_block(live_ctx& ctx, Block* block)
          const Temp temp = definition.getTemp();
          const size_t n = live.erase(temp.id());
 
-         if (n) {
-            new_demand -= temp;
-            definition.setKill(false);
-         } else {
-            register_demand[idx] += temp;
-            definition.setKill(true);
+         if (!is_phi(insn)) {
+            if (n)
+               new_demand -= temp;
+            else
+               register_demand[idx] += temp;
          }
+         definition.setKill(!n);
       }
 
       /* GEN */
-      {
+      if (!is_phi(insn)) {
          /* we need to do this in a separate loop because the next one can
           * setKill() for several operands at once and we don't want to
           * overwrite that in a later iteration */
@@ -219,72 +260,8 @@ process_live_temps_per_block(live_ctx& ctx, Block* block)
       }
    }
 
-   /* handle phi definitions */
-   uint16_t linear_phi_defs = 0;
-   int phi_idx = idx;
-   while (phi_idx >= 0) {
-      register_demand[phi_idx] = new_demand;
-      Instruction* insn = block->instructions[phi_idx].get();
-
-      assert(is_phi(insn) && insn->definitions.size() == 1);
-      if (!insn->definitions[0].isTemp()) {
-         assert(insn->definitions[0].isFixed() && insn->definitions[0].physReg() == exec);
-         phi_idx--;
-         continue;
-      }
-      Definition& definition = insn->definitions[0];
-      if (definition.isFixed() && definition.physReg() == vcc)
-         ctx.program->needs_vcc = true;
-      const Temp temp = definition.getTemp();
-      const size_t n = live.erase(temp.id());
-
-      if (n)
-         definition.setKill(false);
-      else
-         definition.setKill(true);
-
-      if (insn->opcode == aco_opcode::p_linear_phi) {
-         assert(definition.getTemp().type() == RegType::sgpr);
-         linear_phi_defs += definition.size();
-      }
-
-      phi_idx--;
-   }
-
-   for (unsigned pred_idx : block->linear_preds) {
-      ctx.phi_info[pred_idx].linear_phi_defs = linear_phi_defs;
-      ctx.phi_info[pred_idx].linear_phi_ops = 0;
-   }
-   for (unsigned pred_idx : block->logical_preds) {
-      ctx.phi_info[pred_idx].logical_phi_sgpr_ops = 0;
-   }
-
-   /* handle phi operands */
-   phi_idx = idx;
-   while (phi_idx >= 0) {
-      Instruction* insn = block->instructions[phi_idx].get();
-      assert(is_phi(insn));
-
-      Block::edge_vec& preds =
-         insn->opcode == aco_opcode::p_phi ? block->logical_preds : block->linear_preds;
-      for (unsigned i = 0; i < preds.size(); ++i) {
-         Operand& operand = insn->operands[i];
-         if (!operand.isTemp())
-            continue;
-
-         const bool kill = !live.count(operand.tempId());
-         operand.setKill(kill);
-         if (kill) {
-            if (insn->opcode == aco_opcode::p_phi && operand.getTemp().type() == RegType::sgpr) {
-               ctx.phi_info[preds[i]].logical_phi_sgpr_ops += operand.size();
-            } else if (insn->opcode == aco_opcode::p_linear_phi) {
-               assert(operand.getTemp().type() == RegType::sgpr);
-               ctx.phi_info[preds[i]].linear_phi_ops += operand.size();
-            }
-         }
-      }
-      phi_idx--;
-   }
+   /* Handle phis: fixup final register demand calculations */
+   procsss_phi_reg_changes(ctx, block, live);
 
    /* now, we need to merge the live-ins into the live-out sets */
    bool fast_merge =
