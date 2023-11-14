@@ -113,6 +113,31 @@ instr_needs_vcc(Instruction* instr)
 }
 
 void
+handle_phi_operands(live_ctx& ctx)
+{
+   for (Block& block : ctx.program->blocks) {
+      for (aco_ptr<Instruction>& phi : block.instructions) {
+         if (!is_phi(phi))
+            break;
+
+         /* Directly insert into the predecessors' live-out set. */
+         Block::edge_vec& preds =
+            phi->opcode == aco_opcode::p_phi ? block.logical_preds : block.linear_preds;
+
+         for (unsigned i = 0; i < preds.size(); ++i) {
+            Operand& operand = phi->operands[i];
+            if (!operand.isTemp())
+               continue;
+            if (operand.isFixed() && operand.physReg() == vcc)
+               ctx.program->needs_vcc = true;
+
+            ctx.program->live.live_out[preds[i]].insert(operand.tempId());
+         }
+      }
+   }
+}
+
+void
 process_live_temps_per_block(live_ctx& ctx, Block* block)
 {
    std::vector<RegisterDemand>& register_demand = ctx.program->live.register_demand[block->index];
@@ -229,8 +254,40 @@ process_live_temps_per_block(live_ctx& ctx, Block* block)
       phi_idx--;
    }
 
-   for (unsigned pred_idx : block->linear_preds)
+   for (unsigned pred_idx : block->linear_preds) {
       ctx.phi_info[pred_idx].linear_phi_defs = linear_phi_defs;
+      ctx.phi_info[pred_idx].linear_phi_ops = 0;
+   }
+   for (unsigned pred_idx : block->logical_preds) {
+      ctx.phi_info[pred_idx].logical_phi_sgpr_ops = 0;
+   }
+
+   /* handle phi operands */
+   phi_idx = idx;
+   while (phi_idx >= 0) {
+      Instruction* insn = block->instructions[phi_idx].get();
+      assert(is_phi(insn));
+
+      Block::edge_vec& preds =
+         insn->opcode == aco_opcode::p_phi ? block->logical_preds : block->linear_preds;
+      for (unsigned i = 0; i < preds.size(); ++i) {
+         Operand& operand = insn->operands[i];
+         if (!operand.isTemp())
+            continue;
+
+         const bool kill = !live.count(operand.tempId());
+         operand.setKill(kill);
+         if (kill) {
+            if (insn->opcode == aco_opcode::p_phi && operand.getTemp().type() == RegType::sgpr) {
+               ctx.phi_info[preds[i]].logical_phi_sgpr_ops += operand.size();
+            } else if (insn->opcode == aco_opcode::p_linear_phi) {
+               assert(operand.getTemp().type() == RegType::sgpr);
+               ctx.phi_info[preds[i]].linear_phi_ops += operand.size();
+            }
+         }
+      }
+      phi_idx--;
+   }
 
    /* now, we need to merge the live-ins into the live-out sets */
    bool fast_merge =
@@ -264,38 +321,6 @@ process_live_temps_per_block(live_ctx& ctx, Block* block)
                ctx.worklist = std::max(ctx.worklist, pred_idx + 1);
          }
       }
-   }
-
-   /* handle phi operands */
-   phi_idx = idx;
-   while (phi_idx >= 0) {
-      Instruction* insn = block->instructions[phi_idx].get();
-      assert(is_phi(insn));
-      /* directly insert into the predecessors live-out set */
-      Block::edge_vec& preds =
-         insn->opcode == aco_opcode::p_phi ? block->logical_preds : block->linear_preds;
-      for (unsigned i = 0; i < preds.size(); ++i) {
-         Operand& operand = insn->operands[i];
-         if (!operand.isTemp())
-            continue;
-         if (operand.isFixed() && operand.physReg() == vcc)
-            ctx.program->needs_vcc = true;
-         /* check if we changed an already processed block */
-         const bool inserted = ctx.program->live.live_out[preds[i]].insert(operand.tempId()).second;
-         if (inserted) {
-            ctx.worklist = std::max(ctx.worklist, preds[i] + 1);
-            if (insn->opcode == aco_opcode::p_phi && operand.getTemp().type() == RegType::sgpr) {
-               ctx.phi_info[preds[i]].logical_phi_sgpr_ops += operand.size();
-            } else if (insn->opcode == aco_opcode::p_linear_phi) {
-               assert(operand.getTemp().type() == RegType::sgpr);
-               ctx.phi_info[preds[i]].linear_phi_ops += operand.size();
-            }
-         }
-
-         /* set if the operand is killed by this (or another) phi instruction */
-         operand.setKill(!live.count(operand.tempId()));
-      }
-      phi_idx--;
    }
 
    assert(!block->linear_preds.empty() || (new_demand == RegisterDemand() && live.empty()));
@@ -476,6 +501,9 @@ live_var_analysis(Program* program)
    RegisterDemand new_demand;
 
    program->needs_vcc = program->gfx_level >= GFX10;
+
+   /* First, insert all phi operands into live-out sets of the predecessors. */
+   handle_phi_operands(ctx);
 
    /* this implementation assumes that the block idx corresponds to the block's position in
     * program->blocks vector */
