@@ -389,6 +389,7 @@ bool pan_lower_xfb(nir_shader *nir);
 
 bool pan_lower_image_index(nir_shader *shader, unsigned vs_img_attrib_offset);
 bool pan_lower_buf_image_coords(nir_shader *s);
+bool pan_lower_buf_tex_coords(nir_shader *s);
 
 void pan_nir_collect_varyings(nir_shader *s, struct pan_shader_info *info);
 
