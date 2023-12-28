@@ -10195,6 +10195,36 @@ visit_jump(isel_context* ctx, nir_jump_instr* instr)
    }
 }
 
+ABI
+make_abi(const ABI& base, const ac_shader_args* args, Program* program)
+{
+   ABI abi = base;
+
+   unsigned sgpr_limit = program->dev.sgpr_limit;
+   /* GFX8- needs a scratch_rsrc that we need to keep around somewhere */
+   if (program->gfx_level < GFX9)
+      sgpr_limit -= (align(sgpr_limit, 4) - sgpr_limit) + 4;
+   unsigned vgpr_limit = program->dev.vgpr_limit;
+
+   abi.parameterSpace.vgpr.lo_ =
+      abi.parameterSpace.vgpr.lo_.advance(align(args->num_vgprs_used, 2) * 4);
+   abi.parameterSpace.sgpr.lo_ =
+      abi.parameterSpace.sgpr.lo_.advance(align(args->num_sgprs_used, 2) * 4);
+   abi.clobberedRegs.vgpr.lo_ = abi.clobberedRegs.vgpr.lo_.advance(args->num_vgprs_used * 4);
+   abi.clobberedRegs.sgpr.lo_ = abi.clobberedRegs.sgpr.lo_.advance(args->num_sgprs_used * 4);
+
+   abi.parameterSpace.sgpr.size =
+      std::min(abi.parameterSpace.sgpr.size, sgpr_limit - abi.parameterSpace.sgpr.lo());
+   abi.parameterSpace.vgpr.size =
+      std::min(abi.parameterSpace.vgpr.size, vgpr_limit - (abi.parameterSpace.vgpr.lo() - 256));
+   abi.clobberedRegs.sgpr.size =
+      std::min(abi.clobberedRegs.sgpr.size, sgpr_limit - abi.clobberedRegs.sgpr.lo());
+   abi.clobberedRegs.vgpr.size =
+      std::min(abi.clobberedRegs.vgpr.size, vgpr_limit - (abi.clobberedRegs.vgpr.lo() - 256));
+
+   return abi;
+}
+
 void
 visit_block(isel_context* ctx, nir_block* block)
 {

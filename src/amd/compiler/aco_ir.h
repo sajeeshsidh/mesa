@@ -466,6 +466,215 @@ static constexpr PhysReg exec_hi{127};
 static constexpr PhysReg pops_exiting_wave_id{239}; /* GFX9-GFX10.3 */
 static constexpr PhysReg scc{253};
 
+/* Iterator type for making PhysRegInterval compatible with range-based for */
+struct PhysRegIterator {
+   using difference_type = int;
+   using value_type = unsigned;
+   using reference = const unsigned&;
+   using pointer = const unsigned*;
+   using iterator_category = std::bidirectional_iterator_tag;
+
+   PhysReg reg;
+
+   PhysReg operator*() const { return reg; }
+
+   PhysRegIterator& operator++()
+   {
+      reg.reg_b += 4;
+      return *this;
+   }
+
+   PhysRegIterator& operator--()
+   {
+      reg.reg_b -= 4;
+      return *this;
+   }
+
+   bool operator==(PhysRegIterator oth) const { return reg == oth.reg; }
+
+   bool operator!=(PhysRegIterator oth) const { return reg != oth.reg; }
+
+   bool operator<(PhysRegIterator oth) const { return reg < oth.reg; }
+};
+
+/* Half-open register interval used in "sliding window"-style for-loops */
+struct PhysRegInterval {
+   PhysReg lo_;
+   unsigned size;
+
+   /* Inclusive lower bound */
+   PhysReg lo() const { return lo_; }
+
+   /* Exclusive upper bound */
+   PhysReg hi() const { return PhysReg{lo() + size}; }
+
+   PhysRegInterval& operator+=(uint32_t stride)
+   {
+      lo_ = PhysReg{lo_.reg() + stride};
+      return *this;
+   }
+
+   bool operator!=(const PhysRegInterval& oth) const { return lo_ != oth.lo_ || size != oth.size; }
+
+   /* Construct a half-open interval, excluding the end register */
+   static PhysRegInterval from_until(PhysReg first, PhysReg end) { return {first, end - first}; }
+
+   bool contains(PhysReg reg) const { return lo() <= reg && reg < hi(); }
+
+   bool contains(const PhysRegInterval& needle) const
+   {
+      return needle.lo() >= lo() && needle.hi() <= hi();
+   }
+
+   PhysRegIterator begin() const { return {lo_}; }
+
+   PhysRegIterator end() const { return {PhysReg{lo_ + size}}; }
+};
+
+inline bool
+intersects(const PhysRegInterval& a, const PhysRegInterval& b)
+{
+   return a.hi() > b.lo() && b.hi() > a.lo();
+}
+
+struct GPRInterval {
+   PhysRegInterval sgpr;
+   PhysRegInterval vgpr;
+};
+
+struct ABI {
+   GPRInterval parameterSpace;
+   GPRInterval clobberedRegs;
+
+   bool clobbersVCC;
+   bool clobbersSCC;
+};
+
+static constexpr ABI rtRaygenABI = {
+   .parameterSpace =
+      {
+         .sgpr =
+            {
+               .lo_ = PhysReg(0),
+               .size = 32,
+            },
+         .vgpr =
+            {
+               .lo_ = PhysReg(256),
+               .size = 32,
+            },
+      },
+   .clobberedRegs =
+      {
+         .sgpr =
+            {
+               .lo_ = PhysReg(0),
+               .size = 108,
+            },
+         .vgpr =
+            {
+               .lo_ = PhysReg(256),
+               .size = 128,
+            },
+      },
+   .clobbersVCC = true,
+   .clobbersSCC = true,
+};
+
+static constexpr ABI rtTraversalABI = {
+   .parameterSpace =
+      {
+         .sgpr =
+            {
+               .lo_ = PhysReg(0),
+               .size = 32,
+            },
+         .vgpr =
+            {
+               .lo_ = PhysReg(256),
+               .size = 32,
+            },
+      },
+   .clobberedRegs =
+      {
+         /* TODO: maybe find better values */
+         .sgpr =
+            {
+               .lo_ = PhysReg(0),
+               .size = 108,
+            },
+         .vgpr =
+            {
+               .lo_ = PhysReg(256),
+               .size = 128,
+            },
+      },
+   .clobbersVCC = true,
+   .clobbersSCC = true,
+};
+
+static constexpr ABI rtAnyHitABI = {
+   .parameterSpace =
+      {
+         .sgpr =
+            {
+               .lo_ = PhysReg(0),
+               .size = 32,
+            },
+         .vgpr =
+            {
+               .lo_ = PhysReg(256),
+               .size = 32,
+            },
+      },
+   .clobberedRegs =
+      {
+         .sgpr =
+            {
+               .lo_ = PhysReg(80),
+               .size = 16,
+            },
+         .vgpr =
+            {
+               .lo_ = PhysReg(256 + 80),
+               .size = 32,
+            },
+      },
+   .clobbersVCC = true,
+   .clobbersSCC = true,
+};
+
+static constexpr ABI rtClosestHitMissABI = {
+   .parameterSpace =
+      {
+         .sgpr =
+            {
+               .lo_ = PhysReg(0),
+               .size = 32,
+            },
+         .vgpr =
+            {
+               .lo_ = PhysReg(256),
+               .size = 32,
+            },
+      },
+   .clobberedRegs =
+      {
+         .sgpr =
+            {
+               .lo_ = PhysReg(0),
+               .size = 108,
+            },
+         .vgpr =
+            {
+               .lo_ = PhysReg(256),
+               .size = 128,
+            },
+      },
+   .clobbersVCC = true,
+   .clobbersSCC = true,
+};
+
 /**
  * Operand Class
  * Initially, each Operand refers to either
@@ -1001,6 +1210,7 @@ struct FLAT_instruction;
 struct Pseudo_branch_instruction;
 struct Pseudo_barrier_instruction;
 struct Pseudo_reduction_instruction;
+struct Pseudo_call_instruction;
 struct VALU_instruction;
 struct VINTERP_inreg_instruction;
 struct VINTRP_instruction;
@@ -1198,6 +1408,17 @@ struct Instruction {
       return *(Pseudo_reduction_instruction*)this;
    }
    constexpr bool isReduction() const noexcept { return format == Format::PSEUDO_REDUCTION; }
+   Pseudo_call_instruction& call() noexcept
+   {
+      assert(isCall());
+      return *(Pseudo_call_instruction*)this;
+   }
+   const Pseudo_call_instruction& call() const noexcept
+   {
+      assert(isCall());
+      return *(Pseudo_call_instruction*)this;
+   }
+   constexpr bool isCall() const noexcept { return format == Format::PSEUDO_CALL; }
    constexpr bool isVOP3P() const noexcept { return (uint16_t)format & (uint16_t)Format::VOP3P; }
    VINTERP_inreg_instruction& vinterp_inreg() noexcept
    {
@@ -1675,6 +1896,11 @@ struct Pseudo_reduction_instruction : public Instruction {
 static_assert(sizeof(Pseudo_reduction_instruction) == sizeof(Instruction) + 4,
               "Unexpected padding");
 
+struct Pseudo_call_instruction : public Instruction {
+   ABI abi;
+};
+static_assert(sizeof(Pseudo_call_instruction) == sizeof(Instruction) + 36, "Unexpected padding");
+
 inline bool
 Instruction::accessesLDS() const noexcept
 {
@@ -1747,8 +1973,8 @@ memory_sync_info get_sync_info(const Instruction* instr);
 inline bool
 is_dead(const std::vector<uint16_t>& uses, const Instruction* instr)
 {
-   if (instr->definitions.empty() || instr->isBranch() || instr->opcode == aco_opcode::p_startpgm ||
-       instr->opcode == aco_opcode::p_init_scratch ||
+   if (instr->definitions.empty() || instr->isBranch() || instr->isCall() ||
+       instr->opcode == aco_opcode::p_startpgm || instr->opcode == aco_opcode::p_init_scratch ||
        instr->opcode == aco_opcode::p_dual_src_export_gfx11)
       return false;
 
