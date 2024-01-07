@@ -1860,11 +1860,11 @@ bool nir_deref_instr_has_complex_use(nir_deref_instr *instr,
 bool nir_deref_instr_remove_if_unused(nir_deref_instr *instr);
 
 unsigned nir_deref_instr_array_stride(nir_deref_instr *instr);
-
 typedef struct {
    nir_instr instr;
 
    struct nir_function *callee;
+   nir_src indirect_callee;
 
    unsigned num_params;
    nir_src params[];
@@ -3060,6 +3060,14 @@ nir_block_ends_in_break(nir_block *block)
           nir_instr_as_jump(instr)->type == nir_jump_break;
 }
 
+static inline void
+nir_block_free_liveness_info(nir_block *block)
+{
+   ralloc_free(block->live_in);
+   ralloc_free(block->live_out);
+   block->live_in = block->live_out = NULL;
+}
+
 #define nir_foreach_instr(instr, block) \
    foreach_list_typed(nir_instr, instr, node, &(block)->instr_list)
 #define nir_foreach_instr_reverse(instr, block) \
@@ -3522,9 +3530,10 @@ nir_cf_list_is_empty_block(struct exec_list *cf_list)
 typedef struct {
    uint8_t num_components;
    uint8_t bit_size;
-
-   /* True if this paramater is actually the function return variable */
+   /* True if this parameter is a deref used for returning values */
    bool is_return;
+
+   unsigned driver_attributes;
 
    /* The type of the function param */
    const struct glsl_type *type;
@@ -3547,6 +3556,8 @@ typedef struct nir_function {
     * nir_function_set_impl to maintain IR invariants.
     */
    nir_function_impl *impl;
+
+   unsigned driver_attributes;
 
    bool is_entrypoint;
    /* from SPIR-V linkage, only for libraries */
@@ -4828,6 +4839,8 @@ void nir_instr_init_src(nir_instr *instr, nir_src *src, nir_def *def);
 void nir_instr_clear_src(nir_instr *instr, nir_src *src);
 
 void nir_instr_move_src(nir_instr *dest_instr, nir_src *dest, nir_src *src);
+
+bool nir_instr_is_between(nir_instr *start, nir_instr *end, nir_instr *between);
 
 void nir_def_init(nir_instr *instr, nir_def *def,
                   unsigned num_components, unsigned bit_size);
@@ -6500,6 +6513,15 @@ bool nir_opt_combine_barriers(nir_shader *shader,
                               nir_combine_barrier_cb combine_cb,
                               void *data);
 bool nir_opt_barrier_modes(nir_shader *shader);
+
+typedef bool (*can_remat_cb)(nir_instr *instr);
+
+struct nir_minimize_call_live_states_options {
+   can_remat_cb can_remat;
+};
+
+bool nir_minimize_call_live_states(nir_shader *shader,
+                                   struct nir_minimize_call_live_states_options *options);
 
 bool nir_opt_combine_stores(nir_shader *shader, nir_variable_mode modes);
 
