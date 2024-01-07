@@ -73,6 +73,8 @@ bool radv_nir_lower_draw_id_to_zero(nir_shader *shader);
 
 bool radv_nir_remap_color_attachment(nir_shader *shader, const struct radv_graphics_state_key *gfx_state);
 
+bool radv_nir_lower_call_abi(nir_shader *shader, unsigned wave_size);
+
 #ifdef __cplusplus
 }
 #endif
