@@ -502,6 +502,7 @@ nir_function_create(nir_shader *shader, const char *name)
    func->is_preamble = false;
    func->dont_inline = false;
    func->should_inline = false;
+   func->driver_attributes = 0;
    func->is_subroutine = false;
    func->subroutine_index = 0;
    func->num_subroutine_types = 0;

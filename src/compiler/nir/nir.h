@@ -1860,11 +1860,11 @@ bool nir_deref_instr_has_complex_use(nir_deref_instr *instr,
 bool nir_deref_instr_remove_if_unused(nir_deref_instr *instr);
 
 unsigned nir_deref_instr_array_stride(nir_deref_instr *instr);
-
 typedef struct {
    nir_instr instr;
 
    struct nir_function *callee;
+   nir_src indirect_callee;
 
    unsigned num_params;
    nir_src params[];
@@ -3525,6 +3525,8 @@ typedef struct {
    /* True if this parameter is a deref used for returning values */
    bool is_return;
 
+   unsigned driver_attributes;
+
    /* The type of the function param */
    const struct glsl_type *type;
 } nir_parameter;
@@ -3546,6 +3548,8 @@ typedef struct nir_function {
     * nir_function_set_impl to maintain IR invariants.
     */
    nir_function_impl *impl;
+
+   unsigned driver_attributes;
 
    bool is_entrypoint;
    /* from SPIR-V linkage, only for libraries */

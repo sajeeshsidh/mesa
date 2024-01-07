@@ -1889,6 +1889,8 @@ write_function(write_ctx *ctx, const nir_function *fxn)
    if (fxn->name)
       blob_write_string(ctx->blob, fxn->name);
 
+   blob_write_uint32(ctx->blob, fxn->driver_attributes);
+
    blob_write_uint32(ctx->blob, fxn->subroutine_index);
    blob_write_uint32(ctx->blob, fxn->num_subroutine_types);
    for (unsigned i = 0; i < fxn->num_subroutine_types; i++) {
@@ -1906,6 +1908,7 @@ write_function(write_ctx *ctx, const nir_function *fxn)
          val |= (1u << 16);
       blob_write_uint32(ctx->blob, val);
       encode_type_to_blob(ctx->blob, fxn->params[i].type);
+      blob_write_uint32(ctx->blob, fxn->params[i].driver_attributes);
    }
 
    /* At first glance, it looks like we should write the function_impl here.
@@ -1925,6 +1928,7 @@ read_function(read_ctx *ctx)
 
    nir_function *fxn = nir_function_create(ctx->nir, name);
 
+   fxn->driver_attributes = blob_read_uint32(ctx->blob);
    fxn->subroutine_index = blob_read_uint32(ctx->blob);
    fxn->num_subroutine_types = blob_read_uint32(ctx->blob);
    for (unsigned i = 0; i < fxn->num_subroutine_types; i++) {
@@ -1941,6 +1945,7 @@ read_function(read_ctx *ctx)
       fxn->params[i].bit_size = (val >> 8) & 0xff;
       fxn->params[i].is_return = val & (1u << 16);
       fxn->params[i].type = decode_type_from_blob(ctx->blob);
+      fxn->params[i].driver_attributes = blob_read_uint32(ctx->blob);
    }
 
    fxn->is_entrypoint = flags & 0x1;
