@@ -1224,7 +1224,8 @@ nir_divergence_analysis(nir_shader *shader)
       .first_visit = true,
    };
 
-   visit_cf_list(&nir_shader_get_entrypoint(shader)->body, &state);
+   nir_foreach_function_impl(impl, shader)
+      visit_cf_list(&impl->body, &state);
 }
 
 /* Compute divergence between vertices of the same primitive. This uses
@@ -1243,7 +1244,8 @@ nir_vertex_divergence_analysis(nir_shader *shader)
       .first_visit = true,
    };
 
-   visit_cf_list(&nir_shader_get_entrypoint(shader)->body, &state);
+   nir_foreach_function_impl(impl, shader)
+      visit_cf_list(&impl->body, &state);
 }
 
 bool
