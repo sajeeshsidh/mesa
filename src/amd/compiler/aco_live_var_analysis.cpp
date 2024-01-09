@@ -149,7 +149,6 @@ process_live_temps_per_block(live_ctx& ctx, Block* block)
    /* initialize register demand */
    for (unsigned t : live)
       new_demand += Temp(t, ctx.program->temp_rc[t]);
-   new_demand.sgpr -= ctx.phi_info[block->index].logical_phi_sgpr_ops;
 
    /* traverse the instructions backwards */
    int idx;
@@ -182,9 +181,7 @@ process_live_temps_per_block(live_ctx& ctx, Block* block)
       }
 
       /* GEN */
-      if (insn->opcode == aco_opcode::p_logical_end) {
-         new_demand.sgpr += ctx.phi_info[block->index].logical_phi_sgpr_ops;
-      } else {
+      {
          /* we need to do this in a separate loop because the next one can
           * setKill() for several operands at once and we don't want to
           * overwrite that in a later iteration */
@@ -512,12 +509,20 @@ live_var_analysis(Program* program)
       process_live_temps_per_block(ctx, &program->blocks[block_idx]);
    }
 
-   /* Handle branches: we will insert copies created for linear phis just before the branch. */
+   /* Handle branches: We will insert copies created for linear phis just before the branch.
+    * SGPR->VGPR copies for logical phis happen just before p_logical_end.
+    */
    for (Block& block : program->blocks) {
-      program->live.register_demand[block.index].back().sgpr +=
-         ctx.phi_info[block.index].linear_phi_defs;
-      program->live.register_demand[block.index].back().sgpr -=
-         ctx.phi_info[block.index].linear_phi_ops;
+      std::vector<RegisterDemand>& reg_demand = program->live.register_demand[block.index];
+      reg_demand.back().sgpr += ctx.phi_info[block.index].linear_phi_defs;
+      reg_demand.back().sgpr -= ctx.phi_info[block.index].linear_phi_ops;
+      if (ctx.phi_info[block.index].logical_phi_sgpr_ops) {
+         for (int i = block.instructions.size() - 1; i >= 0; i--) {
+            reg_demand[i].sgpr -= ctx.phi_info[block.index].logical_phi_sgpr_ops;
+            if (block.instructions[i]->opcode == aco_opcode::p_logical_end)
+               break;
+         }
+      }
 
       /* update block's register demand */
       if (program->progress < CompilationProgress::after_ra) {
