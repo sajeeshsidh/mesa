@@ -1,0 +1,6 @@
+[wrap-file]
+directory = pest_derive-2.7.10
+source_url = https://crates.io/api/v1/crates/pest_derive/2.7.10/download
+source_filename = pest_derive-2.7.10.tar.gz
+source_hash = bcd6ab1236bbdb3a49027e920e693192ebfe8913f6d60e294de57463a493cfde
+patch_directory = pest_derive
