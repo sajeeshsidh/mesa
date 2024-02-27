@@ -270,6 +270,26 @@ withoutVOP3(Format format)
    return (Format)((uint32_t)format & ~((uint32_t)Format::VOP3));
 }
 
+enum class HwReg {
+   MODE = 1,
+   STATUS = 2,
+   TRAPSTS = 3,
+   FLUSH_IB = 14,
+   SH_MEM_BASES = 15,
+   FLAT_SCRATCH_LO = 20,
+   FLAT_SCRATCH_HI = 21,
+   HW_ID1 = 23,
+   HW_ID2 = 24,
+   SHADER_CYCLES = 29,
+};
+
+/* Construct imm16 for s_getreg/s_setreg. */
+constexpr uint16_t
+get_hwreg_imm(HwReg reg, uint8_t bit_offset = 0, uint8_t bit_size = 32)
+{
+   return ((uint16_t)reg & 0x3f) | (bit_offset & 0x1f) << 6 | ((bit_size - 1) & 0x1f) << 11;
+}
+
 enum class RegType {
    sgpr,
    vgpr,

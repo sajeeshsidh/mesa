@@ -2107,10 +2107,10 @@ hw_init_scratch(Builder& bld, Definition def, Operand scratch_addr, Operand scra
       bld.sop2(aco_opcode::s_addc_u32, Definition(scratch_hi, s1), Definition(scc, s1),
                scratch_addr_hi, hi_add, Operand(scc, s1));
 
-      /* "((size - 1) << 11) | register" (FLAT_SCRATCH_LO/HI is encoded as register
-       * 20/21) */
-      bld.sopk(aco_opcode::s_setreg_b32, Operand(scratch_lo, s1), (31 << 11) | 20);
-      bld.sopk(aco_opcode::s_setreg_b32, Operand(scratch_hi, s1), (31 << 11) | 21);
+      bld.sopk(aco_opcode::s_setreg_b32, Operand(scratch_lo, s1),
+               get_hwreg_imm(HwReg::FLAT_SCRATCH_LO));
+      bld.sopk(aco_opcode::s_setreg_b32, Operand(scratch_hi, s1),
+               get_hwreg_imm(HwReg::FLAT_SCRATCH_HI));
    } else {
       bld.sop2(aco_opcode::s_add_u32, Definition(flat_scr_lo, s1), Definition(scc, s1),
                scratch_addr_lo, scratch_offset);
