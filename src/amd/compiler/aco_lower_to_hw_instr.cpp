@@ -2969,6 +2969,16 @@ lower_to_hw_instr(Program* program)
          } else if (instr->isMIMG() && instr->mimg().strict_wqm) {
             lower_image_sample(&ctx, instr);
             ctx.instructions.emplace_back(std::move(instr));
+         } else if (instr->isCall()) {
+            PhysReg stack_reg = instr->operands[1].physReg();
+            if (instr->operands[2].constantValue())
+               bld.sop2(aco_opcode::s_add_u32, Definition(stack_reg, s1), Definition(scc, s1),
+                        Operand(stack_reg, s1), instr->operands[2]);
+            bld.sop1(aco_opcode::s_swappc_b64, Definition(instr->operands[0].physReg(), s2),
+                     Operand(instr->operands[4].physReg(), s2));
+            if (instr->operands[2].constantValue())
+               bld.sop2(aco_opcode::s_sub_u32, Definition(stack_reg, s1), Definition(scc, s1),
+                        Operand(stack_reg, s1), instr->operands[2]);
          } else {
             ctx.instructions.emplace_back(std::move(instr));
          }
