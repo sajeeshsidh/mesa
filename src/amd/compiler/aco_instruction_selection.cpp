@@ -11658,33 +11658,52 @@ merged_wave_info_to_mask(isel_context* ctx, unsigned i)
    return lanecount_to_mask(ctx, count);
 }
 
-static void
-insert_rt_jump_next(isel_context& ctx, const struct ac_shader_args* args)
+void
+insert_return(isel_context& ctx)
 {
-   unsigned src_count = 0;
-   for (unsigned i = 0; i < ctx.args->arg_count; i++)
-      src_count += !!BITSET_TEST(ctx.output_args, i);
-
+   unsigned return_param_count = 0;
+   for (auto& param_def : ctx.callee_info.param_infos) {
+      if (!param_def.second.is_reg || param_def.second.discardable)
+         continue;
+      ++return_param_count;
+   }
+   unsigned src_count = return_param_count + 2;
+   if (ctx.next_pc != Temp())
+      src_count += ctx.args->arg_count;
    Instruction* ret = create_instruction(aco_opcode::p_return, Format::PSEUDO, src_count, 0);
    ctx.block->instructions.emplace_back(ret);
 
-   src_count = 0;
-   for (unsigned i = 0; i < ctx.args->arg_count; i++) {
-      if (!BITSET_TEST(ctx.output_args, i))
-         continue;
-
-      enum ac_arg_regfile file = ctx.args->args[i].file;
-      unsigned size = ctx.args->args[i].size;
-      unsigned reg = ctx.args->args[i].offset + (file == AC_ARG_SGPR ? 0 : 256);
-      RegClass type = RegClass(file == AC_ARG_SGPR ? RegType::sgpr : RegType::vgpr, size);
-      Operand op = ctx.arg_temps[i].id() ? Operand(ctx.arg_temps[i], PhysReg{reg})
-                                         : Operand(PhysReg{reg}, type);
-      ret->operands[src_count] = op;
-      src_count++;
+   if (ctx.next_pc != Temp()) {
+      for (unsigned i = 0; i < ctx.args->arg_count; i++) {
+         enum ac_arg_regfile file = ctx.args->args[i].file;
+         unsigned size = ctx.args->args[i].size;
+         unsigned reg = ctx.args->args[i].offset + (file == AC_ARG_SGPR ? 0 : 256);
+         RegClass type = RegClass(file == AC_ARG_SGPR ? RegType::sgpr : RegType::vgpr, size);
+         Operand op = ctx.arg_temps[i].id() ? Operand(ctx.arg_temps[i], PhysReg{reg})
+                                            : Operand(PhysReg{reg}, type);
+         ret->operands[i] = op;
+      }
    }
 
-   Builder bld(ctx.program, ctx.block);
-   bld.sop1(aco_opcode::s_setpc_b64, get_arg(&ctx, ctx.args->rt.uniform_shader_addr));
+   unsigned def_idx = ctx.next_pc != Temp() ? ctx.args->arg_count : 0;
+   for (auto& param_def : ctx.callee_info.param_infos) {
+      if (!param_def.second.is_reg || param_def.second.discardable)
+         continue;
+      Temp param_temp = param_def.second.def.getTemp();
+      if (param_def.first == 0 && ctx.next_pc != Temp())
+         param_temp = ctx.next_divergent_pc;
+      else if (param_def.first == 1 && ctx.next_pc != Temp())
+         param_temp = ctx.next_pc;
+      Operand op = Operand(param_temp);
+      op.setFixed(param_def.second.def.physReg());
+      ret->operands[def_idx++] = op;
+   }
+   Operand op = Operand(ctx.callee_info.return_address.def.getTemp());
+   op.setFixed(ctx.callee_info.return_address.def.physReg());
+   ret->operands[def_idx++] = op;
+   Operand stack_op = Operand(ctx.callee_info.stack_ptr.def.getTemp());
+   stack_op.setFixed(ctx.callee_info.stack_ptr.def.physReg());
+   ret->operands[def_idx++] = stack_op;
 }
 
 void
@@ -11703,21 +11722,38 @@ select_program_rt(isel_context& ctx, unsigned shader_count, struct nir_shader* c
          init_context(&ctx, nir);
          setup_fp_mode(&ctx, nir);
 
+         ABI abi;
+         /* TODO: callable abi? */
+         switch (shaders[i]->info.stage) {
+         case MESA_SHADER_RAYGEN:
+         case MESA_SHADER_CLOSEST_HIT:
+         case MESA_SHADER_MISS:
+         case MESA_SHADER_CALLABLE: abi = rtRaygenABI; break;
+         case MESA_SHADER_INTERSECTION: abi = rtTraversalABI; break;
+         case MESA_SHADER_ANY_HIT: abi = rtAnyHitABI; break;
+         default: unreachable("invalid RT shader stage");
+         }
+
+         ctx.callee_abi = make_abi(abi, args, ctx.program);
+         ctx.program->callee_abi = ctx.callee_abi;
+         ctx.callee_info = get_callee_info(ctx.callee_abi, impl->function->num_params,
+                                           impl->function->params, ctx.program);
          ctx.program->is_callee = true;
 
-         Instruction* startpgm = add_startpgm(&ctx);
+         Instruction* startpgm = add_startpgm(&ctx, true);
          append_logical_start(ctx.block);
          split_arguments(&ctx, startpgm);
          visit_cf_list(&ctx, &impl->body);
          append_logical_end(ctx.block);
          ctx.block->kind |= block_kind_uniform;
 
-         /* Fix output registers and jump to next shader. We can skip this when dealing with a
-          * raygen shader without shader calls.
-          */
-         if ((shader_count > 1 || shaders[i]->info.stage != MESA_SHADER_RAYGEN) &&
-             impl == nir_shader_get_entrypoint(nir))
-            insert_rt_jump_next(ctx, args);
+         if (ctx.next_pc != Temp()) {
+            insert_return(ctx);
+
+            Builder(ctx.program, ctx.block).sop1(aco_opcode::s_setpc_b64, Operand(ctx.next_pc));
+         } else {
+            Builder(ctx.program, ctx.block).sopp(aco_opcode::s_endpgm);
+         }
 
          cleanup_context(&ctx);
          first_block = false;
@@ -12543,8 +12579,8 @@ select_rt_prolog(Program* program, ac_shader_config* config,
    calc_min_waves(program);
    Builder bld(program, block);
    block->instructions.reserve(32);
-   unsigned num_sgprs = MAX2(in_args->num_sgprs_used, out_args->num_sgprs_used);
-   unsigned num_vgprs = MAX2(in_args->num_vgprs_used, out_args->num_vgprs_used);
+   unsigned num_sgprs = MAX2(in_args->num_sgprs_used, align(out_args->num_sgprs_used, 2) + 4);
+   unsigned num_vgprs = MAX2(in_args->num_vgprs_used, align(out_args->num_vgprs_used, 2) + 4);
 
    /* Inputs:
     * Ring offsets:                s[0-1]
@@ -12595,7 +12631,6 @@ select_rt_prolog(Program* program, ac_shader_config* config,
     * Shader VA:                   v[4-5]
     * Shader Record Ptr:           v[6-7]
     */
-   PhysReg out_uniform_shader_addr = get_arg_reg(out_args, out_args->rt.uniform_shader_addr);
    PhysReg out_launch_size_x = get_arg_reg(out_args, out_args->rt.launch_sizes[0]);
    PhysReg out_launch_size_y = get_arg_reg(out_args, out_args->rt.launch_sizes[1]);
    PhysReg out_launch_size_z = get_arg_reg(out_args, out_args->rt.launch_sizes[2]);
@@ -12603,10 +12638,22 @@ select_rt_prolog(Program* program, ac_shader_config* config,
    for (unsigned i = 0; i < 3; i++)
       out_launch_ids[i] = get_arg_reg(out_args, out_args->rt.launch_ids[i]);
    PhysReg out_stack_ptr = get_arg_reg(out_args, out_args->rt.dynamic_callable_stack_base);
-   PhysReg out_record_ptr = get_arg_reg(out_args, out_args->rt.shader_record);
+   PhysReg out_payload_offset = get_arg_reg(out_args, out_args->rt.payload_offset);
+
+   unsigned arg_reg = align(out_args->num_sgprs_used, 2);
+   PhysReg out_stack_ptr_param = PhysReg{arg_reg};
+   arg_reg += 2;
+   PhysReg out_return_shader_addr = PhysReg{arg_reg};
+   arg_reg += 2;
+   PhysReg out_uniform_shader_addr = out_return_shader_addr.advance(8);
+
+   PhysReg out_divergent_shader_addr = PhysReg{256u + align(out_args->num_vgprs_used, 2)};
+   PhysReg out_record_ptr =
+      out_divergent_shader_addr.advance(8); /* TODO: perhaps a cleaner way using abi info? */
 
    /* Temporaries: */
    num_sgprs = align(num_sgprs, 2);
+   num_sgprs += 2;
    PhysReg tmp_raygen_sbt = PhysReg{num_sgprs};
    num_sgprs += 2;
    PhysReg tmp_ring_offsets = PhysReg{num_sgprs};
@@ -12617,7 +12664,7 @@ select_rt_prolog(Program* program, ac_shader_config* config,
    PhysReg tmp_invocation_idx = PhysReg{256 + num_vgprs++};
 
    /* Confirm some assumptions about register aliasing */
-   assert(in_ring_offsets == out_uniform_shader_addr);
+   // assert(in_ring_offsets == out_uniform_shader_addr);
    assert(get_arg_reg(in_args, in_args->push_constants) ==
           get_arg_reg(out_args, out_args->push_constants));
    assert(get_arg_reg(in_args, in_args->rt.sbt_descriptors) ==
@@ -12729,6 +12776,13 @@ select_rt_prolog(Program* program, ac_shader_config* config,
       bld.vop2(aco_opcode::v_cndmask_b32, Definition(out_launch_ids[1], v1), Operand::zero(),
                Operand(out_launch_ids[1], v1), Operand(vcc, bld.lm));
    }
+
+   bld.vop3(aco_opcode::v_lshrrev_b64, Definition(out_divergent_shader_addr, v2), Operand::c32(0),
+            Operand(out_uniform_shader_addr, s2));
+   bld.sop1(aco_opcode::s_mov_b64, Definition(out_return_shader_addr, s2), Operand::c32(0));
+   bld.vop1(aco_opcode::v_mov_b32, Definition(out_payload_offset, v1), Operand::c32(0));
+
+   bld.sopk(aco_opcode::s_movk_i32, Definition(out_stack_ptr_param, s1), 0);
 
    /* jump to raygen */
    bld.sop1(aco_opcode::s_setpc_b64, Operand(out_uniform_shader_addr, s2));
