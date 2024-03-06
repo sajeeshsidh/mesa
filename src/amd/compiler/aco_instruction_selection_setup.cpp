@@ -5,6 +5,7 @@
  */
 
 #include "aco_instruction_selection.h"
+#include "aco_nir_call_attribs.h"
 
 #include "common/ac_nir.h"
 #include "common/sid.h"
@@ -540,6 +541,18 @@ init_context(isel_context* ctx, nir_shader* shader)
                   case nir_intrinsic_load_view_index:
                      type = ctx->stage == fragment_fs ? RegType::vgpr : RegType::sgpr;
                      break;
+                  case nir_intrinsic_load_return_param_amd: {
+                     type = RegType::vgpr;
+                     break;
+                  }
+                  case nir_intrinsic_load_param: {
+                     nir_parameter* param =
+                        &impl->function->params[nir_intrinsic_param_idx(intrinsic)];
+                     type = (param->driver_attributes & ACO_NIR_PARAM_ATTRIB_UNIFORM)
+                               ? RegType::sgpr
+                               : RegType::vgpr;
+                     break;
+                  }
                   default:
                      for (unsigned i = 0; i < nir_intrinsic_infos[intrinsic->intrinsic].num_srcs;
                           i++) {
