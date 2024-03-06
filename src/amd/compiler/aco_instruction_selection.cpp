@@ -10,6 +10,7 @@
 #include "aco_builder.h"
 #include "aco_interface.h"
 #include "aco_ir.h"
+#include "aco_nir_call_attribs.h"
 
 #include "common/ac_descriptors.h"
 #include "common/ac_gpu_info.h"
@@ -11110,6 +11111,63 @@ create_fs_end_for_epilog(isel_context* ctx)
 
    /* Exit WQM mode finally. */
    ctx->program->needs_exact = true;
+}
+
+struct callee_info
+get_callee_info(const ABI& abi, unsigned param_count, const nir_parameter* parameters,
+                Program* program)
+{
+   struct callee_info info = {};
+
+   unsigned reg_param_count = 0;
+   int sgpr_reg_byte_offset = 16;
+   int vgpr_reg_byte_offset = 0;
+   unsigned scratch_param_byte_offset = 0;
+
+   for (unsigned i = 0; i < param_count; ++i) {
+      int* reg_byte_offset;
+      PhysRegInterval interval;
+      RegType type;
+      if (parameters[i].driver_attributes & ACO_NIR_PARAM_ATTRIB_UNIFORM) {
+         reg_byte_offset = &sgpr_reg_byte_offset;
+         interval = abi.parameterSpace.sgpr;
+         type = RegType::sgpr;
+      } else {
+         reg_byte_offset = &vgpr_reg_byte_offset;
+         interval = abi.parameterSpace.vgpr;
+         type = RegType::vgpr;
+      }
+
+      unsigned byte_size = align(parameters[i].bit_size, 32) / 8 * parameters[i].num_components;
+      RegClass rc = RegClass(type, byte_size / 4);
+      PhysReg param_reg = interval.lo().advance(*reg_byte_offset);
+
+      if (param_reg < interval.hi()) {
+         ++reg_param_count;
+         Temp dst = program ? program->allocateTmp(rc) : Temp();
+         Definition def = Definition(dst);
+         def.setFixed(param_reg);
+         *reg_byte_offset += byte_size;
+         info.param_infos.emplace(i, parameter_info{
+                                        .discardable = !!(parameters[i].driver_attributes &
+                                                          ACO_NIR_PARAM_ATTRIB_DISCARDABLE),
+                                        .is_reg = true,
+                                        .def = def,
+                                     });
+      } else {
+         info.param_infos.emplace(i, parameter_info{
+                                        .discardable = !!(parameters[i].driver_attributes &
+                                                          ACO_NIR_PARAM_ATTRIB_DISCARDABLE),
+                                        .is_reg = false,
+                                        .scratch_offset = scratch_param_byte_offset,
+                                     });
+         scratch_param_byte_offset += byte_size;
+      }
+   }
+
+   info.reg_param_count = reg_param_count;
+   info.scratch_param_size = scratch_param_byte_offset;
+   return info;
 }
 
 Instruction*

@@ -2316,6 +2316,10 @@ public:
    /* For shader part with previous shader part that has lds access. */
    bool pending_lds_access = false;
 
+   ABI callee_abi = {};
+   unsigned short arg_sgpr_count;
+   unsigned short arg_vgpr_count;
+
    struct {
       monotonic_buffer_resource memory;
       /* live temps out per block */

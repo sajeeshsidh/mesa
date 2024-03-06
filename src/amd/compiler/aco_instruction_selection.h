@@ -35,6 +35,30 @@ struct shader_io_state {
    }
 };
 
+struct parameter_info {
+   bool discardable;
+   bool is_reg;
+   union {
+      Definition def;
+      unsigned scratch_offset;
+   };
+};
+
+struct call_info {
+   nir_call_instr* nir_instr;
+   Instruction* aco_instr;
+   std::vector<parameter_info> return_info;
+   unsigned scratch_param_size;
+};
+
+struct callee_info {
+   std::unordered_map<unsigned, parameter_info> param_infos;
+   parameter_info return_address;
+   parameter_info stack_ptr;
+   unsigned reg_param_count = 0;
+   unsigned scratch_param_size = 0;
+};
+
 struct isel_context {
    const struct aco_compiler_options* options;
    const struct ac_shader_args* args;
@@ -91,6 +115,13 @@ struct isel_context {
    uint32_t wqm_instruction_idx;
 
    BITSET_DECLARE(output_args, AC_MAX_ARGS);
+
+   /* Function information */
+   ABI callee_abi;
+   struct callee_info callee_info;
+   std::vector<call_info> call_infos;
+   Temp next_divergent_pc;
+   Temp next_pc;
 };
 
 inline Temp
