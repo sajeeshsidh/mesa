@@ -61,6 +61,57 @@ get_demand_between(aco_ptr<Instruction>& instr)
 }
 
 RegisterDemand
+get_blocked_abi_demand(Program* program, Block *block, const Pseudo_call_instruction* instr,
+                       const IDSet& live_out)
+{
+   const unsigned max_vgpr = get_addr_vgpr_from_waves(program, program->min_waves);
+   /* Linear VGPRs can intersect with preserved VGPRs, we insert spill code for them in
+    * spill_preserved.
+    */
+   unsigned linear_vgpr_demand = 0;
+   for (auto temp : live_out)
+      if (program->temp_rc[temp].is_linear_vgpr())
+         linear_vgpr_demand += program->temp_rc[temp].size();
+   for (auto it = block->instructions.rbegin(); it != block->instructions.rend(); ++it) {
+      if (it->get() == instr)
+         break;
+      if ((*it)->opcode == aco_opcode::p_start_linear_vgpr)
+         for (auto& def : (*it)->definitions)
+            linear_vgpr_demand += def.size();
+      else
+         for (auto& op : (*it)->operands)
+            if (op.regClass().is_linear_vgpr() && op.isKill())
+               linear_vgpr_demand += op.size();
+   }
+
+   unsigned preserved_vgprs = max_vgpr - (instr->abi.clobberedRegs.vgpr.hi() - 256);
+   linear_vgpr_demand -= std::min(preserved_vgprs, linear_vgpr_demand);
+
+   unsigned preserved_vgpr_demand =
+      instr->abi.clobberedRegs.vgpr.size -
+      std::min(linear_vgpr_demand, instr->abi.clobberedRegs.vgpr.size);
+   unsigned preserved_sgpr_demand = instr->abi.clobberedRegs.sgpr.size;
+
+   /* Don't count definitions contained in clobbered call regs twice */
+   for (auto& definition : instr->definitions) {
+      if (definition.isTemp() && definition.isFixed()) {
+         auto def_regs = PhysRegInterval{PhysReg{definition.physReg().reg()}, definition.size()};
+         for (auto reg : def_regs) {
+            if (instr->abi.clobberedRegs.sgpr.contains(reg))
+               --preserved_sgpr_demand;
+            if (instr->abi.clobberedRegs.vgpr.contains(reg))
+               --preserved_vgpr_demand;
+         }
+      }
+   }
+   if (instr->abi.clobberedRegs.sgpr.contains(instr->operands[1].physReg()) &&
+       !instr->operands[1].isKill())
+      --preserved_sgpr_demand;
+
+   return RegisterDemand(preserved_vgpr_demand, preserved_sgpr_demand);
+}
+
+RegisterDemand
 get_temp_registers(Program *program, Block *block, aco_ptr<Instruction>& instr, const IDSet& live_out)
 {
    RegisterDemand temp_registers;
@@ -103,6 +154,9 @@ get_temp_registers(Program *program, Block *block, aco_ptr<Instruction>& instr, 
    int op_idx = get_op_fixed_to_def(instr.get());
    if (op_idx != -1 && !instr->operands[op_idx].isKill())
       demand_between += instr->definitions[0].getTemp();
+
+   if (instr->isCall())
+      temp_registers += get_blocked_abi_demand(program, block, &instr->call(), live_out);
 
    if (demand_between.sgpr || demand_between.vgpr)
       temp_registers.update(demand_between - get_live_changes(instr));
