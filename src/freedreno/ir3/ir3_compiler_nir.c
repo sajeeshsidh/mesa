@@ -273,6 +273,20 @@ create_cov(struct ir3_context *ctx, struct ir3_instruction *src,
    if (src_type == dst_type)
       return src;
 
+   /* Zero-extension of and truncation to 8-bit values doesn't work with `cov`,
+    * so simple masking is used to achieve the result.
+    */
+   if ((src_type == TYPE_U8 && full_type(dst_type) == TYPE_U32) ||
+       ((full_type(src_type) == TYPE_U32 || full_type(src_type) == TYPE_S32) &&
+        dst_type == TYPE_U8)) {
+      type_t mask_type = type_uint_size(type_size(src_type));
+      struct ir3_instruction *mask = create_immed_typed(ctx->block, 0xff,
+                                                        mask_type);
+      struct ir3_instruction *cov = ir3_AND_B(ctx->block, src, 0, mask, 0);
+      cov->dsts[0]->flags |= type_flags(dst_type);
+      return cov;
+   }
+
    struct ir3_instruction *cov = ir3_COV(ctx->block, src, src_type, dst_type);
 
    if (op == nir_op_f2f16_rtne) {
@@ -1594,9 +1608,11 @@ emit_intrinsic_load_ssbo(struct ir3_context *ctx,
 {
    /* Note: we can only use isam for vectorized loads/stores if isam.v is
     * available.
+    * Note: isam also can't handle 8-bit loads.
     */
    if (!(nir_intrinsic_access(intr) & ACCESS_CAN_REORDER) ||
        (intr->def.num_components > 1 && !ctx->compiler->has_isam_v) ||
+       (ctx->compiler->options.storage_8bit && intr->def.bit_size == 8) ||
        !ctx->compiler->has_isam_ssbo) {
       ctx->funcs->emit_intrinsic_load_ssbo(ctx, intr, dst);
       return;

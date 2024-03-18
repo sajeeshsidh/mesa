@@ -263,6 +263,8 @@ struct fd_dev_info {
        * corruption is unknown.
        */
       bool fs_must_have_non_zero_constlen_quirk;
+
+      bool storage_8bit;
    } a7xx;
 };
 
