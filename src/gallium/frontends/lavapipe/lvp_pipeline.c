@@ -228,7 +228,7 @@ optimize(nir_shader *nir)
       progress = false;
 
       NIR_PASS(progress, nir, nir_lower_flrp, 32|64, true);
-      NIR_PASS(progress, nir, nir_split_array_vars, nir_var_function_temp);
+      NIR_PASS(progress, nir, nir_split_array_vars, nir_var_function_temp, NULL);
       NIR_PASS(progress, nir, nir_shrink_vec_array_vars, nir_var_function_temp);
       NIR_PASS(progress, nir, nir_opt_deref);
       NIR_PASS(progress, nir, nir_lower_vars_to_ssa);

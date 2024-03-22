@@ -5249,7 +5249,7 @@ void nir_group_loads(nir_shader *shader, nir_load_grouping grouping,
                      unsigned max_distance);
 
 bool nir_shrink_vec_array_vars(nir_shader *shader, nir_variable_mode modes);
-bool nir_split_array_vars(nir_shader *shader, nir_variable_mode modes);
+bool nir_split_array_vars(nir_shader *shader, nir_variable_mode modes, glsl_type_size_align_func type_info);
 bool nir_split_var_copies(nir_shader *shader);
 bool nir_split_per_member_structs(nir_shader *shader);
 bool nir_split_struct_vars(nir_shader *shader, nir_variable_mode modes, glsl_type_size_align_func type_info);
