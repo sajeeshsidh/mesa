@@ -2415,7 +2415,7 @@ TEST_F(nir_split_vars_test, split_nested_struct_const_init)
 
    nir_validate_shader(b->shader, NULL);
 
-   bool progress = nir_split_struct_vars(b->shader, nir_var_mem_constant);
+   bool progress = nir_split_struct_vars(b->shader, nir_var_mem_constant, NULL);
    EXPECT_TRUE(progress);
 
    nir_validate_shader(b->shader, NULL);

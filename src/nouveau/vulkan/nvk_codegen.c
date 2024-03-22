@@ -104,7 +104,7 @@ lower_fragcoord_instr(nir_builder *b, nir_instr *instr, UNUSED void *_data)
 void
 nvk_cg_preprocess_nir(nir_shader *nir)
 {
-   NIR_PASS(_, nir, nir_split_struct_vars, nir_var_function_temp);
+   NIR_PASS(_, nir, nir_split_struct_vars, nir_var_function_temp, NULL);
    NIR_PASS(_, nir, nir_lower_vars_to_ssa);
 
    NIR_PASS(_, nir, nir_split_var_copies);

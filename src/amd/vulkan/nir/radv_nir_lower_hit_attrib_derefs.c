@@ -107,7 +107,7 @@ radv_nir_lower_rt_vars(nir_shader *shader, nir_variable_mode mode, uint32_t base
 {
    bool progress = false;
 
-   progress |= nir_split_struct_vars(shader, mode);
+   progress |= nir_split_struct_vars(shader, mode, glsl_get_natural_size_align_bytes);
    progress |= nir_lower_indirect_derefs(shader, mode, UINT32_MAX);
    progress |= nir_split_array_vars(shader, mode);
 
