@@ -162,7 +162,8 @@ optimize(nir_shader *nir)
       NIR_PASS(progress, nir, nir_opt_loop_unroll);
 
       NIR_PASS(progress, nir, nir_split_var_copies);
-      NIR_PASS(progress, nir, nir_split_struct_vars, nir_var_function_temp);
+      NIR_PASS(progress, nir, nir_split_struct_vars, nir_var_function_temp,
+               NULL);
    } while (progress);
 }
 
