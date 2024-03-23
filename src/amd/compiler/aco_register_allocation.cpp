@@ -281,7 +281,11 @@ public:
    std::array<uint32_t, 512> regs;
    std::map<uint32_t, std::array<uint32_t, 4>> subdword_regs;
 
-   const uint32_t& operator[](PhysReg index) const { return regs[index]; }
+   const uint32_t& operator[](PhysReg index) const
+   {
+      assert(index.reg() < 512);
+      return regs[index];
+   }
 
    uint32_t& operator[](PhysReg index) { return regs[index]; }
 
