@@ -2319,6 +2319,7 @@ public:
    ABI callee_abi = {};
    unsigned short arg_sgpr_count;
    unsigned short arg_vgpr_count;
+   unsigned scratch_arg_size = 0;
 
    struct {
       monotonic_buffer_resource memory;

@@ -11207,8 +11207,12 @@ get_callee_info(const ABI& abi, unsigned param_count, const nir_parameter* param
 }
 
 Instruction*
-add_startpgm(struct isel_context* ctx)
+add_startpgm(struct isel_context* ctx, bool is_callee = false)
 {
+   ctx->program->arg_sgpr_count = ctx->args->num_sgprs_used;
+   ctx->program->arg_vgpr_count = ctx->args->num_vgprs_used;
+   ctx->program->scratch_arg_size += ctx->callee_info.scratch_param_size;
+
    unsigned def_count = 0;
    for (unsigned i = 0; i < ctx->args->arg_count; i++) {
       if (ctx->args->args[i].skip)
@@ -11219,6 +11223,9 @@ add_startpgm(struct isel_context* ctx)
       else
          def_count++;
    }
+   unsigned used_arg_count = def_count;
+   def_count +=
+      ctx->callee_info.reg_param_count + (is_callee ? 2 : 0); /* parameters + return address */
 
    if (ctx->stage.hw == AC_HW_COMPUTE_SHADER && ctx->program->gfx_level >= GFX12)
       def_count += 3;
@@ -11282,6 +11289,32 @@ add_startpgm(struct isel_context* ctx)
       const struct ac_arg* ids = ctx->args->workgroup_ids;
       for (unsigned i = 0; i < 3; i++)
          ctx->workgroup_id[i] = ids[i].used ? Operand(get_arg(ctx, ids[i])) : Operand::zero();
+   }
+
+   if (is_callee) {
+      unsigned param_sgpr = align(ctx->args->num_sgprs_used, 2);
+      unsigned def_idx = used_arg_count;
+
+      Temp stack_tmp = ctx->program->allocateTmp(s1);
+      ctx->callee_info.stack_ptr.is_reg = true;
+      ctx->callee_info.stack_ptr.def = Definition(stack_tmp);
+      ctx->callee_info.stack_ptr.def.setFixed(PhysReg{param_sgpr});
+      startpgm->definitions[def_idx++] = ctx->callee_info.stack_ptr.def;
+      param_sgpr += 2; // only need 1 but 64byte alignment gets screwed up otherwise
+      ctx->program->stack_ptr = stack_tmp;
+
+      Temp return_tmp = ctx->program->allocateTmp(s2);
+      ctx->callee_info.return_address.is_reg = true;
+      ctx->callee_info.return_address.def = Definition(return_tmp);
+      ctx->callee_info.return_address.def.setFixed(PhysReg{param_sgpr});
+      startpgm->definitions[def_idx++] = ctx->callee_info.return_address.def;
+      param_sgpr += 2;
+
+      for (auto& def : ctx->callee_info.param_infos) {
+         if (!def.second.is_reg)
+            continue;
+         startpgm->definitions[def_idx++] = def.second.def;
+      }
    }
 
    /* epilog has no scratch */
