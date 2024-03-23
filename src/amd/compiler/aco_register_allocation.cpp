@@ -253,6 +253,8 @@ public:
          fill(start, rc.size(), 0xFFFFFFFF);
    }
 
+   void block(PhysRegInterval interval) { fill(interval.lo(), interval.size, 0xFFFFFFFF); }
+
    bool is_blocked(PhysReg start) const
    {
       if (regs[start] == 0xFFFFFFFF)
