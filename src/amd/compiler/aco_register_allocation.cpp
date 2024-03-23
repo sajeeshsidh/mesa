@@ -2085,6 +2085,12 @@ handle_fixed_operands(ra_ctx& ctx, RegisterFile& register_file,
          bool found = false;
          for (auto reg : regs.second) {
             PhysRegInterval range = {reg, ctx.program->temp_rc[regs.first].size()};
+            if (instr->isCall()) {
+               if (intersects(instr->call().abi.clobberedRegs.vgpr, range))
+                  continue;
+               if (intersects(instr->call().abi.clobberedRegs.sgpr, range))
+                  continue;
+            }
             bool intersects_with_def = false;
             for (const auto& def : instr->definitions) {
                if (!def.isTemp() || !def.isFixed())
@@ -3115,6 +3121,55 @@ register_allocation(Program* program, ra_test_policy policy)
                register_file.clear(op);
          }
 
+         if (instr->isCall()) {
+            /* create parallelcopy pair to move blocking vars */
+            RegisterFile tmp_file = register_file;
+            std::vector<unsigned> vars =
+               collect_vars(ctx, tmp_file, instr->call().abi.clobberedRegs.sgpr);
+            std::vector<unsigned> vars2 =
+               collect_vars(ctx, tmp_file, instr->call().abi.clobberedRegs.vgpr);
+
+            /* Allow linear VGPRs in the clobbered range, they are spilled in spill_preserved. */
+            for (auto it = vars2.begin(); it != vars2.end();) {
+               if (program->temp_rc[*it].is_linear_vgpr()) {
+                  it = vars2.erase(it);
+                  tmp_file.block(ctx.assignments[*it].reg, program->temp_rc[*it]);
+               } else {
+                  ++it;
+               }
+            }
+            for (auto it = vars.begin(); it != vars.end();) {
+               if (instr->operands[1].tempId() == *it)
+                  it = vars.erase(it);
+               else
+                  ++it;
+            }
+
+            vars.insert(vars.end(), vars2.begin(), vars2.end());
+
+            for (const Operand& op : instr->operands) {
+               if (op.isPrecolored())
+                  tmp_file.block(op.physReg(), op.regClass());
+               else if (op.isTemp() && op.isKillBeforeDef())
+                  tmp_file.fill(op);
+            }
+            tmp_file.block(instr->call().abi.clobberedRegs.sgpr);
+            tmp_file.block(instr->call().abi.clobberedRegs.vgpr);
+
+            adjust_max_used_regs(ctx, RegClass::s1,
+                                 instr->call().abi.clobberedRegs.sgpr.hi().reg() - 1);
+            adjust_max_used_regs(ctx, RegClass::v1,
+                                 instr->call().abi.clobberedRegs.vgpr.hi().reg() - 1);
+
+            ASSERTED bool success = false;
+            success =
+               get_regs_for_copies(ctx, tmp_file, parallelcopy, vars, instr, PhysRegInterval{});
+            assert(success);
+
+            update_renames(ctx, register_file, parallelcopy, instr,
+                           rename_precolored_ops | rename_not_killed_ops);
+         }
+
          optimize_encoding(ctx, register_file, instr);
 
          /* Handle definitions which must have the same register as an operand.
@@ -3148,6 +3203,10 @@ register_allocation(Program* program, ra_test_policy policy)
                      tmp_file.block(op.physReg(), op.regClass());
                   else if (op.isTemp() && op.isKillBeforeDef())
                      tmp_file.fill(op);
+               }
+               if (instr->isCall()) {
+                  tmp_file.block(instr->call().abi.clobberedRegs.sgpr);
+                  tmp_file.block(instr->call().abi.clobberedRegs.vgpr);
                }
 
                ASSERTED bool success = false;
