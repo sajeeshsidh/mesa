@@ -35,6 +35,7 @@
 #include "util/mesa-blake3.h"
 #include "vulkan/vulkan_core.h"
 #include "nir.h"
+#include "nir_builder.h"
 
 static void
 print_indentation(unsigned levels, FILE *fp)
@@ -75,6 +76,8 @@ typedef struct {
     * them align with the `=` for instructions with destination.
     */
    unsigned padding_for_no_dest;
+
+   nir_debug_info_instr **debug_info;
 } print_state;
 
 static void
@@ -1984,9 +1987,16 @@ print_debug_info_instr(nir_debug_info_instr *instr, print_state *state)
 }
 
 static void
-print_instr(const nir_instr *instr, print_state *state, unsigned tabs)
+print_instr(nir_instr *instr, print_state *state, unsigned tabs)
 {
    FILE *fp = state->fp;
+
+   if (state->debug_info) {
+      nir_debug_info_instr *di = state->debug_info[instr->index];
+      di->src_loc.column = (uint32_t)ftell(fp);
+      nir_instr_insert_before(instr, &di->instr);
+   }
+
    print_indentation(tabs, fp);
 
    switch (instr->type) {
@@ -2136,7 +2146,7 @@ print_block(nir_block *block, print_state *state, unsigned tabs)
    print_block_preds(block, state);
    fprintf(fp, "\n");
 
-   nir_foreach_instr(instr, block) {
+   nir_foreach_instr_safe(instr, block) {
       print_instr(instr, state, tabs);
       fprintf(fp, "\n");
       print_annotation(state, instr);
@@ -2647,13 +2657,15 @@ print_shader_info(const struct shader_info *info, FILE *fp)
    }
 }
 
-void
-nir_print_shader_annotated(nir_shader *shader, FILE *fp,
-                           struct hash_table *annotations)
+static void
+_nir_print_shader_annotated(nir_shader *shader, FILE *fp,
+                            struct hash_table *annotations,
+                            nir_debug_info_instr **debug_info)
 {
    print_state state;
    init_print_state(&state, shader, fp);
    state.annotations = annotations;
+   state.debug_info = debug_info;
 
    print_shader_info(&shader->info, fp);
 
@@ -2695,21 +2707,29 @@ nir_print_shader_annotated(nir_shader *shader, FILE *fp,
 }
 
 void
+nir_print_shader_annotated(nir_shader *shader, FILE *fp,
+                           struct hash_table *annotations)
+{
+   _nir_print_shader_annotated(shader, fp, annotations, NULL);
+}
+
+void
 nir_print_shader(nir_shader *shader, FILE *fp)
 {
    nir_print_shader_annotated(shader, fp, NULL);
    fflush(fp);
 }
 
-char *
-nir_shader_as_str_annotated(nir_shader *nir, struct hash_table *annotations, void *mem_ctx)
+static char *
+_nir_shader_as_str_annotated(nir_shader *nir, struct hash_table *annotations, void *mem_ctx,
+                             nir_debug_info_instr **debug_info)
 {
    char *stream_data = NULL;
    size_t stream_size = 0;
    struct u_memstream mem;
    if (u_memstream_open(&mem, &stream_data, &stream_size)) {
       FILE *const stream = u_memstream_get(&mem);
-      nir_print_shader_annotated(nir, stream, annotations);
+      _nir_print_shader_annotated(nir, stream, annotations, debug_info);
       u_memstream_close(&mem);
    }
 
@@ -2720,6 +2740,12 @@ nir_shader_as_str_annotated(nir_shader *nir, struct hash_table *annotations, voi
    free(stream_data);
 
    return str;
+}
+
+char *
+nir_shader_as_str_annotated(nir_shader *nir, struct hash_table *annotations, void *mem_ctx)
+{
+   return _nir_shader_as_str_annotated(nir, annotations, mem_ctx, NULL);
 }
 
 char *
@@ -2739,7 +2765,7 @@ nir_print_instr(const nir_instr *instr, FILE *fp)
       state.shader = impl->function->shader;
    }
 
-   print_instr(instr, &state, 0);
+   print_instr((nir_instr *)instr, &state, 0);
 }
 
 char *
@@ -2779,4 +2805,68 @@ nir_log_shader_annotated_tagged(enum mesa_log_level level, const char *tag,
    char *str = nir_shader_as_str_annotated(shader, annotations, NULL);
    _mesa_log_multiline(level, tag, str);
    ralloc_free(str);
+}
+
+char *
+nir_shader_gather_debug_info(nir_shader *shader, const char *_filename)
+{
+   char *filename = ralloc_strdup(shader, _filename);
+
+   uint32_t instr_count = 0;
+   nir_foreach_function_impl(impl, shader) {
+      nir_foreach_block(block, impl) {
+         nir_foreach_instr_safe(instr, block) {
+            if (instr->type == nir_instr_type_debug_info) {
+               nir_instr_remove(instr);
+               continue;
+            }
+            instr->index = instr_count;
+            instr_count++;
+         }
+      }
+   }
+
+   if (!instr_count)
+      return nir_shader_as_str(shader, NULL);
+
+   nir_debug_info_instr **debug_info = rzalloc_array(shader, nir_debug_info_instr *, instr_count);
+
+   instr_count = 0;
+   nir_foreach_function_impl(impl, shader) {
+      nir_builder b = nir_builder_at(nir_before_cf_list(&impl->body));
+      nir_def *filename_def = nir_build_string(&b, filename);
+
+      nir_foreach_block(block, impl) {
+         nir_foreach_instr_safe(instr, block) {
+            if (instr->type == nir_instr_type_debug_info)
+               continue;
+            
+            nir_debug_info_instr *di = nir_debug_info_instr_create(shader);
+            di->type = nir_debug_info_src_loc;
+            di->src_loc.filename = nir_src_for_ssa(filename_def);
+            di->src_loc.has_line = true;
+            debug_info[instr_count++] = di;
+         }
+      }
+   }
+
+   char *str = _nir_shader_as_str_annotated(shader, NULL, NULL, debug_info);
+
+   uint32_t line = 1;
+   uint32_t character_index = 0;
+
+   for (uint32_t i = 0; i < instr_count; i++) {
+      nir_debug_info_instr *di = debug_info[i];
+
+      while (character_index < di->src_loc.column) {
+         if (str[character_index] == '\n')
+            line++;
+         character_index++;
+      }
+
+      di->src_loc.line = line;
+      di->src_loc.column = 0;
+   }
+
+   return str;
 }
