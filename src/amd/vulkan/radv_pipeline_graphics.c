@@ -12,6 +12,7 @@
 #include "nir/nir.h"
 #include "nir/nir_builder.h"
 #include "nir/nir_serialize.h"
+#include "nir/nir_xfb_info.h"
 #include "nir/radv_nir.h"
 #include "spirv/nir_spirv.h"
 #include "util/disk_cache.h"
@@ -22,6 +23,7 @@
 #include "radv_debug.h"
 #include "radv_entrypoints.h"
 #include "radv_formats.h"
+#include "radv_physical_device.h"
 #include "radv_pipeline_cache.h"
 #include "radv_rmv.h"
 #include "radv_shader.h"
@@ -1579,6 +1581,111 @@ radv_graphics_shaders_link(const struct radv_device *device, const struct radv_g
    }
 }
 
+static void
+radv_graphics_shaders_link_varyings(const struct radv_device *device,
+                                    struct radv_shader_stage *stages)
+{
+   const struct radv_physical_device *pdev = radv_device_physical(device);
+   const unsigned max_ubo_comps = ~0;
+   const unsigned max_ubos = max_ubo_comps / 4;
+
+   /* Optimize varyings from first to last stage. */
+   gl_shader_stage prev = MESA_SHADER_NONE;
+   for (int i = 0; i < ARRAY_SIZE(graphics_shader_order); ++i) {
+      gl_shader_stage s = graphics_shader_order[i];
+      if (!stages[s].nir)
+         continue;
+
+      if (prev != MESA_SHADER_NONE && !stages[prev].key.optimisations_disabled && !stages[s].key.optimisations_disabled) {
+         nir_shader *producer = stages[prev].nir;
+         nir_shader *consumer = stages[s].nir;
+
+         /* It is expected that no undefined stores are present in the shader. */
+         NIR_PASS(_, producer, nir_opt_undef);
+
+         /* Update load/store alignments because inter-stage code motion may move instructions used to deduce this info. */
+         NIR_PASS(_, consumer, nir_opt_load_store_update_alignments);
+
+         /* Scalarize all I/O, because nir_opt_varyings and nir_opt_vectorize_io expect all I/O to be scalarized. */
+         NIR_PASS(_, producer, nir_lower_io_to_scalar, nir_var_shader_out, NULL, NULL);
+         NIR_PASS(_, consumer, nir_lower_io_to_scalar, nir_var_shader_in, NULL, NULL);
+
+         /* Eliminate useless vec->mov copies resulting from scalarization. */
+         NIR_PASS(_, producer, nir_copy_prop);
+
+         const nir_opt_varyings_progress p = nir_opt_varyings(producer, consumer, true, max_ubo_comps, max_ubos);
+         if (p & nir_progress_producer)
+            radv_optimize_nir_algebraic(producer, false, false);
+         if (p & nir_progress_consumer)
+            radv_optimize_nir_algebraic(consumer, false, false);
+      }
+
+      prev = s;
+   }
+
+   /* Optimize varyings from last to first stage. */
+   gl_shader_stage next = MESA_SHADER_NONE;
+   for (int i = ARRAY_SIZE(graphics_shader_order) - 1; i >= 0; --i) {
+      gl_shader_stage s = graphics_shader_order[i];
+      if (!stages[s].nir)
+         continue;
+
+      if (next != MESA_SHADER_NONE && !stages[s].key.optimisations_disabled && !stages[next].key.optimisations_disabled) {
+         struct radv_shader_stage *producer_stage = &stages[s];
+         struct radv_shader_stage *consumer_stage = &stages[next];
+         nir_shader *producer = producer_stage->nir;
+         nir_shader *consumer = consumer_stage->nir;
+
+         const nir_opt_varyings_progress p = nir_opt_varyings(producer, consumer, true, max_ubo_comps, max_ubos);
+         if (p & nir_progress_producer)
+            radv_optimize_nir_algebraic(producer, true, pdev->info.gfx_level >= GFX7);
+         if (p & nir_progress_consumer)
+            radv_optimize_nir_algebraic(consumer, true, pdev->info.gfx_level >= GFX7);
+
+         /* Re-vectorize I/O for stages that output to memory (LDS or VRAM).
+          *
+          * Don't vectorize FS inputs, doing so just regresses shader stats without any benefit.
+          * There is also no benefit from re-vectorizing the outputs of the last pre-rasterization
+          * stage here, because ac_nir_lower_ngg/legacy already takes care of that.
+          */
+         if (consumer->info.stage != MESA_SHADER_FRAGMENT) {
+            NIR_PASS(_, producer, nir_opt_vectorize_io, nir_var_shader_out);
+            NIR_PASS(_, consumer, nir_opt_vectorize_io, nir_var_shader_in);
+         }
+
+         /* Recompute driver locations of outputs that rely on it. */
+         if (consumer->info.stage == MESA_SHADER_TESS_CTRL ||
+             consumer->info.stage == MESA_SHADER_GEOMETRY)
+            nir_recompute_io_bases(producer, nir_var_shader_out);
+
+         /* Recompute driver locations of inputs that rely on it. */
+         if (consumer->info.stage == MESA_SHADER_TESS_CTRL ||
+             consumer->info.stage == MESA_SHADER_GEOMETRY ||
+             consumer->info.stage == MESA_SHADER_FRAGMENT)
+            nir_recompute_io_bases(consumer, nir_var_shader_in);
+
+         /* Gather shader info; at least the I/O info likely changed. */
+         nir_shader_gather_info(producer, nir_shader_get_entrypoint(producer));
+         nir_shader_gather_info(consumer, nir_shader_get_entrypoint(consumer));
+
+         /* Recreate XFB info from intrinsics (nir_opt_varyings may have changed it). */
+         if (producer->xfb_info)
+            nir_gather_xfb_info_from_intrinsics(producer);
+
+         /* Linked shader I/O for VS->TCS, VS->GS, TES->GS.
+          * The correctness of I/O location mapping depends on the fact that
+          * the outputs of the producer exactly match the inputs of the consumer.
+          */
+         if (consumer->info.stage == MESA_SHADER_TESS_CTRL ||
+             consumer->info.stage == MESA_SHADER_GEOMETRY) {
+            assert(producer->info.outputs_written == consumer->info.inputs_read);
+         }
+      }
+
+      next = s;
+   }
+}
+
 struct radv_ps_epilog_key
 radv_generate_ps_epilog_key(const struct radv_device *device, const struct radv_ps_epilog_state *state)
 {
@@ -2529,6 +2636,8 @@ radv_graphics_shaders_compile(struct radv_device *device, struct vk_pipeline_cac
       if (!gfx_state->ps.has_epilog)
          radv_nir_remap_color_attachment(stages[MESA_SHADER_FRAGMENT].nir, gfx_state);
    }
+
+   radv_graphics_shaders_link_varyings(device, stages);
 
    radv_fill_shader_info(device, RADV_PIPELINE_GRAPHICS, gfx_state, stages, active_nir_stages);
 
