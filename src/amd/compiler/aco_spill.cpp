@@ -1013,8 +1013,12 @@ process_block(spill_ctx& ctx, unsigned block_idx, Block* block, RegisterDemand s
          while ((new_demand - spilled_registers).exceeds(ctx.target_pressure)) {
             float score = 0.0;
             Temp to_spill;
+            unsigned operand_idx = -1u;
+            unsigned respill_slot = -1u;
+
             unsigned do_rematerialize = 0;
             unsigned avoid_respill = 0;
+
             RegType type = RegType::sgpr;
             if (new_demand.vgpr - spilled_registers.vgpr > ctx.target_pressure.vgpr)
                type = RegType::vgpr;
@@ -1030,26 +1034,59 @@ process_block(spill_ctx& ctx, unsigned block_idx, Block* block, RegisterDemand s
                if (avoid_respill > loop_variable || do_rematerialize > can_rematerialize)
                   continue;
 
+               unsigned cur_operand_idx = -1u;
+               bool can_spill = true;
+               for (auto it = instr->operands.begin(); it != instr->operands.end(); ++it) {
+                  if (!it->isTemp() || it->getTemp() != var)
+                     continue;
+                  /* Don't spill operands if killing operands won't help with register pressure */
+                  if ((demand_before - spilled_registers).exceeds(ctx.target_pressure)) {
+                     can_spill = false;
+                     break;
+                  }
+
+                  cur_operand_idx = it - instr->operands.begin();
+                  if (it->isLateKill() || it->isKill())
+                     can_spill = false;
+                  break;
+               }
+               if (!can_spill)
+                  continue;
+
                if (can_rematerialize > do_rematerialize || loop_variable > avoid_respill ||
                    ctx.ssa_infos[t].score() > score) {
-                  /* Don't spill operands */
-                  if (std::any_of(instr->operands.begin(), instr->operands.end(),
-                                  [&](Operand& op) { return op.isTemp() && op.getTemp() == var; }))
-                     continue;
+                  bool is_spilled_operand = cur_operand_idx != -1u && reloads.count(var);
+                  if (cur_operand_idx != -1u && ctx.renames[block_idx].count(var))
+                     is_spilled_operand |= reloads.count(ctx.renames[block_idx][var]);
 
                   to_spill = var;
                   score = ctx.ssa_infos[t].score();
                   do_rematerialize = can_rematerialize;
-                  avoid_respill = loop_variable;
+                  avoid_respill = loop_variable || is_spilled_operand;
+                  operand_idx = cur_operand_idx;
+
+                  /* This variable is spilled at the loop-header of the current loop.
+                   * Re-use the spill-slot in order to avoid an extra store.
+                   */
+                  if (loop_variable)
+                     respill_slot = ctx.loop.back().spills[var];
+                  else if (is_spilled_operand)
+                     respill_slot = reloads[var].second;
                }
             }
-            assert(score != 0.0);
+            assert(score > 0.0);
+
+            if (operand_idx != -1u) {
+               Operand& spilled_op = instr->operands[operand_idx];
+               spilled_op.setFirstKill(true);
+               for (auto it = instr->operands.begin() + operand_idx + 1;
+                    it != instr->operands.end(); ++it)
+                  if (it->isTemp() && it->getTemp() == to_spill)
+                     it->setKill(true);
+            }
 
             if (avoid_respill) {
-               /* This variable is spilled at the loop-header of the current loop.
-                * Re-use the spill-slot in order to avoid an extra store.
-                */
-               current_spills[to_spill] = ctx.loop.back().spills[to_spill];
+               current_spills[to_spill] = respill_slot;
                spilled_registers += to_spill;
                continue;
             }
