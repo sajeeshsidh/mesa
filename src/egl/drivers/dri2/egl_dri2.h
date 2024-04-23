@@ -323,6 +323,7 @@ struct dri2_egl_display {
    struct u_gralloc *gralloc;
    /* gralloc vendor usage bit for front rendering */
    uint32_t front_rendering_usage;
+   bool pure_swrast;
 #endif
 };
 
