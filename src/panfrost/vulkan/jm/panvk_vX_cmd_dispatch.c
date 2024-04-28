@@ -128,11 +128,11 @@ panvk_per_arch(CmdDispatch)(VkCommandBuffer commandBuffer, uint32_t x,
 
    unsigned copy_desc_dep =
       copy_desc_job.gpu
-         ? pan_jc_add_job(&batch->jc, MALI_JOB_TYPE_COMPUTE, false, false, 0, 0,
-                          &copy_desc_job, false)
+         ? pan_jc_add_job(&batch->vtc_jc, MALI_JOB_TYPE_COMPUTE, false, false,
+                          0, 0, &copy_desc_job, false)
          : 0;
 
-   pan_jc_add_job(&batch->jc, MALI_JOB_TYPE_COMPUTE, false, false, 0,
+   pan_jc_add_job(&batch->vtc_jc, MALI_JOB_TYPE_COMPUTE, false, false, 0,
                   copy_desc_dep, &job, false);
 
    batch->tlsinfo.tls.size = shader->info.tls_size;
