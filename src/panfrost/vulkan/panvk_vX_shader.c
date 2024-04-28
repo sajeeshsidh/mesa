@@ -52,14 +52,13 @@
 #include "vk_util.h"
 
 static nir_def *
-load_sysval_from_push_const(nir_builder *b, nir_intrinsic_instr *intr,
-                            unsigned offset)
+load_sysval_from_push_const(nir_builder *b, unsigned offset, unsigned bit_size,
+                            unsigned num_comps)
 {
    return nir_load_push_constant(
-      b, intr->def.num_components, intr->def.bit_size, nir_imm_int(b, 0),
+      b, num_comps, bit_size, nir_imm_int(b, 0),
       /* Push constants are placed first, and then come the sysvals. */
-      .base = offset + 256,
-      .range = intr->def.num_components * intr->def.bit_size / 8);
+      .base = offset + 256, .range = num_comps * bit_size / 8);
 }
 
 static bool
@@ -69,49 +68,50 @@ panvk_lower_sysvals(nir_builder *b, nir_instr *instr, void *data)
       return false;
 
    nir_intrinsic_instr *intr = nir_instr_as_intrinsic(instr);
+   unsigned num_comps = intr->def.num_components;
+   unsigned bit_size = intr->def.bit_size;
    nir_def *val = NULL;
    b->cursor = nir_before_instr(instr);
 
 #define SYSVAL(ptype, name) offsetof(struct panvk_##ptype##_sysvals, name)
    switch (intr->intrinsic) {
    case nir_intrinsic_load_num_workgroups:
-      val =
-         load_sysval_from_push_const(b, intr, SYSVAL(compute, num_work_groups));
+      val = load_sysval_from_push_const(b, SYSVAL(compute, num_work_groups),
+                                        bit_size, num_comps);
       break;
    case nir_intrinsic_load_workgroup_size:
-      val = load_sysval_from_push_const(b, intr,
-                                        SYSVAL(compute, local_group_size));
+      val = load_sysval_from_push_const(b, SYSVAL(compute, local_group_size),
+                                        bit_size, num_comps);
       break;
    case nir_intrinsic_load_viewport_scale:
-      val =
-         load_sysval_from_push_const(b, intr, SYSVAL(graphics, viewport.scale));
+      val = load_sysval_from_push_const(b, SYSVAL(graphics, viewport.scale),
+                                        bit_size, num_comps);
       break;
    case nir_intrinsic_load_viewport_offset:
-      val = load_sysval_from_push_const(b, intr,
-                                        SYSVAL(graphics, viewport.offset));
+      val = load_sysval_from_push_const(b, SYSVAL(graphics, viewport.offset),
+                                        bit_size, num_comps);
       break;
    case nir_intrinsic_load_first_vertex:
-      val = load_sysval_from_push_const(b, intr,
-                                        SYSVAL(graphics, vs.first_vertex));
+      val = load_sysval_from_push_const(b, SYSVAL(graphics, vs.first_vertex),
+                                        bit_size, num_comps);
       break;
    case nir_intrinsic_load_base_vertex:
-      val =
-         load_sysval_from_push_const(b, intr, SYSVAL(graphics, vs.base_vertex));
+      val = load_sysval_from_push_const(b, SYSVAL(graphics, vs.base_vertex),
+                                        bit_size, num_comps);
       break;
    case nir_intrinsic_load_base_instance:
-      val = load_sysval_from_push_const(b, intr,
-                                        SYSVAL(graphics, vs.base_instance));
+      val = load_sysval_from_push_const(b, SYSVAL(graphics, vs.base_instance),
+                                        bit_size, num_comps);
       break;
    case nir_intrinsic_load_blend_const_color_rgba:
-      val = load_sysval_from_push_const(b, intr,
-                                        SYSVAL(graphics, blend.constants));
+      val = load_sysval_from_push_const(b, SYSVAL(graphics, blend.constants),
+                                        bit_size, num_comps);
       break;
 
    case nir_intrinsic_load_layer_id:
-      /* We don't support layered rendering yet, so force the layer_id to
-       * zero for now.
-       */
-      val = nir_imm_int(b, 0);
+      assert(b->shader->info.stage = MESA_SHADER_FRAGMENT);
+      val = load_sysval_from_push_const(b, SYSVAL(graphics, layer_id), bit_size,
+                                        num_comps);
       break;
 
    default:
@@ -122,6 +122,82 @@ panvk_lower_sysvals(nir_builder *b, nir_instr *instr, void *data)
    b->cursor = nir_after_instr(instr);
    nir_def_rewrite_uses(&intr->def, val);
    return true;
+}
+
+static bool
+lower_gl_pos_layer_writes(nir_builder *b, nir_instr *instr, void *data)
+{
+   if (instr->type != nir_instr_type_intrinsic)
+      return false;
+
+   nir_intrinsic_instr *intr = nir_instr_as_intrinsic(instr);
+
+   if (intr->intrinsic != nir_intrinsic_copy_deref)
+      return false;
+
+   nir_variable *dst_var = nir_intrinsic_get_var(intr, 0);
+   nir_variable *src_var = nir_intrinsic_get_var(intr, 1);
+
+   if (!dst_var || dst_var->data.mode != nir_var_shader_out || !src_var ||
+       src_var->data.mode != nir_var_shader_temp)
+      return false;
+
+   if (dst_var->data.location == VARYING_SLOT_LAYER) {
+      /* We don't really write the layer, we just make sure primitives are
+       * discarded if gl_Layer doesn't match the layer passed to the draw.
+       */
+      b->cursor = nir_instr_remove(instr);
+      return true;
+   }
+
+   if (dst_var->data.location == VARYING_SLOT_POS) {
+      nir_variable *temp_layer_var = data;
+      nir_variable *temp_pos_var = src_var;
+
+      b->cursor = nir_before_instr(instr);
+      nir_def *layer = nir_load_var(b, temp_layer_var);
+      nir_def *pos = nir_load_var(b, temp_pos_var);
+      nir_def *inf_pos = nir_imm_vec4(b, INFINITY, INFINITY, INFINITY, 1.0f);
+      nir_def *ref_layer = load_sysval_from_push_const(
+         b, offsetof(struct panvk_graphics_sysvals, layer_id), 32, 1);
+
+      nir_store_var(b, temp_pos_var,
+                    nir_bcsel(b, nir_ieq(b, layer, ref_layer), pos, inf_pos),
+                    0xf);
+      return true;
+   }
+
+   return false;
+}
+
+static bool
+lower_layer_writes(nir_shader *nir)
+{
+   if (nir->info.stage == MESA_SHADER_FRAGMENT)
+      return false;
+
+   nir_variable *temp_layer_var = NULL;
+   bool has_layer_var = false;
+
+   nir_foreach_variable_with_modes(var, nir,
+                                   nir_var_shader_out | nir_var_shader_temp) {
+      if (var->data.mode == nir_var_shader_out &&
+          var->data.location == VARYING_SLOT_LAYER)
+         has_layer_var = true;
+
+      if (var->data.mode == nir_var_shader_temp &&
+          var->data.location == VARYING_SLOT_LAYER)
+         temp_layer_var = var;
+   }
+
+   if (!has_layer_var)
+      return false;
+
+   assert(temp_layer_var);
+
+   return nir_shader_instructions_pass(
+      nir, lower_gl_pos_layer_writes,
+      nir_metadata_block_index | nir_metadata_dominance, temp_layer_var);
 }
 
 static void
@@ -233,6 +309,8 @@ panvk_per_arch(shader_create)(struct panvk_device *dev,
 
    NIR_PASS_V(nir, nir_lower_io_to_temporaries, nir_shader_get_entrypoint(nir),
               true, true);
+
+   NIR_PASS_V(nir, lower_layer_writes);
 
    struct panfrost_compile_inputs inputs = {
       .gpu_id = phys_dev->kmod.props.gpu_prod_id,

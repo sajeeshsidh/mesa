@@ -68,6 +68,7 @@ struct panvk_draw_info {
    unsigned instance_count;
    int vertex_offset;
    unsigned offset_start;
+   uint32_t layer_id;
    struct mali_invocation_packed invocation;
    struct {
       mali_ptr varyings;
@@ -129,22 +130,22 @@ panvk_debug_adjust_bo_flags(const struct panvk_device *device,
 }
 
 static void
-panvk_cmd_prepare_fragment_job(struct panvk_cmd_buffer *cmdbuf)
+panvk_cmd_prepare_fragment_job(struct panvk_cmd_buffer *cmdbuf, mali_ptr fbd)
 {
    const struct pan_fb_info *fbinfo = &cmdbuf->state.gfx.render.fb.info;
    struct panvk_batch *batch = cmdbuf->cur_batch;
    struct panfrost_ptr job_ptr =
       pan_pool_alloc_desc(&cmdbuf->desc_pool.base, FRAGMENT_JOB);
 
-   GENX(pan_emit_fragment_job_payload)
-   (fbinfo, batch->fb.desc.gpu, job_ptr.cpu);
+   GENX(pan_emit_fragment_job_payload)(fbinfo, fbd, job_ptr.cpu);
 
    pan_section_pack(job_ptr.cpu, FRAGMENT_JOB, HEADER, header) {
       header.type = MALI_JOB_TYPE_FRAGMENT;
       header.index = 1;
    }
 
-   batch->fragment_job = job_ptr.gpu;
+   pan_jc_add_job(&batch->frag_jc, MALI_JOB_TYPE_FRAGMENT, false, false, 0, 0,
+                  &job_ptr, false);
    util_dynarray_append(&batch->jobs, void *, job_ptr.cpu);
 }
 
@@ -160,7 +161,7 @@ panvk_per_arch(cmd_close_batch)(struct panvk_cmd_buffer *cmdbuf)
 
    assert(batch);
 
-   if (!batch->fb.desc.gpu && !batch->jc.first_job) {
+   if (!batch->fb.desc.gpu && !batch->vtc_jc.first_job) {
       if (util_dynarray_num_elements(&batch->event_ops,
                                      struct panvk_cmd_event_op) == 0) {
          /* Content-less batch, let's drop it */
@@ -172,7 +173,7 @@ panvk_per_arch(cmd_close_batch)(struct panvk_cmd_buffer *cmdbuf)
          struct panfrost_ptr ptr =
             pan_pool_alloc_desc(&cmdbuf->desc_pool.base, JOB_HEADER);
          util_dynarray_append(&batch->jobs, void *, ptr.cpu);
-         pan_jc_add_job(&batch->jc, MALI_JOB_TYPE_NULL, false, false, 0, 0,
+         pan_jc_add_job(&batch->vtc_jc, MALI_JOB_TYPE_NULL, false, false, 0, 0,
                         &ptr, false);
          list_addtail(&batch->node, &cmdbuf->batches);
       }
@@ -185,15 +186,6 @@ panvk_per_arch(cmd_close_batch)(struct panvk_cmd_buffer *cmdbuf)
       to_panvk_physical_device(dev->vk.physical);
 
    list_addtail(&batch->node, &cmdbuf->batches);
-
-   if (batch->jc.first_tiler) {
-      ASSERTED unsigned num_preload_jobs =
-         GENX(pan_preload_fb)(&dev->meta.blitter.cache, &cmdbuf->desc_pool.base,
-                              &cmdbuf->state.gfx.render.fb.info, batch->tls.gpu,
-                              batch->tiler.ctx_desc.gpu, NULL);
-
-      assert(num_preload_jobs == 0);
-   }
 
    if (batch->tlsinfo.tls.size) {
       unsigned thread_tls_alloc =
@@ -224,11 +216,30 @@ panvk_per_arch(cmd_close_batch)(struct panvk_cmd_buffer *cmdbuf)
                                  panfrost_sample_positions_offset(
                                     pan_sample_pattern(fbinfo->nr_samples));
 
-      batch->fb.desc.gpu |= GENX(pan_emit_fbd)(
-         &cmdbuf->state.gfx.render.fb.info, 0, &batch->tlsinfo,
-         &batch->tiler.ctx, batch->fb.desc.cpu);
+      for (uint32_t i = 0; i < batch->fb.layer_count; i++) {
+         mali_ptr fbd = batch->fb.desc.gpu + (batch->fb.desc_stride * i);
 
-      panvk_cmd_prepare_fragment_job(cmdbuf);
+         if (batch->vtc_jc.first_tiler) {
+            cmdbuf->state.gfx.render.fb.info.bifrost.pre_post.dcds.gpu = 0;
+
+            ASSERTED unsigned num_preload_jobs = GENX(pan_preload_fb)(
+               &dev->meta.blitter.cache, &cmdbuf->desc_pool.base,
+               &cmdbuf->state.gfx.render.fb.info, i, batch->tls.gpu, NULL);
+
+            /* Bifrost GPUs use pre frame DCDs to preload the FB content. We
+             * thus expect num_preload_jobs to be zero.
+             */
+            assert(!num_preload_jobs);
+         }
+
+         panvk_per_arch(cmd_prepare_tiler_context)(cmdbuf, i);
+         fbd |= GENX(pan_emit_fbd)(
+            &cmdbuf->state.gfx.render.fb.info, i, &batch->tlsinfo,
+            &batch->tiler.ctx,
+            batch->fb.desc.cpu + (batch->fb.desc_stride * i));
+
+         panvk_cmd_prepare_fragment_job(cmdbuf, fbd);
+      }
    }
 
    cmdbuf->cur_batch = NULL;
@@ -244,14 +255,24 @@ panvk_per_arch(cmd_alloc_fb_desc)(struct panvk_cmd_buffer *cmdbuf)
 
    const struct pan_fb_info *fbinfo = &cmdbuf->state.gfx.render.fb.info;
    bool has_zs_ext = fbinfo->zs.view.zs || fbinfo->zs.view.s;
+   batch->fb.layer_count = cmdbuf->state.gfx.render.layer_count;
+   unsigned fbd_size = pan_size(FRAMEBUFFER);
+
+   if (has_zs_ext)
+      fbd_size = ALIGN_POT(fbd_size, pan_alignment(ZS_CRC_EXTENSION)) +
+                 pan_size(ZS_CRC_EXTENSION);
+
+   fbd_size = ALIGN_POT(fbd_size, pan_alignment(RENDER_TARGET)) +
+              (MAX2(fbinfo->rt_count, 1) * pan_size(RENDER_TARGET));
 
    batch->fb.bo_count = cmdbuf->state.gfx.render.fb.bo_count;
    memcpy(batch->fb.bos, cmdbuf->state.gfx.render.fb.bos,
           batch->fb.bo_count * sizeof(batch->fb.bos[0]));
-   batch->fb.desc = pan_pool_alloc_desc_aggregate(
-      &cmdbuf->desc_pool.base, PAN_DESC(FRAMEBUFFER),
-      PAN_DESC_ARRAY(has_zs_ext ? 1 : 0, ZS_CRC_EXTENSION),
-      PAN_DESC_ARRAY(MAX2(fbinfo->rt_count, 1), RENDER_TARGET));
+
+   batch->fb.desc = pan_pool_alloc_aligned(&cmdbuf->desc_pool.base,
+                                           fbd_size * batch->fb.layer_count,
+                                           pan_alignment(FRAMEBUFFER));
+   batch->fb.desc_stride = fbd_size;
 
    memset(&cmdbuf->state.gfx.render.fb.info.bifrost.pre_post.dcds, 0,
           sizeof(cmdbuf->state.gfx.render.fb.info.bifrost.pre_post.dcds));
@@ -287,10 +308,12 @@ panvk_cmd_prepare_draw_sysvals(struct panvk_cmd_buffer *cmdbuf,
    unsigned base_vertex = draw->index_size ? draw->vertex_offset : 0;
    if (sysvals->vs.first_vertex != draw->offset_start ||
        sysvals->vs.base_vertex != base_vertex ||
-       sysvals->vs.base_instance != draw->first_instance) {
+       sysvals->vs.base_instance != draw->first_instance ||
+       sysvals->layer_id != draw->layer_id) {
       sysvals->vs.first_vertex = draw->offset_start;
       sysvals->vs.base_vertex = base_vertex;
       sysvals->vs.base_instance = draw->first_instance;
+      sysvals->layer_id = draw->layer_id;
       desc_state->push_uniforms = 0;
    }
 
@@ -836,19 +859,22 @@ panvk_draw_prepare_fs_rsd(struct panvk_cmd_buffer *cmdbuf,
 }
 
 void
-panvk_per_arch(cmd_prepare_tiler_context)(struct panvk_cmd_buffer *cmdbuf)
+panvk_per_arch(cmd_prepare_tiler_context)(struct panvk_cmd_buffer *cmdbuf,
+                                          uint32_t layer_idx)
 {
    struct panvk_device *dev = to_panvk_device(cmdbuf->vk.base.device);
-   struct pan_fb_info *fbinfo = &cmdbuf->state.gfx.render.fb.info;
    struct panvk_batch *batch = cmdbuf->cur_batch;
 
-   if (batch->tiler.ctx_desc.cpu)
-      return;
+   if (batch->tiler.ctx_descs.cpu)
+      goto out_set_layer_ctx;
 
+   const struct pan_fb_info *fbinfo = &cmdbuf->state.gfx.render.fb.info;
+   uint32_t layer_count = cmdbuf->state.gfx.render.layer_count;
    batch->tiler.heap_desc =
       pan_pool_alloc_desc(&cmdbuf->desc_pool.base, TILER_HEAP);
-   batch->tiler.ctx_desc =
-      pan_pool_alloc_desc(&cmdbuf->desc_pool.base, TILER_CONTEXT);
+
+   batch->tiler.ctx_descs = pan_pool_alloc_desc_array(
+      &cmdbuf->desc_pool.base, layer_count, TILER_CONTEXT);
 
    pan_pack(&batch->tiler.heap_templ, TILER_HEAP, cfg) {
       cfg.size = pan_kmod_bo_size(dev->tiler_heap->bo);
@@ -867,9 +893,20 @@ panvk_per_arch(cmd_prepare_tiler_context)(struct panvk_cmd_buffer *cmdbuf)
 
    memcpy(batch->tiler.heap_desc.cpu, &batch->tiler.heap_templ,
           sizeof(batch->tiler.heap_templ));
-   memcpy(batch->tiler.ctx_desc.cpu, &batch->tiler.ctx_templ,
-          sizeof(batch->tiler.ctx_templ));
-   batch->tiler.ctx.bifrost = batch->tiler.ctx_desc.gpu;
+
+   struct mali_tiler_context_packed *ctxs = batch->tiler.ctx_descs.cpu;
+
+   assert(layer_count > 0);
+   for (uint32_t i = 0; i < layer_count; i++) {
+      STATIC_ASSERT(
+         !(pan_size(TILER_CONTEXT) & (pan_alignment(TILER_CONTEXT) - 1)));
+
+      memcpy(&ctxs[i], &batch->tiler.ctx_templ, sizeof(*ctxs));
+   }
+
+out_set_layer_ctx:
+   batch->tiler.ctx.bifrost =
+      batch->tiler.ctx_descs.gpu + (pan_size(TILER_CONTEXT) * layer_idx);
 }
 
 static void
@@ -878,7 +915,7 @@ panvk_draw_prepare_tiler_context(struct panvk_cmd_buffer *cmdbuf,
 {
    struct panvk_batch *batch = cmdbuf->cur_batch;
 
-   panvk_per_arch(cmd_prepare_tiler_context)(cmdbuf);
+   panvk_per_arch(cmd_prepare_tiler_context)(cmdbuf, draw->layer_id);
    draw->tiler_ctx = &batch->tiler.ctx;
 }
 
@@ -1342,13 +1379,11 @@ panvk_emit_tiler_primitive(struct panvk_cmd_buffer *cmdbuf,
    const struct panvk_graphics_pipeline *pipeline = cmdbuf->state.gfx.pipeline;
    const struct vk_input_assembly_state *ia =
       &cmdbuf->vk.dynamic_graphics_state.ia;
-   const struct vk_color_blend_state *cb =
-      &cmdbuf->vk.dynamic_graphics_state.cb;
    bool writes_point_size =
       pipeline->vs.info.vs.writes_point_size &&
       ia->primitive_topology == VK_PRIMITIVE_TOPOLOGY_POINT_LIST;
-   bool secondary_shader = pipeline->vs.info.vs.secondary_enable &&
-                           fs_required(cb, &pipeline->fs.info);
+   bool secondary_shader =
+      pipeline->vs.info.vs.secondary_enable && fs_required(cmdbuf);
 
    pan_pack(prim, PRIMITIVE, cfg) {
       cfg.draw_mode = translate_prim_topology(ia->primitive_topology);
@@ -1564,14 +1599,15 @@ panvk_cmd_draw(struct panvk_cmd_buffer *cmdbuf, struct panvk_draw_info *draw)
    struct panvk_batch *batch = cmdbuf->cur_batch;
    struct panvk_descriptor_state *desc_state = &cmdbuf->state.gfx.desc_state;
    const struct panvk_graphics_pipeline *pipeline = cmdbuf->state.gfx.pipeline;
+   uint32_t layer_count = cmdbuf->state.gfx.render.layer_count;
    const struct vk_rasterization_state *rs =
       &cmdbuf->vk.dynamic_graphics_state.rs;
    bool idvs = pipeline->vs.info.vs.idvs;
 
    /* There are only 16 bits in the descriptor for the job ID, make sure all
-    * the 3 (2 in Bifrost) jobs in this draw are in the same batch.
+    * the 2 jobs in this draw are in the same batch.
     */
-   if (batch->jc.job_index >= (UINT16_MAX - 3)) {
+   if (batch->vtc_jc.job_index + (2 * layer_count) >= UINT16_MAX) {
       panvk_per_arch(cmd_close_batch)(cmdbuf);
       panvk_cmd_preload_fb_after_batch_split(cmdbuf);
       batch = panvk_per_arch(cmd_open_batch)(cmdbuf);
@@ -1582,11 +1618,7 @@ panvk_cmd_draw(struct panvk_cmd_buffer *cmdbuf, struct panvk_draw_info *draw)
 
    panvk_per_arch(cmd_alloc_tls_desc)(cmdbuf, true);
 
-   panvk_cmd_prepare_draw_sysvals(cmdbuf, draw);
    panvk_cmd_prepare_push_sets(cmdbuf, desc_state, &pipeline->base);
-   panvk_cmd_prepare_push_uniforms(cmdbuf, desc_state,
-                                   &cmdbuf->state.gfx.sysvals,
-                                   sizeof(cmdbuf->state.gfx.sysvals));
    panvk_cmd_prepare_ubos(cmdbuf, desc_state, &pipeline->base);
    panvk_cmd_prepare_textures(cmdbuf, desc_state, &pipeline->base);
    panvk_cmd_prepare_samplers(cmdbuf, desc_state, &pipeline->base);
@@ -1595,7 +1627,6 @@ panvk_cmd_draw(struct panvk_cmd_buffer *cmdbuf, struct panvk_draw_info *draw)
    draw->tls = batch->tls.gpu;
    draw->fb = batch->fb.desc.gpu;
    draw->ubos = desc_state->ubos;
-   draw->push_uniforms = desc_state->push_uniforms;
    draw->textures = desc_state->textures;
    draw->samplers = desc_state->samplers;
 
@@ -1604,32 +1635,40 @@ panvk_cmd_draw(struct panvk_cmd_buffer *cmdbuf, struct panvk_draw_info *draw)
                                      false);
 
    panvk_draw_prepare_fs_rsd(cmdbuf, draw);
-   panvk_draw_prepare_varyings(cmdbuf, draw);
    panvk_draw_prepare_attributes(cmdbuf, draw);
    panvk_draw_prepare_viewport(cmdbuf, draw);
-   panvk_draw_prepare_tiler_context(cmdbuf, draw);
-
-   if (idvs) {
-      panvk_draw_prepare_idvs_job(cmdbuf, draw);
-   } else {
-      panvk_draw_prepare_vertex_job(cmdbuf, draw);
-      panvk_draw_prepare_tiler_job(cmdbuf, draw);
-   }
 
    batch->tlsinfo.tls.size =
       MAX3(pipeline->vs.info.tls_size, pipeline->fs.info.tls_size,
            batch->tlsinfo.tls.size);
 
-   if (idvs) {
-      pan_jc_add_job(&batch->jc, MALI_JOB_TYPE_INDEXED_VERTEX, false, false, 0,
-                     0, &draw->jobs.idvs, false);
-   } else {
-      unsigned vjob_id = pan_jc_add_job(&batch->jc, MALI_JOB_TYPE_VERTEX, false,
-                                        false, 0, 0, &draw->jobs.vertex, false);
+   for (uint32_t i = 0; i < layer_count; i++) {
+      draw->layer_id = i;
 
-      if (!rs->rasterizer_discard_enable && draw->position) {
-         pan_jc_add_job(&batch->jc, MALI_JOB_TYPE_TILER, false, false, vjob_id,
-                        0, &draw->jobs.tiler, false);
+      panvk_draw_prepare_varyings(cmdbuf, draw);
+      panvk_cmd_prepare_draw_sysvals(cmdbuf, draw);
+      panvk_cmd_prepare_push_uniforms(cmdbuf, desc_state,
+                                      &cmdbuf->state.gfx.sysvals,
+                                      sizeof(cmdbuf->state.gfx.sysvals));
+      draw->push_uniforms = desc_state->push_uniforms;
+      panvk_draw_prepare_tiler_context(cmdbuf, draw);
+
+      if (idvs) {
+         panvk_draw_prepare_idvs_job(cmdbuf, draw);
+         pan_jc_add_job(&batch->vtc_jc, MALI_JOB_TYPE_INDEXED_VERTEX, false,
+                        false, 0, 0, &draw->jobs.idvs, false);
+      } else {
+         panvk_draw_prepare_vertex_job(cmdbuf, draw);
+         panvk_draw_prepare_tiler_job(cmdbuf, draw);
+
+         unsigned vjob_id =
+            pan_jc_add_job(&batch->vtc_jc, MALI_JOB_TYPE_VERTEX, false, false,
+                           0, 0, &draw->jobs.vertex, false);
+
+         if (!rs->rasterizer_discard_enable && draw->position) {
+            pan_jc_add_job(&batch->vtc_jc, MALI_JOB_TYPE_TILER, false, false,
+                           vjob_id, 0, &draw->jobs.tiler, false);
+         }
       }
    }
 
@@ -1849,7 +1888,8 @@ panvk_add_wait_event_operation(struct panvk_cmd_buffer *cmdbuf,
       /* Let's close the current batch so any future commands wait on the
        * event signal operation.
        */
-      if (cmdbuf->cur_batch->fragment_job || cmdbuf->cur_batch->jc.first_job) {
+      if (cmdbuf->cur_batch->frag_jc.first_job ||
+          cmdbuf->cur_batch->vtc_jc.first_job) {
          panvk_per_arch(cmd_close_batch)(cmdbuf);
          panvk_cmd_preload_fb_after_batch_split(cmdbuf);
          panvk_per_arch(cmd_open_batch)(cmdbuf);
@@ -2097,8 +2137,8 @@ panvk_per_arch(CmdDispatch)(VkCommandBuffer commandBuffer, uint32_t x,
       cfg.samplers = dispatch.samplers;
    }
 
-   pan_jc_add_job(&batch->jc, MALI_JOB_TYPE_COMPUTE, false, false, 0, 0, &job,
-                  false);
+   pan_jc_add_job(&batch->vtc_jc, MALI_JOB_TYPE_COMPUTE, false, false, 0, 0,
+                  &job, false);
 
    batch->tlsinfo.tls.size = pipeline->cs.info.tls_size;
    batch->tlsinfo.wls.size = pipeline->cs.info.wls_size;
@@ -2140,6 +2180,7 @@ panvk_cmd_begin_rendering_init_state(struct panvk_cmd_buffer *cmdbuf,
           sizeof(cmdbuf->state.gfx.render.color_attachments));
    cmdbuf->state.gfx.render.bound_attachments = 0;
 
+   cmdbuf->state.gfx.render.layer_count = pRenderingInfo->layerCount;
    *fbinfo = (struct pan_fb_info){
       .tile_buf_budget = panfrost_query_optimal_tib_size(phys_dev->model),
       .nr_samples = 1,
