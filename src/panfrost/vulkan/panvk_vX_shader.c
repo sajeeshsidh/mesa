@@ -237,7 +237,6 @@ panvk_per_arch(shader_create)(struct panvk_device *dev,
    struct panfrost_compile_inputs inputs = {
       .gpu_id = phys_dev->kmod.props.gpu_prod_id,
       .no_ubo_to_push = true,
-      .no_idvs = true, /* TODO */
    };
 
    NIR_PASS_V(nir, nir_lower_indirect_derefs,
@@ -376,6 +375,10 @@ panvk_per_arch(shader_create)(struct panvk_device *dev,
          VERT_ATTRIB_GENERIC0;
 
       shader->info.attribute_count = util_last_bit(gen_attribs);
+
+      /* NULL IDVS shaders are not allowed. */
+      if (!util_dynarray_num_elements(&shader->binary, uint8_t))
+         shader->info.vs.idvs = false;
    }
 
    /* Image attributes start at MAX_VS_ATTRIBS in the VS attribute table,

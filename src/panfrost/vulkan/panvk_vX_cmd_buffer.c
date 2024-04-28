@@ -95,9 +95,12 @@ struct panvk_draw_info {
    mali_ptr fb;
    const struct pan_tiler_context *tiler_ctx;
    mali_ptr viewport;
-   struct {
-      struct panfrost_ptr vertex;
-      struct panfrost_ptr tiler;
+   union {
+      struct {
+         struct panfrost_ptr vertex;
+         struct panfrost_ptr tiler;
+      };
+      struct panfrost_ptr idvs;
    } jobs;
 };
 
@@ -1262,25 +1265,12 @@ panvk_draw_prepare_viewport(struct panvk_cmd_buffer *cmdbuf,
 }
 
 static void
-panvk_draw_prepare_vertex_job(struct panvk_cmd_buffer *cmdbuf,
-                              struct panvk_draw_info *draw)
+panvk_emit_vertex_dcd(struct panvk_cmd_buffer *cmdbuf,
+                      const struct panvk_draw_info *draw, void *dcd)
 {
    const struct panvk_graphics_pipeline *pipeline = cmdbuf->state.gfx.pipeline;
-   struct panvk_batch *batch = cmdbuf->cur_batch;
-   struct panfrost_ptr ptr =
-      pan_pool_alloc_desc(&cmdbuf->desc_pool.base, COMPUTE_JOB);
 
-   util_dynarray_append(&batch->jobs, void *, ptr.cpu);
-   draw->jobs.vertex = ptr;
-
-   memcpy(pan_section_ptr(ptr.cpu, COMPUTE_JOB, INVOCATION), &draw->invocation,
-          pan_size(INVOCATION));
-
-   pan_section_pack(ptr.cpu, COMPUTE_JOB, PARAMETERS, cfg) {
-      cfg.job_task_split = 5;
-   }
-
-   pan_section_pack(ptr.cpu, COMPUTE_JOB, DRAW, cfg) {
+   pan_pack(dcd, DRAW, cfg) {
       cfg.state = pipeline->vs.rsd;
       cfg.attributes = draw->vs.attributes;
       cfg.attribute_buffers = draw->vs.attribute_bufs;
@@ -1295,6 +1285,28 @@ panvk_draw_prepare_vertex_job(struct panvk_cmd_buffer *cmdbuf,
       cfg.textures = draw->textures;
       cfg.samplers = draw->samplers;
    }
+}
+
+static void
+panvk_draw_prepare_vertex_job(struct panvk_cmd_buffer *cmdbuf,
+                              struct panvk_draw_info *draw)
+{
+   struct panvk_batch *batch = cmdbuf->cur_batch;
+   struct panfrost_ptr ptr =
+      pan_pool_alloc_desc(&cmdbuf->desc_pool.base, COMPUTE_JOB);
+
+   util_dynarray_append(&batch->jobs, void *, ptr.cpu);
+   draw->jobs.vertex = ptr;
+
+   memcpy(pan_section_ptr(ptr.cpu, COMPUTE_JOB, INVOCATION), &draw->invocation,
+          pan_size(INVOCATION));
+
+   pan_section_pack(ptr.cpu, COMPUTE_JOB, PARAMETERS, cfg) {
+      cfg.job_task_split = 5;
+   }
+
+   panvk_emit_vertex_dcd(cmdbuf, draw,
+                         pan_section_ptr(ptr.cpu, COMPUTE_JOB, DRAW));
 }
 
 static enum mali_draw_mode
@@ -1330,9 +1342,13 @@ panvk_emit_tiler_primitive(struct panvk_cmd_buffer *cmdbuf,
    const struct panvk_graphics_pipeline *pipeline = cmdbuf->state.gfx.pipeline;
    const struct vk_input_assembly_state *ia =
       &cmdbuf->vk.dynamic_graphics_state.ia;
+   const struct vk_color_blend_state *cb =
+      &cmdbuf->vk.dynamic_graphics_state.cb;
    bool writes_point_size =
       pipeline->vs.info.vs.writes_point_size &&
       ia->primitive_topology == VK_PRIMITIVE_TOPOLOGY_POINT_LIST;
+   bool secondary_shader = pipeline->vs.info.vs.secondary_enable &&
+                           fs_required(cb, &pipeline->fs.info);
 
    pan_pack(prim, PRIMITIVE, cfg) {
       cfg.draw_mode = translate_prim_topology(ia->primitive_topology);
@@ -1366,6 +1382,8 @@ panvk_emit_tiler_primitive(struct panvk_cmd_buffer *cmdbuf,
          cfg.index_count = draw->vertex_count;
          cfg.index_type = MALI_INDEX_TYPE_NONE;
       }
+
+      cfg.secondary_shader = secondary_shader;
    }
 }
 
@@ -1468,6 +1486,42 @@ panvk_draw_prepare_tiler_job(struct panvk_cmd_buffer *cmdbuf,
 }
 
 static void
+panvk_draw_prepare_idvs_job(struct panvk_cmd_buffer *cmdbuf,
+                            struct panvk_draw_info *draw)
+{
+   struct panvk_batch *batch = cmdbuf->cur_batch;
+   struct panfrost_ptr ptr =
+      pan_pool_alloc_desc(&cmdbuf->desc_pool.base, INDEXED_VERTEX_JOB);
+
+   util_dynarray_append(&batch->jobs, void *, ptr.cpu);
+   draw->jobs.idvs = ptr;
+
+   memcpy(pan_section_ptr(ptr.cpu, INDEXED_VERTEX_JOB, INVOCATION),
+          &draw->invocation, pan_size(INVOCATION));
+
+   panvk_emit_tiler_primitive(
+      cmdbuf, draw, pan_section_ptr(ptr.cpu, INDEXED_VERTEX_JOB, PRIMITIVE));
+
+   panvk_emit_tiler_primitive_size(
+      cmdbuf, draw,
+      pan_section_ptr(ptr.cpu, INDEXED_VERTEX_JOB, PRIMITIVE_SIZE));
+
+   pan_section_pack(ptr.cpu, INDEXED_VERTEX_JOB, TILER, cfg) {
+      cfg.address = draw->tiler_ctx->bifrost;
+   }
+
+   pan_section_pack(ptr.cpu, INDEXED_VERTEX_JOB, PADDING, _) {
+   }
+
+   panvk_emit_tiler_dcd(
+      cmdbuf, draw,
+      pan_section_ptr(ptr.cpu, INDEXED_VERTEX_JOB, FRAGMENT_DRAW));
+
+   panvk_emit_vertex_dcd(
+      cmdbuf, draw, pan_section_ptr(ptr.cpu, INDEXED_VERTEX_JOB, VERTEX_DRAW));
+}
+
+static void
 panvk_cmd_preload_fb_after_batch_split(struct panvk_cmd_buffer *cmdbuf)
 {
    for (unsigned i = 0; i < cmdbuf->state.gfx.render.fb.info.rt_count; i++) {
@@ -1512,6 +1566,7 @@ panvk_cmd_draw(struct panvk_cmd_buffer *cmdbuf, struct panvk_draw_info *draw)
    const struct panvk_graphics_pipeline *pipeline = cmdbuf->state.gfx.pipeline;
    const struct vk_rasterization_state *rs =
       &cmdbuf->vk.dynamic_graphics_state.rs;
+   bool idvs = pipeline->vs.info.vs.idvs;
 
    /* There are only 16 bits in the descriptor for the job ID, make sure all
     * the 3 (2 in Bifrost) jobs in this draw are in the same batch.
@@ -1553,23 +1608,55 @@ panvk_cmd_draw(struct panvk_cmd_buffer *cmdbuf, struct panvk_draw_info *draw)
    panvk_draw_prepare_attributes(cmdbuf, draw);
    panvk_draw_prepare_viewport(cmdbuf, draw);
    panvk_draw_prepare_tiler_context(cmdbuf, draw);
-   panvk_draw_prepare_vertex_job(cmdbuf, draw);
-   panvk_draw_prepare_tiler_job(cmdbuf, draw);
+
+   if (idvs) {
+      panvk_draw_prepare_idvs_job(cmdbuf, draw);
+   } else {
+      panvk_draw_prepare_vertex_job(cmdbuf, draw);
+      panvk_draw_prepare_tiler_job(cmdbuf, draw);
+   }
+
    batch->tlsinfo.tls.size =
       MAX3(pipeline->vs.info.tls_size, pipeline->fs.info.tls_size,
            batch->tlsinfo.tls.size);
 
-   unsigned vjob_id = pan_jc_add_job(&batch->jc, MALI_JOB_TYPE_VERTEX, false,
-                                     false, 0, 0, &draw->jobs.vertex, false);
+   if (idvs) {
+      pan_jc_add_job(&batch->jc, MALI_JOB_TYPE_INDEXED_VERTEX, false, false, 0,
+                     0, &draw->jobs.idvs, false);
+   } else {
+      unsigned vjob_id = pan_jc_add_job(&batch->jc, MALI_JOB_TYPE_VERTEX, false,
+                                        false, 0, 0, &draw->jobs.vertex, false);
 
-   if (!rs->rasterizer_discard_enable && draw->position) {
-      pan_jc_add_job(&batch->jc, MALI_JOB_TYPE_TILER, false, false, vjob_id, 0,
-                     &draw->jobs.tiler, false);
+      if (!rs->rasterizer_discard_enable && draw->position) {
+         pan_jc_add_job(&batch->jc, MALI_JOB_TYPE_TILER, false, false, vjob_id,
+                        0, &draw->jobs.tiler, false);
+      }
    }
 
    /* Clear the dirty flags all at once */
    cmdbuf->state.gfx.dirty = 0;
    panvk_cmd_unprepare_push_sets(cmdbuf, desc_state);
+}
+
+static unsigned
+padded_vertex_count(struct panvk_cmd_buffer *cmdbuf, uint32_t vertex_count,
+                    uint32_t instance_count)
+{
+   if (instance_count == 1)
+      return vertex_count;
+
+   const struct panvk_graphics_pipeline *pipeline = cmdbuf->state.gfx.pipeline;
+   bool idvs = pipeline->vs.info.vs.idvs;
+
+   /* Index-Driven Vertex Shading requires different instances to
+    * have different cache lines for position results. Each vertex
+    * position is 16 bytes and the Mali cache line is 64 bytes, so
+    * the instance count must be aligned to 4 vertices.
+    */
+   if (idvs)
+      vertex_count = ALIGN_POT(vertex_count, 4);
+
+   return panfrost_padded_vertex_count(vertex_count);
 }
 
 VKAPI_ATTR void VKAPI_CALL
@@ -1588,9 +1675,8 @@ panvk_per_arch(CmdDraw)(VkCommandBuffer commandBuffer, uint32_t vertexCount,
       .vertex_range = vertexCount,
       .first_instance = firstInstance,
       .instance_count = instanceCount,
-      .padded_vertex_count = instanceCount > 1
-                                ? panfrost_padded_vertex_count(vertexCount)
-                                : vertexCount,
+      .padded_vertex_count =
+         padded_vertex_count(cmdbuf, vertexCount, instanceCount),
       .offset_start = firstVertex,
    };
 
@@ -1675,9 +1761,8 @@ panvk_per_arch(CmdDrawIndexed)(VkCommandBuffer commandBuffer,
       .instance_count = instanceCount,
       .vertex_range = vertex_range,
       .vertex_count = indexCount + abs(vertexOffset),
-      .padded_vertex_count = instanceCount > 1
-                                ? panfrost_padded_vertex_count(vertex_range)
-                                : vertex_range,
+      .padded_vertex_count =
+         padded_vertex_count(cmdbuf, vertex_range, instanceCount),
       .offset_start = min_vertex + vertexOffset,
       .indices = panvk_buffer_gpu_ptr(cmdbuf->state.gfx.ib.buffer,
                                       cmdbuf->state.gfx.ib.offset) +
