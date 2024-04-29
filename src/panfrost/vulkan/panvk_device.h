@@ -9,6 +9,7 @@
 #include <stdint.h>
 
 #include "vk_device.h"
+#include "vk_meta.h"
 
 #include "panvk_blend.h"
 #include "panvk_instance.h"
@@ -36,8 +37,24 @@ struct panvk_device {
    struct panvk_priv_bo *tiler_heap;
    struct panvk_priv_bo *sample_positions;
 
+   /* Access to the blitter pools are protected by the blitter
+    * shader/rsd locks. They can't be merged with other binary/desc
+    * pools unless we patch pan_blitter.c to support external pool locks.
+    *
+    * FIXME: The blitter infrastructure is only needed for FB preload.
+    * We should probably consider getting rid of the dependency we have
+    * on pan_desc.c and implement preload ourselves so we don't have
+    * to duplicate caches.
+    */
+   struct {
+      struct panvk_pool bin_pool;
+      struct panvk_pool desc_pool;
+      struct pan_blitter_cache cache;
+      struct pan_blend_shader_cache blend_shader_cache;
+   } blitter;
+
    struct panvk_blend_shader_cache blend_shader_cache;
-   struct panvk_meta meta;
+   struct vk_meta_device meta;
 
    struct vk_device_dispatch_table cmd_dispatch;
 
