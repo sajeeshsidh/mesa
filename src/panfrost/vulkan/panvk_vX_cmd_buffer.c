@@ -1349,6 +1349,12 @@ panvk_draw_prepare_vertex_job(struct panvk_cmd_buffer *cmdbuf,
 static enum mali_draw_mode
 translate_prim_topology(VkPrimitiveTopology in)
 {
+   /* Test VK_PRIMITIVE_TOPOLOGY_META_RECT_LIST_MESA separately, as it's not
+    * part of the VkPrimitiveTopology enum.
+    */
+   if (in == VK_PRIMITIVE_TOPOLOGY_META_RECT_LIST_MESA)
+      return MALI_DRAW_MODE_TRIANGLES;
+
    switch (in) {
    case VK_PRIMITIVE_TOPOLOGY_POINT_LIST:
       return MALI_DRAW_MODE_POINTS;
