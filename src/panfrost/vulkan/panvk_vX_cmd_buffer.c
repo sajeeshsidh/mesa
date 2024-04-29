@@ -2798,3 +2798,91 @@ panvk_per_arch(CmdPushDescriptorSetWithTemplateKHR)(
    panvk_per_arch(push_descriptor_set_with_template)(
       push_set, set_layout, descriptorUpdateTemplate, pData);
 }
+
+void
+panvk_per_arch(cmd_meta_compute_start)(
+   struct panvk_cmd_buffer *cmdbuf,
+   struct panvk_cmd_meta_compute_save_ctx *save_ctx)
+{
+   save_ctx->desc_state = cmdbuf->state.compute.desc_state;
+   if (cmdbuf->state.compute.desc_state.push_sets[0]) {
+      save_ctx->push_set0 = *cmdbuf->state.compute.desc_state.push_sets[0];
+      save_ctx->push_set0_saved = true;
+   }
+
+   memcpy(save_ctx->push_constants, cmdbuf->push_constants,
+          sizeof(cmdbuf->push_constants));
+
+   save_ctx->pipeline = cmdbuf->state.compute.pipeline;
+}
+
+void
+panvk_per_arch(cmd_meta_compute_end)(
+   struct panvk_cmd_buffer *cmdbuf,
+   const struct panvk_cmd_meta_compute_save_ctx *save_ctx)
+{
+   cmdbuf->state.compute.desc_state = save_ctx->desc_state;
+   if (save_ctx->push_set0_saved)
+      *cmdbuf->state.compute.desc_state.push_sets[0] = save_ctx->push_set0;
+
+   if (memcmp(cmdbuf->push_constants, save_ctx->push_constants,
+              sizeof(cmdbuf->push_constants))) {
+      memcpy(cmdbuf->push_constants, save_ctx->push_constants,
+             sizeof(cmdbuf->push_constants));
+      cmdbuf->state.compute.desc_state.push_uniforms = 0;
+      cmdbuf->state.gfx.desc_state.push_uniforms = 0;
+   }
+
+   cmdbuf->state.compute.pipeline = save_ctx->pipeline;
+}
+
+void
+panvk_per_arch(cmd_meta_gfx_start)(
+   struct panvk_cmd_buffer *cmdbuf,
+   struct panvk_cmd_meta_graphics_save_ctx *save_ctx)
+{
+   save_ctx->desc_state = cmdbuf->state.gfx.desc_state;
+   if (cmdbuf->state.gfx.desc_state.push_sets[0]) {
+      save_ctx->push_set0 = *cmdbuf->state.gfx.desc_state.push_sets[0];
+      save_ctx->push_set0_saved = true;
+   }
+
+   memcpy(save_ctx->push_constants, cmdbuf->push_constants,
+          sizeof(cmdbuf->push_constants));
+
+   save_ctx->pipeline = cmdbuf->state.gfx.pipeline;
+   save_ctx->fs.rsd = cmdbuf->state.gfx.fs.rsd;
+   save_ctx->vs.attribs = cmdbuf->state.gfx.vs.attribs;
+   save_ctx->vs.attrib_bufs = cmdbuf->state.gfx.vs.attrib_bufs;
+
+   save_ctx->dyn_state.all.vi = &save_ctx->dyn_state.vi;
+   save_ctx->dyn_state.all.ms.sample_locations = &save_ctx->dyn_state.sl;
+   vk_dynamic_graphics_state_copy(&save_ctx->dyn_state.all,
+                                  &cmdbuf->vk.dynamic_graphics_state);
+}
+
+void
+panvk_per_arch(cmd_meta_gfx_end)(
+   struct panvk_cmd_buffer *cmdbuf,
+   const struct panvk_cmd_meta_graphics_save_ctx *save_ctx)
+{
+   cmdbuf->state.gfx.desc_state = save_ctx->desc_state;
+   if (save_ctx->push_set0_saved)
+      *cmdbuf->state.compute.desc_state.push_sets[0] = save_ctx->push_set0;
+
+   if (memcmp(cmdbuf->push_constants, save_ctx->push_constants,
+              sizeof(cmdbuf->push_constants))) {
+      memcpy(cmdbuf->push_constants, save_ctx->push_constants,
+             sizeof(cmdbuf->push_constants));
+      cmdbuf->state.compute.desc_state.push_uniforms = 0;
+      cmdbuf->state.gfx.desc_state.push_uniforms = 0;
+   }
+
+   cmdbuf->state.gfx.pipeline = save_ctx->pipeline;
+   cmdbuf->state.gfx.fs.rsd = save_ctx->fs.rsd;
+   cmdbuf->state.gfx.vs.attribs = save_ctx->vs.attribs;
+   cmdbuf->state.gfx.vs.attrib_bufs = save_ctx->vs.attrib_bufs;
+
+   vk_dynamic_graphics_state_copy(&cmdbuf->vk.dynamic_graphics_state,
+                                  &save_ctx->dyn_state.all);
+}
