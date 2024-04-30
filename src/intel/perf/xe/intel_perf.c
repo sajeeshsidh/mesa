@@ -5,6 +5,7 @@
 
 #include "perf/xe/intel_perf.h"
 
+#include <fcntl.h>
 #include <sys/stat.h>
 
 #include "perf/intel_perf.h"
@@ -100,4 +101,56 @@ xe_remove_config(struct intel_perf_config *perf, int fd, uint64_t config_id)
    };
 
    intel_ioctl(fd, DRM_IOCTL_XE_PERF, &perf_param);
+}
+
+static void
+perf_prop_set(struct drm_xe_ext_set_property *props, uint32_t *index,
+              enum drm_xe_oa_property_id prop_id, uint64_t value)
+{
+   if (*index > 0)
+      props[*index - 1].base.next_extension = (uintptr_t)&props[*index];
+
+   props[*index].base.name = DRM_XE_OA_EXTENSION_SET_PROPERTY;
+   props[*index].property = prop_id;
+   props[*index].value = value;
+   *index = *index + 1;
+}
+
+int
+xe_perf_stream_open(struct intel_perf_config *perf_config, int drm_fd,
+                    uint32_t exec_id, uint64_t metrics_set_id,
+                    uint64_t report_format, uint64_t period_exponent,
+                    bool hold_preemption, bool enable)
+{
+   struct drm_xe_ext_set_property props[DRM_XE_OA_PROPERTY_MAX] = {};
+   struct drm_xe_perf_param perf_param = {
+      .perf_type = DRM_XE_PERF_TYPE_OA,
+      .perf_op = DRM_XE_PERF_OP_STREAM_OPEN,
+      .param = (uintptr_t)&props,
+   };
+   uint32_t i = 0;
+   int fd, flags;
+
+   if (exec_id)
+      perf_prop_set(props, &i, DRM_XE_OA_PROPERTY_EXEC_QUEUE_ID, exec_id);
+   perf_prop_set(props, &i, DRM_XE_OA_PROPERTY_OA_DISABLED, !enable);
+   perf_prop_set(props, &i, DRM_XE_OA_PROPERTY_SAMPLE_OA, true);
+   perf_prop_set(props, &i, DRM_XE_OA_PROPERTY_OA_METRIC_SET, metrics_set_id);
+   perf_prop_set(props, &i, DRM_XE_OA_PROPERTY_OA_FORMAT, report_format);
+   perf_prop_set(props, &i, DRM_XE_OA_PROPERTY_OA_PERIOD_EXPONENT, period_exponent);
+
+   /* TODO: Xe KMD don't support hold_preemption */
+
+   fd = intel_ioctl(drm_fd, DRM_IOCTL_XE_PERF, &perf_param);
+   if (fd < 0)
+      return fd;
+
+   flags = fcntl(fd, F_GETFL, 0);
+   flags |= O_CLOEXEC | O_NONBLOCK;
+   if (fcntl(fd, F_SETFL, flags)) {
+      close(fd);
+      return -1;
+   }
+
+   return fd;
 }
