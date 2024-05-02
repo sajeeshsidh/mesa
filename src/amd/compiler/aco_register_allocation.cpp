@@ -366,7 +366,12 @@ public:
          fill(op.physReg(), op.size(), op.tempId());
    }
 
-   void clear(Operand op) { clear(op.physReg(), op.regClass()); }
+   void clear(Operand op)
+   {
+      if (op.isTemp() && get_id(op.physReg()) && !is_blocked(op.physReg()))
+         assert(get_id(op.physReg()) == op.tempId());
+      clear(op.physReg(), op.regClass());
+   }
 
    void fill(Definition def)
    {
