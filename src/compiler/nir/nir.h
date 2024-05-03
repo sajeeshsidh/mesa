@@ -4832,6 +4832,8 @@ void nir_instr_clear_src(nir_instr *instr, nir_src *src);
 
 void nir_instr_move_src(nir_instr *dest_instr, nir_src *dest, nir_src *src);
 
+bool nir_instr_is_between(nir_instr *start, nir_instr *end, nir_instr *between);
+
 void nir_def_init(nir_instr *instr, nir_def *def,
                   unsigned num_components, unsigned bit_size);
 static inline void

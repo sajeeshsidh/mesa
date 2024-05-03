@@ -1540,8 +1540,8 @@ nir_def_rewrite_uses_src(nir_def *def, nir_src new_src)
    nir_def_rewrite_uses(def, new_src.ssa);
 }
 
-static bool
-is_instr_between(nir_instr *start, nir_instr *end, nir_instr *between)
+bool
+nir_instr_is_between(nir_instr *start, nir_instr *end, nir_instr *between)
 {
    assert(start->block == end->block);
 
@@ -1585,7 +1585,7 @@ nir_def_rewrite_uses_after(nir_def *def, nir_def *new_ssa,
           * not be dominated by after_me is if it is between def and after_me in
           * the instruction list.
           */
-         if (is_instr_between(def->parent_instr, after_me, nir_src_parent_instr(use_src)))
+         if (nir_instr_is_between(def->parent_instr, after_me, nir_src_parent_instr(use_src)))
             continue;
       }
 
