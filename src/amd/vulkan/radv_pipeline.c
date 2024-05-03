@@ -365,6 +365,27 @@ non_uniform_access_callback(const nir_src *src, void *_)
    return nir_chase_binding(*src).success ? 0x2 : 0x3;
 }
 
+static bool
+radv_rt_can_remat_intrinsic(nir_instr *instr)
+{
+   nir_intrinsic_instr *intrin = nir_instr_as_intrinsic(instr);
+   switch (intrin->intrinsic) {
+   case nir_intrinsic_load_ray_launch_id:
+   case nir_intrinsic_load_ray_launch_size:
+   case nir_intrinsic_vulkan_resource_index:
+   case nir_intrinsic_vulkan_resource_reindex:
+   case nir_intrinsic_load_vulkan_descriptor:
+   case nir_intrinsic_load_push_constant:
+   case nir_intrinsic_load_global_constant:
+   case nir_intrinsic_load_smem_amd:
+   case nir_intrinsic_load_scalar_arg_amd:
+   case nir_intrinsic_load_vector_arg_amd:
+      return true;
+   default:
+      return false;
+   }
+}
+
 void
 radv_postprocess_nir(struct radv_device *device, const struct radv_graphics_state_key *gfx_state,
                      struct radv_shader_stage *stage)
@@ -656,6 +677,9 @@ radv_postprocess_nir(struct radv_device *device, const struct radv_graphics_stat
        * spilling.
        */
       NIR_PASS(_, stage->nir, nir_opt_move, nir_move_comparisons);
+
+      struct nir_minimize_call_live_states_options live_opts = {.can_remat = radv_rt_can_remat_intrinsic};
+      NIR_PASS(_, stage->nir, nir_minimize_call_live_states, &live_opts);
    }
 }
 
