@@ -503,6 +503,10 @@ kill(wait_imm& imm, alu_delay_info& delay, Instruction* instr, wait_ctx& ctx,
       force_waitcnt(ctx, imm);
    }
 
+   if (instr->opcode == aco_opcode::s_swappc_b64)
+      u_foreach_bit (i, (~counter_vs) & ctx.nonzero)
+         imm[i] = 0;
+
    /* Make sure POPS coherent memory accesses have reached the L2 cache before letting the
     * overlapping waves proceed into the ordered section.
     */
