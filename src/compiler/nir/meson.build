@@ -235,6 +235,7 @@ files_libnir = files(
   'nir_normalize_cubemap_coords.c',
   'nir_opt_access.c',
   'nir_opt_barriers.c',
+  'nir_opt_call.c',
   'nir_opt_combine_stores.c',
   'nir_opt_comparison_pre.c',
   'nir_opt_conditional_discard.c',
