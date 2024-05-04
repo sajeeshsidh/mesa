@@ -2965,7 +2965,7 @@ radv_aco_build_shader_part(void **bin, uint32_t num_sgprs, uint32_t num_vgprs, c
 }
 
 struct radv_shader *
-radv_create_rt_prolog(struct radv_device *device)
+radv_create_rt_prolog(struct radv_device *device, unsigned raygen_param_count, nir_parameter *raygen_params)
 {
    const struct radv_physical_device *pdev = radv_device_physical(device);
    const struct radv_instance *instance = radv_physical_device_instance(pdev);
@@ -3006,8 +3006,8 @@ radv_create_rt_prolog(struct radv_device *device)
    struct aco_compiler_options ac_opts;
    radv_aco_convert_shader_info(&ac_info, &info, &in_args, &device->cache_key, options.info->gfx_level);
    radv_aco_convert_opts(&ac_opts, &options, &in_args, &stage_key);
-   aco_compile_rt_prolog(&ac_opts, &ac_info, &in_args.ac, &out_args.ac, &radv_aco_build_shader_binary,
-                         (void **)&binary);
+   aco_compile_rt_prolog(&ac_opts, &ac_info, &in_args.ac, &out_args.ac, raygen_param_count, raygen_params,
+                         &radv_aco_build_shader_binary, (void **)&binary);
    binary->info = info;
 
    radv_postprocess_binary_config(device, binary, &in_args);
