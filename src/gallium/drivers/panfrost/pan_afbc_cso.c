@@ -53,13 +53,6 @@ read_afbc_header(nir_builder *b, nir_def *buf, nir_def *idx)
                           AFBC_HEADER_BYTES_PER_TILE / 4, 32);
 }
 
-static void
-write_afbc_header(nir_builder *b, nir_def *buf, nir_def *idx, nir_def *hdr)
-{
-   nir_def *offset = nir_imul_imm(b, idx, AFBC_HEADER_BYTES_PER_TILE);
-   nir_store_global(b, nir_iadd(b, buf, nir_u2u64(b, offset)), 16, hdr, 0xF);
-}
-
 static nir_def *
 get_morton_index(nir_builder *b, nir_def *idx, nir_def *src_stride,
                  nir_def *dst_stride)
@@ -130,71 +123,6 @@ get_superblock_size(nir_builder *b, unsigned arch, nir_def *hdr,
              : size;
 }
 
-static nir_def *
-get_packed_offset(nir_builder *b, nir_def *metadata, nir_def *idx,
-                  nir_def **out_size)
-{
-   nir_def *metadata_offset =
-      nir_u2u64(b, nir_imul_imm(b, idx, sizeof(struct pan_afbc_block_info)));
-   nir_def *range_ptr = nir_iadd(b, metadata, metadata_offset);
-   nir_def *entry = nir_load_global(b, range_ptr, 4,
-                                    sizeof(struct pan_afbc_block_info) / 4, 32);
-   nir_def *offset =
-      nir_channel(b, entry, offsetof(struct pan_afbc_block_info, offset) / 4);
-
-   if (out_size)
-      *out_size =
-         nir_channel(b, entry, offsetof(struct pan_afbc_block_info, size) / 4);
-
-   return nir_u2u64(b, offset);
-}
-
-#define MAX_LINE_SIZE 16
-
-static void
-copy_superblock(nir_builder *b, nir_def *dst, nir_def *dst_idx, nir_def *hdr_sz,
-                nir_def *src, nir_def *src_idx, nir_def *metadata,
-                nir_def *meta_idx, unsigned align)
-{
-   nir_def *hdr = read_afbc_header(b, src, src_idx);
-   nir_def *src_body_base_ptr = nir_u2u64(b, nir_channel(b, hdr, 0));
-   nir_def *src_bodyptr = nir_iadd(b, src, src_body_base_ptr);
-
-   nir_def *size;
-   nir_def *dst_offset = get_packed_offset(b, metadata, meta_idx, &size);
-   nir_def *dst_body_base_ptr = nir_iadd(b, dst_offset, hdr_sz);
-   nir_def *dst_bodyptr = nir_iadd(b, dst, dst_body_base_ptr);
-
-   /* Replace the `base_body_ptr` field if not zero (solid color) */
-   nir_def *hdr2 =
-      nir_vector_insert_imm(b, hdr, nir_u2u32(b, dst_body_base_ptr), 0);
-   hdr = nir_bcsel(b, nir_ieq_imm(b, src_body_base_ptr, 0), hdr, hdr2);
-   write_afbc_header(b, dst, dst_idx, hdr);
-
-   nir_variable *offset_var =
-      nir_local_variable_create(b->impl, glsl_uint_type(), "offset");
-   nir_store_var(b, offset_var, nir_imm_int(b, 0), 1);
-   nir_loop *loop = nir_push_loop(b);
-   {
-      nir_def *offset = nir_load_var(b, offset_var);
-      nir_if *loop_check = nir_push_if(b, nir_uge(b, offset, size));
-      nir_jump(b, nir_jump_break);
-      nir_push_else(b, loop_check);
-      unsigned line_sz = align <= MAX_LINE_SIZE ? align : MAX_LINE_SIZE;
-      for (unsigned i = 0; i < align / line_sz; ++i) {
-         nir_def *src_line = nir_iadd(b, src_bodyptr, nir_u2u64(b, offset));
-         nir_def *dst_line = nir_iadd(b, dst_bodyptr, nir_u2u64(b, offset));
-         nir_store_global(
-            b, dst_line, line_sz,
-            nir_load_global(b, src_line, line_sz, line_sz / 4, 32), ~0);
-         offset = nir_iadd_imm(b, offset, line_sz);
-      }
-      nir_store_var(b, offset_var, offset, 0x1);
-      nir_pop_if(b, loop_check);
-   }
-   nir_pop_loop(b, loop);
-}
-
 #define panfrost_afbc_size_get_info_field(b, field)                            \
    panfrost_afbc_get_info_field(size, b, field)
 
@@ -252,13 +180,12 @@ panfrost_afbc_create_pack_shader(struct panfrost_screen *screen, unsigned align,
       tiled ? get_morton_index(&b, dst_idx, src_stride, dst_stride) : dst_idx;
    nir_def *src = panfrost_afbc_pack_get_info_field(&b, src);
    nir_def *dst = panfrost_afbc_pack_get_info_field(&b, dst);
-   nir_def *header_size =
-      nir_u2u64(&b, panfrost_afbc_pack_get_info_field(&b, header_size));
+   nir_def *header_size = panfrost_afbc_pack_get_info_field(&b, header_size);
    nir_def *metadata = panfrost_afbc_pack_get_info_field(&b, metadata);
 
-   copy_superblock(&b, dst, dst_idx, header_size, src, src_idx, metadata,
-                   src_idx, align);
-
+   libpan_copy_superblock(&b, dst, dst_idx, nir_u2u64(&b, header_size),
+                          src, src_idx,
+                          metadata, src_idx);
    return b.shader;
 }
 

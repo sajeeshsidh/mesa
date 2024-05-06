@@ -85,7 +85,7 @@ libpanfrost_lib_files = files(
 )
 
 libpanfrost_shader_files = files(
-  'shaders/placeholder.cl'
+  'shaders/afbc_packing.cl'
 )
 
 prepended_input_args = []
