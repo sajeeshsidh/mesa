@@ -26,6 +26,11 @@
 
 #include <xf86drm.h>
 
+#include "glsl_types.h"
+#include "gen_shaders.h"
+#include "panfrost/compiler/bifrost_compile.h"
+#include "panfrost/midgard/midgard_compile.h"
+#include "nir_serialize.h"
 #include "drm-uapi/panfrost_drm.h"
 #include "util/hash_table.h"
 #include "util/macros.h"
@@ -37,6 +42,7 @@
 #include "pan_samples.h"
 #include "pan_texture.h"
 #include "pan_util.h"
+#include "pan_cl.h"
 #include "wrap.h"
 
 /* DRM_PANFROST_PARAM_TEXTURE_FEATURES0 will return a bitmask of supported
@@ -134,6 +140,20 @@ panfrost_open_device(void *memctx, int fd, struct panfrost_device *dev)
    dev->sample_positions = panfrost_bo_create(
       dev, panfrost_sample_positions_buffer_size(), 0, "Sample positions");
    panfrost_upload_sample_positions(dev->sample_positions->ptr.cpu);
+
+   glsl_type_singleton_init_or_ref();
+   const struct nir_shader_compiler_options *libpan_opts;
+   if (dev->arch >= 9)
+      libpan_opts = &bifrost_nir_options_v9;
+   else if (dev->arch >= 6)
+      libpan_opts = &bifrost_nir_options_v6;
+   else
+      libpan_opts = &midgard_nir_options;
+   struct blob_reader blob;
+   blob_reader_init(&blob, (void *)panfrost_get_libpanfrost_shaders_nir(dev->arch),
+                    panfrost_get_libpanfrost_shaders_nir_size(dev->arch));
+   dev->libpan = nir_deserialize(memctx, libpan_opts, &blob);
+
    return;
 
 err_free_kmod_dev:
@@ -161,4 +181,6 @@ panfrost_close_device(struct panfrost_device *dev)
 
    if (dev->kmod.dev)
       pan_kmod_dev_destroy(dev->kmod.dev);
+
+   glsl_type_singleton_decref();
 }
