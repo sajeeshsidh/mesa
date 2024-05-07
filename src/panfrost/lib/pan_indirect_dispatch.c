@@ -115,7 +115,7 @@ pan_indirect_dispatch_init(struct pan_indirect_dispatch_meta *meta)
    struct util_dynarray binary;
 
    util_dynarray_init(&binary, NULL);
-   pan_shader_preprocess(b.shader, inputs.gpu_id);
+   pan_shader_preprocess(b.shader, NULL, inputs.gpu_id);
    GENX(pan_shader_compile)(b.shader, &inputs, &binary, &shader_info);
 
    ralloc_free(b.shader);

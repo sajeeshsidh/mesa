@@ -111,7 +111,7 @@ panfrost_shader_compile(struct panfrost_screen *screen, const nir_shader *ir,
     * happens at CSO create time regardless.
     */
    if (gl_shader_stage_is_compute(s->info.stage))
-      pan_shader_preprocess(s, panfrost_device_gpu_id(dev));
+      pan_shader_preprocess(s, screen->dev.libpan, panfrost_device_gpu_id(dev));
 
    struct panfrost_compile_inputs inputs = {
       .debug = dbg,
@@ -414,7 +414,7 @@ panfrost_create_shader_state(struct pipe_context *pctx,
 
    /* Then run the suite of lowering and optimization, including I/O lowering */
    struct panfrost_device *dev = pan_device(pctx->screen);
-   pan_shader_preprocess(nir, panfrost_device_gpu_id(dev));
+   pan_shader_preprocess(nir, dev->libpan, panfrost_device_gpu_id(dev));
 
    /* Vertex shaders get passed images through the vertex attribute descriptor
     * array. We need to add an offset to all image intrinsics so they point

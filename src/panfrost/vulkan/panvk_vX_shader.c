@@ -368,7 +368,7 @@ panvk_per_arch(shader_create)(struct panvk_device *dev, gl_shader_stage stage,
       nir_print_shader(nir, stderr);
    }
 
-   pan_shader_preprocess(nir, inputs.gpu_id);
+   pan_shader_preprocess(nir, NULL, inputs.gpu_id);
 
    if (stage == MESA_SHADER_FRAGMENT) {
       panvk_lower_blend(dev, nir, &inputs, blend_state);
