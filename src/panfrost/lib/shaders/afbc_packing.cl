@@ -1,5 +1,22 @@
 #include <libpan.h>
 
+/* repeat bit pattern shifted left by 16 bits */
+#define SHORT_REP(x) (x | (x << 16))
+
+uint32_t
+libpan_get_morton_index(uint32_t idx, uint32_t src_stride, uint32_t dst_stride) {
+   uint32_t x = idx % dst_stride;
+   uint32_t y = idx / dst_stride;
+
+   uint32_t offset = (y & ~0x7) * src_stride + ((x >> 3) << 6);
+
+   x = x & 0x7 | ((y & 0x7) << 16);
+   x = (x | x << 2) & SHORT_REP(0x13);
+   x = (x | x << 1) & SHORT_REP(0x15);
+
+   return offset + ((x & 0xff) | (x >> 15));
+}
+
 struct pan_afbc_block_info {
    uint32_t size;
    uint32_t offset;

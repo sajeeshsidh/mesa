@@ -54,27 +54,6 @@ read_afbc_header(nir_builder *b, nir_def *buf, nir_def *idx)
 }
 
 static nir_def *
-get_morton_index(nir_builder *b, nir_def *idx, nir_def *src_stride,
-                 nir_def *dst_stride)
-{
-   nir_def *x = nir_umod(b, idx, dst_stride);
-   nir_def *y = nir_udiv(b, idx, dst_stride);
-
-   nir_def *offset = nir_imul(b, nir_iand_imm(b, y, ~0x7), src_stride);
-   offset = nir_iadd(b, offset, nir_ishl_imm(b, nir_ushr_imm(b, x, 3), 6));
-
-   x = nir_iand_imm(b, x, 0x7);
-   x = nir_iand_imm(b, nir_ior(b, x, nir_ishl_imm(b, x, 2)), 0x13);
-   x = nir_iand_imm(b, nir_ior(b, x, nir_ishl_imm(b, x, 1)), 0x15);
-   y = nir_iand_imm(b, y, 0x7);
-   y = nir_iand_imm(b, nir_ior(b, y, nir_ishl_imm(b, y, 2)), 0x13);
-   y = nir_iand_imm(b, nir_ior(b, y, nir_ishl_imm(b, y, 1)), 0x15);
-   nir_def *tile_idx = nir_ior(b, x, nir_ishl_imm(b, y, 1));
-
-   return nir_iadd(b, offset, tile_idx);
-}
-
-static nir_def *
 get_superblock_size(nir_builder *b, unsigned arch, nir_def *hdr,
                     nir_def *uncompressed_size)
 {
@@ -177,7 +156,7 @@ panfrost_afbc_create_pack_shader(struct panfrost_screen *screen, unsigned align,
    nir_def *dst_stride = panfrost_afbc_pack_get_info_field(&b, dst_stride);
    nir_def *dst_idx = nir_channel(&b, coord, 0);
    nir_def *src_idx =
-      tiled ? get_morton_index(&b, dst_idx, src_stride, dst_stride) : dst_idx;
+      tiled ? libpan_get_morton_index(&b, dst_idx, src_stride, dst_stride) : dst_idx;
    nir_def *src = panfrost_afbc_pack_get_info_field(&b, src);
    nir_def *dst = panfrost_afbc_pack_get_info_field(&b, dst);
    nir_def *header_size = panfrost_afbc_pack_get_info_field(&b, header_size);
