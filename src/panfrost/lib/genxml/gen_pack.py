@@ -66,21 +66,21 @@ __gen_padded(uint32_t v, uint32_t start, uint32_t end)
 
 
 static inline uint64_t
-__gen_unpack_uint(const uint8_t *restrict cl, uint32_t start, uint32_t end)
+__gen_unpack_uint(const uint32_t *restrict cl, uint32_t start, uint32_t end)
 {
    uint64_t val = 0;
    const int width = end - start + 1;
    const uint64_t mask = (width == 64 ? ~0 : (1ull << width) - 1 );
 
-   for (uint32_t byte = start / 8; byte <= end / 8; byte++) {
-      val |= ((uint64_t) cl[byte]) << ((byte - start / 8) * 8);
+   for (unsigned word = start / 32; word <= end / 32; word++) {
+      val |= ((uint64_t) cl[word]) << ((word - start / 32) * 32);
    }
 
-   return (val >> (start % 8)) & mask;
+   return (val >> (start % 32)) & mask;
 }
 
 static inline uint64_t
-__gen_unpack_sint(const uint8_t *restrict cl, uint32_t start, uint32_t end)
+__gen_unpack_sint(const uint32_t *restrict cl, uint32_t start, uint32_t end)
 {
    int size = end - start + 1;
    int64_t val = __gen_unpack_uint(cl, start, end);
@@ -89,7 +89,7 @@ __gen_unpack_sint(const uint8_t *restrict cl, uint32_t start, uint32_t end)
 }
 
 static inline float
-__gen_unpack_ulod(const uint8_t *restrict cl, uint32_t start, uint32_t end)
+__gen_unpack_ulod(const uint32_t *restrict cl, uint32_t start, uint32_t end)
 {
    uint32_t u = __gen_unpack_uint(cl, start, end);
 
@@ -97,7 +97,7 @@ __gen_unpack_ulod(const uint8_t *restrict cl, uint32_t start, uint32_t end)
 }
 
 static inline float
-__gen_unpack_slod(const uint8_t *restrict cl, uint32_t start, uint32_t end)
+__gen_unpack_slod(const uint32_t *restrict cl, uint32_t start, uint32_t end)
 {
    int32_t u = __gen_unpack_sint(cl, start, end);
 
@@ -105,7 +105,7 @@ __gen_unpack_slod(const uint8_t *restrict cl, uint32_t start, uint32_t end)
 }
 
 static inline uint64_t
-__gen_unpack_padded(const uint8_t *restrict cl, uint32_t start, uint32_t end)
+__gen_unpack_padded(const uint32_t *restrict cl, uint32_t start, uint32_t end)
 {
    unsigned val = __gen_unpack_uint(cl, start, end);
    unsigned shift = val & 0b11111;
@@ -576,7 +576,7 @@ class Group(object):
             convert = None
 
             args = []
-            args.append('cl')
+            args.append('(const uint32_t *)cl')
             args.append(str(fieldref.start))
             args.append(str(fieldref.end))
 
