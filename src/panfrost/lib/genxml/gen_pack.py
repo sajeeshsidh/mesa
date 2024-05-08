@@ -41,10 +41,125 @@ pack_header = """
 #ifndef PAN_PACK_H
 #define PAN_PACK_H
 
+
+#ifndef __OPENCL_VERSION__
 #include <stdio.h>
 #include <inttypes.h>
-
 #include "util/bitpack_helpers.h"
+#else
+
+#include "libpan.h"
+#define assert(x)
+#define ALWAYS_INLINE inline
+/* prevents OpenCL's constant keyword from clashing with packed fields named
+ * constant */
+#define constant _constant
+
+static uint64_t
+util_bitpack_uint(uint64_t v, uint32_t start, uint32_t end)
+{
+   return v << start;
+}
+
+static uint64_t
+util_bitpack_sint(int64_t v, uint32_t start, uint32_t end)
+{
+   const int bits = end - start + 1;
+   const uint64_t mask = (bits == 64) ? ~((uint64_t)0) : (1ull << bits) - 1;
+   return (v & mask) << start;
+}
+
+static uint32_t
+util_bitpack_float(float v)
+{
+   union { float f; uint32_t dw; } x;
+   x.f = v;
+   return x.dw;
+}
+
+static inline float
+uif(uint32_t ui)
+{
+   union { float f; uint32_t dw; } fi;
+   fi.dw = ui;
+   return fi.f;
+}
+
+#define DIV_ROUND_UP( A, B )  ( ((A) + (B) - 1) / (B) )
+#define CLAMP( X, MIN, MAX )  ( (X)>(MIN) ? ((X)>(MAX) ? (MAX) : (X)) : (MIN) )
+#define ALIGN_POT(x, pot_align) (((x) + (pot_align) - 1) & ~((pot_align) - 1))
+
+static inline unsigned
+util_logbase2(unsigned n)
+{
+   return ((sizeof(unsigned) * 8 - 1) - __builtin_clz(n | 1));
+}
+
+static inline int64_t
+util_sign_extend(uint64_t val, unsigned width)
+{
+   unsigned shift = 64 - width;
+   return (int64_t)(val << shift) >> shift;
+}
+
+static uint64_t
+u_uintN_max(uint32_t bits)
+{
+   return (1ul << bits) - 1;
+}
+
+#define INT64_MAX 0x7fffffffffffffffLL
+// HACK
+#define llroundf(f) ((uint64_t)f)
+
+static int64_t
+u_intN_max(uint32_t bit_size)
+{
+   return INT64_MAX >> (64 - bit_size);
+}
+
+static int64_t
+u_intN_min(uint32_t bit_size)
+{
+   /* On 2's compliment platforms, which is every platform Mesa is likely to
+    * every worry about, stdint.h generally calculated INT##_MIN in this
+    * manner.
+    */
+   return (-u_intN_max(bit_size)) - 1;
+}
+
+static uint64_t
+util_bitpack_ufixed_clamp(float v, uint32_t start, uint32_t end,
+                          uint32_t fract_bits)
+{
+   const float factor = (1 << fract_bits);
+
+   const int total_bits = end - start + 1;
+   const float min = 0.0f;
+   const float max = u_uintN_max(total_bits) / factor;
+
+   const uint64_t uint_val = llroundf(CLAMP(v, min, max) * factor);
+
+   return uint_val << start;
+}
+
+static uint64_t
+util_bitpack_sfixed_clamp(float v, uint32_t start, uint32_t end,
+                          uint32_t fract_bits)
+{
+   const float factor = (1 << fract_bits);
+
+   const int total_bits = end - start + 1;
+   const float min = u_intN_min(total_bits) / factor;
+   const float max = u_intN_max(total_bits) / factor;
+
+   const int64_t int_val = llroundf(CLAMP(v, min, max) * factor);
+   const uint64_t mask = ~0ull >> (64 - (end - start + 1));
+
+   return (int_val & mask) << start;
+}
+#endif
+
 
 #define __gen_unpack_float(x, y, z) uif(__gen_unpack_uint(x, y, z))
 
@@ -70,7 +185,7 @@ __gen_unpack_uint(const uint32_t *restrict cl, uint32_t start, uint32_t end)
 {
    uint64_t val = 0;
    const int width = end - start + 1;
-   const uint64_t mask = (width == 64 ? ~0 : (1ull << width) - 1 );
+   const uint64_t mask = (width == 64 ? ~((uint64_t)0) : ((uint64_t)1 << width) - 1 );
 
    for (unsigned word = start / 32; word <= end / 32; word++) {
       val |= ((uint64_t) cl[word]) << ((word - start / 32) * 32);
@@ -127,7 +242,7 @@ __gen_unpack_padded(const uint32_t *restrict cl, uint32_t start, uint32_t end)
 
 #define pan_unpack(src, T, name)                        \\
         struct PREFIX1(T) name;                         \\
-        PREFIX2(T, unpack)((uint8_t *)(src), &name)
+        PREFIX2(T, unpack)((const uint8_t *)(src), &name)
 
 #define pan_print(fp, T, var, indent)                   \\
         PREFIX2(T, print)(fp, &(var), indent)
@@ -176,6 +291,7 @@ static inline void pan_merge_helper(uint32_t *dst, const uint32_t *src, size_t b
 
 v6_format_printer = """
 
+#ifndef __OPENCL_VERSION__
 #define mali_pixel_format_print(fp, format) \\
     fprintf(fp, "%*sFormat (v6): %s%s%s %s%s%s%s\\n", indent, "", \\
         mali_format_as_str((enum mali_format)((format >> 12) & 0xFF)), \\
@@ -185,18 +301,23 @@ v6_format_printer = """
         mali_channel_as_str((enum mali_channel)((format >> 3) & 0x7)), \\
         mali_channel_as_str((enum mali_channel)((format >> 6) & 0x7)), \\
         mali_channel_as_str((enum mali_channel)((format >> 9) & 0x7)));
-
+#else
+#define mali_pixel_format_print(fp, format)
+#endif
 """
 
 v7_format_printer = """
 
+#ifndef __OPENCL_VERSION__
 #define mali_pixel_format_print(fp, format) \\
     fprintf(fp, "%*sFormat (v7): %s%s %s%s\\n", indent, "", \\
         mali_format_as_str((enum mali_format)((format >> 12) & 0xFF)), \\
         (format & (1 << 20)) ? " sRGB" : "", \\
         mali_rgb_component_order_as_str((enum mali_rgb_component_order)(format & ((1 << 12) - 1))), \\
         (format & (1 << 21)) ? " XXX BAD BIT" : "");
-
+#else
+#define mali_pixel_format_print(fp, format)
+#endif
 """
 
 def to_alphanum(name):
@@ -557,6 +678,7 @@ class Group(object):
         words = {}
         self.collect_words(self.fields, 0, '', words)
 
+        print('#ifndef __OPENCL_VERSION__')
         for index in range(self.length // 4):
             base = index * 32
             word = words.get(index, self.Word())
@@ -568,6 +690,7 @@ class Group(object):
             if mask != ALL_ONES:
                 TMPL = '   if (((const uint32_t *) cl)[{}] & {}) fprintf(stderr, "XXX: Invalid field of {} unpacked at word {}\\n");'
                 print(TMPL.format(index, hex(mask ^ ALL_ONES), self.label, index))
+        print('#endif')
 
         fieldrefs = []
         self.collect_fields(self.fields, 0, '', fieldrefs)
@@ -576,7 +699,7 @@ class Group(object):
             convert = None
 
             args = []
-            args.append('(const uint32_t *)cl')
+            args.append('(const uint32_t *) cl')
             args.append(str(fieldref.start))
             args.append(str(fieldref.end))
 
@@ -724,7 +847,9 @@ class Parser(object):
             self.aggregate = None
         elif name == "panxml":
             # Include at the end so it can depend on us but not the converse
+            print('#ifndef __OPENCL_VERSION__')
             print('#include "panfrost-job.h"')
+            print('#endif')
             print('#endif')
 
     def emit_header(self, name):
@@ -792,12 +917,14 @@ class Parser(object):
         print("}\n")
 
     def emit_print_function(self, name, group):
+        print("#ifndef __OPENCL_VERSION__")
         print("static inline void")
         print("{}_print(FILE *fp, const struct {} * values, unsigned indent)\n{{".format(name.upper(), name))
 
         group.emit_print_function()
 
         print("}\n")
+        print("#endif")
 
     def emit_struct(self):
         name = self.struct
@@ -823,6 +950,7 @@ class Parser(object):
             print('        % -36s = %6d,' % (name, value.value))
         print('};\n')
 
+        print("#ifndef __OPENCL_VERSION__")
         print("static inline const char *")
         print("{}_as_str(enum {} imm)\n{{".format(e_name.lower(), e_name))
         print("    switch (imm) {")
@@ -833,6 +961,7 @@ class Parser(object):
         print('    default: return "XXX: INVALID";')
         print("    }")
         print("}\n")
+        print("#endif")
 
     def parse(self, filename):
         file = open(filename, "rb")
