@@ -446,6 +446,7 @@ struct radv_cmd_state {
    bool uses_vrs_coarse_shading;
    bool uses_dynamic_patch_control_points;
    bool uses_dynamic_vertex_binding_stride;
+   bool rbplus_depth_only_enabled;
 };
 
 struct radv_enc_state {
