@@ -1,4 +1,5 @@
 #include <libpan.h>
+#include "gen_macros.h"
 
 /* repeat bit pattern shifted left by 16 bits */
 #define SHORT_REP(x) (x | (x << 16))
@@ -17,23 +18,17 @@ libpan_get_morton_index(uint32_t idx, uint32_t src_stride, uint32_t dst_stride) 
    return offset + ((x & 0xff) | (x >> 15));
 }
 
-struct pan_afbc_block_info {
-   uint32_t size;
-   uint32_t offset;
-};
-
-PAN_STATIC_ASSERT(sizeof(struct pan_afbc_block_info) == 8);
-
 void
 libpan_copy_superblock(uint32_t *dst, uint32_t dst_idx, uint64_t hdr_sz,
                        uint32_t *src, uint32_t src_idx,
-                       struct pan_afbc_block_info *metadata, uint32_t meta_idx)
+                       __constant struct mali_afbc_block_info_packed *metadata, uint32_t meta_idx)
 {
 
    uint4 hdr = vload4(src_idx, src);
    uint64_t src_bodyptr = (uint64_t)src + hdr.x;
 
-   struct pan_afbc_block_info meta_entry = metadata[meta_idx];
+   struct mali_afbc_block_info_packed block_info_packed = metadata[meta_idx];
+   pan_unpack(&block_info_packed, AFBC_BLOCK_INFO, meta_entry);
    uint64_t dst_body_base_ptr = meta_entry.offset + hdr_sz;
    uint64_t dst_bodyptr = (uint64_t) dst + dst_body_base_ptr;
    uint32_t size = meta_entry.size;
