@@ -236,4 +236,9 @@ void panvk_per_arch(cmd_prepare_tiler_context)(struct panvk_cmd_buffer *cmdbuf);
 void panvk_per_arch(emit_viewport)(const VkViewport *viewport,
                                    const VkRect2D *scissor, void *vpd);
 
+void panvk_per_arch(cmd_bind_shaders)(struct vk_command_buffer *vk_cmd,
+                                      uint32_t stage_count,
+                                      const gl_shader_stage *stages,
+                                      struct vk_shader **const shaders);
+
 #endif

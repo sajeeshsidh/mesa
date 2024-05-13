@@ -2619,3 +2619,35 @@ panvk_per_arch(CmdPushDescriptorSetWithTemplateKHR)(
    panvk_per_arch(push_descriptor_set_with_template)(
       push_set, set_layout, descriptorUpdateTemplate, pData);
 }
+
+void
+panvk_per_arch(cmd_bind_shaders)(struct vk_command_buffer *vk_cmd,
+                                 uint32_t stage_count,
+                                 const gl_shader_stage *stages,
+                                 struct vk_shader **const shaders)
+{
+   struct panvk_cmd_buffer *cmd =
+      container_of(vk_cmd, struct panvk_cmd_buffer, vk);
+
+   bool is_compute = false;
+   bool should_link = false;
+
+   for (uint32_t i = 0; i < stage_count; i++) {
+      struct panvk_shader *shader =
+         container_of(shaders[i], struct panvk_shader, vk);
+
+      is_compute =
+         stages[i] == MESA_SHADER_COMPUTE || stages[i] == MESA_SHADER_KERNEL;
+      should_link |= shader != NULL;
+
+      if (is_compute)
+         panvk_cmd_bind_compute_shader(cmd, stages[i], shader);
+      else
+         panvk_cmd_bind_graphics_shader(cmd, stages[i], shader);
+   }
+
+   if (!is_compute && should_link)
+      panvk_per_arch(link_shaders)(&cmd->desc_pool.base,
+                                   &cmd->state.gfx.shaders.vs,
+                                   &cmd->state.gfx.shaders.fs);
+}
