@@ -58,18 +58,40 @@ get_temp_registers(aco_ptr<Instruction>& instr)
          temp_registers += def.getTemp();
    }
 
+   /* Usually the register demand before an instruction would be considered part of the previous
+    * instruction, since it's not greater than the register demand for that previous instruction.
+    * Except, it can be greater in case we need to copy operands around: the RA needs to reserve
+    * space between the two instructions for the copies.
+    */
+   RegisterDemand demand_between;
+
    for (Operand op : instr->operands) {
       if (op.isTemp() && op.isLateKill() && op.isFirstKill())
          temp_registers += op.getTemp();
+      if (op.isTemp() && op.isFixed() && !op.isFirstKill()) {
+         for (Operand op2 : instr->operands) {
+            if (!op2.isTemp())
+               continue;
+            if (op2 == op)
+               break;
+
+            if (op2.tempId() == op.tempId() && op2.isFixed() && op2.physReg() != op.physReg()) {
+               if (op.isLateKill())
+                  temp_registers += op.getTemp();
+               else
+                  demand_between += op.getTemp();
+               break;
+            }
+         }
+      }
    }
 
    int op_idx = get_op_fixed_to_def(instr.get());
-   if (op_idx != -1 && !instr->operands[op_idx].isKill()) {
-      RegisterDemand before_instr;
-      before_instr -= get_live_changes(instr);
-      handle_def_fixed_to_op(&temp_registers, before_instr, instr.get(), op_idx);
-   }
+   if (op_idx != -1 && !instr->operands[op_idx].isKill())
+      demand_between += instr->definitions[0].getTemp();
 
+   if (demand_between.sgpr || demand_between.vgpr)
+      temp_registers.update(demand_between - get_live_changes(instr));
    return temp_registers;
 }
 
