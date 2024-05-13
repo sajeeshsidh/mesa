@@ -62,6 +62,7 @@ struct panvk_compute_sysvals {
 
 struct panvk_shader {
    struct pan_shader_info info;
+   struct panvk_set_collection_layout set_layout;
    struct pan_compute_dim local_size;
    bool has_img_access;
 

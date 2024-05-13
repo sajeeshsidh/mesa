@@ -157,6 +157,8 @@ panvk_per_arch(shader_create)(
    if (!shader)
       return NULL;
 
+   shader->set_layout = *layout;
+
    /* TODO these are made-up */
    const struct spirv_to_nir_options spirv_options = {
       .ubo_addr_format = nir_address_format_32bit_index_offset,
