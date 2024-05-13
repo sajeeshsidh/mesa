@@ -2313,10 +2313,14 @@ panvk_per_arch(CmdBindDescriptorSets)(
    const uint32_t *pDynamicOffsets)
 {
    VK_FROM_HANDLE(panvk_cmd_buffer, cmdbuf, commandBuffer);
-   VK_FROM_HANDLE(panvk_pipeline_layout, playout, layout);
+   VK_FROM_HANDLE(vk_pipeline_layout, playout, layout);
 
    struct panvk_descriptor_state *descriptors_state =
       panvk_cmd_get_desc_state(cmdbuf, pipelineBindPoint);
+
+   struct panvk_set_collection_layout collection_layout;
+   panvk_per_arch(set_collection_layout_fill)(
+      &collection_layout, playout->set_count, playout->set_layouts);
 
    unsigned dynoffset_idx = 0;
    for (unsigned i = 0; i < descriptorSetCount; ++i) {
@@ -2326,8 +2330,8 @@ panvk_per_arch(CmdBindDescriptorSets)(
       descriptors_state->sets[idx] = set;
 
       if (set->layout->num_dyn_ssbos || set->layout->num_dyn_ubos) {
-         unsigned dyn_ubo_slot = playout->set_layout.sets[idx].dyn_ubo_offset;
-         unsigned dyn_ssbo_slot = playout->set_layout.sets[idx].dyn_ssbo_offset;
+         unsigned dyn_ubo_slot = collection_layout.sets[idx].dyn_ubo_offset;
+         unsigned dyn_ssbo_slot = collection_layout.sets[idx].dyn_ssbo_offset;
 
          for (unsigned b = 0; b < set->layout->binding_count; b++) {
             for (unsigned e = 0; e < set->layout->bindings[b].array_size; e++) {
@@ -2348,7 +2352,7 @@ panvk_per_arch(CmdBindDescriptorSets)(
    }
 
    /* Unconditionally reset all previously emitted descriptors tables.
-    * TODO: we could be smarter by checking which part of the pipeline layout
+    * TODO: we could be smarter by checking which part of the layout
     * are compatible with the previouly bound descriptor sets.
     */
    descriptors_state->ubos = 0;
