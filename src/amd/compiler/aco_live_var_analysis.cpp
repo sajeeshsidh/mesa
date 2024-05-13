@@ -534,6 +534,7 @@ update_vgpr_sgpr_demand(Program* program, const RegisterDemand new_demand)
    uint16_t sgpr_limit = get_addr_sgpr_from_waves(program, program->min_waves);
    uint16_t vgpr_limit = get_addr_vgpr_from_waves(program, program->min_waves);
 
+   program->cur_reg_demand = new_demand;
    /* this won't compile, register pressure reduction necessary */
    if (new_demand.vgpr > vgpr_limit || new_demand.sgpr > sgpr_limit) {
       program->num_waves = 0;
