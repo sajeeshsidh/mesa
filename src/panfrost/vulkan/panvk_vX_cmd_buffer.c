@@ -2393,24 +2393,75 @@ panvk_per_arch(CmdPushConstants)(VkCommandBuffer commandBuffer,
 }
 
 static void
-fill_shader_state(struct panvk_cmd_shader_state *state,
-                  const struct panvk_pipeline_shader *pshader,
-                  const gl_shader_stage stage)
+panvk_cmd_bind_shader(struct panvk_cmd_buffer *cmd, const gl_shader_stage stage,
+                      struct panvk_cmd_shader_state *shader_state,
+                      const struct panvk_shader *shader)
 {
-   memset(state, 0, sizeof(*state));
+   memset(shader_state, 0, sizeof(*shader_state));
 
-   state->shader = pshader->base;
-   state->rsd = pshader->rsd;
+   shader_state->shader = shader;
 
-   if (state->shader != NULL) {
-      state->info = state->shader->info;
-      state->has_img_access = state->shader->has_img_access;
+   if (shader != NULL) {
+      shader_state->info = shader->info;
+      shader_state->has_img_access = shader->has_img_access;
+
+      if (stage != MESA_SHADER_FRAGMENT) {
+         struct panfrost_ptr rsd =
+            pan_pool_alloc_desc(&cmd->desc_pool.base, RENDERER_STATE);
+
+         pan_pack(rsd.cpu, RENDERER_STATE, cfg) {
+            pan_shader_prepare_rsd(&shader_state->info,
+                                   shader_state->shader->upload_addr, &cfg);
+         }
+
+         shader_state->rsd = rsd.gpu;
+      }
+   }
+}
+
+static void
+panvk_cmd_bind_compute_shader(struct panvk_cmd_buffer *cmd,
+                              const gl_shader_stage stage,
+                              struct panvk_shader *shader)
+{
+   if (cmd->state.compute.shader.shader == shader)
+      return;
+
+   panvk_cmd_bind_shader(cmd, stage, &cmd->state.compute.shader, shader);
+}
+
+static void
+panvk_cmd_bind_graphics_shader(struct panvk_cmd_buffer *cmd,
+                               const gl_shader_stage stage,
+                               struct panvk_shader *shader)
+{
+   struct panvk_cmd_shader_state *shader_state = NULL;
+   switch (stage) {
+   case MESA_SHADER_VERTEX:
+      shader_state = &cmd->state.gfx.shaders.vs;
+      break;
+
+   case MESA_SHADER_FRAGMENT:
+      shader_state = &cmd->state.gfx.shaders.fs;
+      break;
+
+   default:
+      assert(!"Unsupported graphics pipeline stage");
    }
 
-   /* Make sure the stage info is correct even if no stage info is provided for
-    * this stage in pStages.
+   /* Make sure the stage info is correct even if no stage info is provided
+    * for this stage in pStages.
     */
-   state->info.stage = stage;
+   shader_state->info.stage = stage;
+
+   if (shader_state->shader == shader)
+      return;
+
+   /* Enforce FS RSD to reemit. */
+   if (stage == MESA_SHADER_FRAGMENT)
+      cmd->state.gfx.fs.rsd = 0;
+
+   panvk_cmd_bind_shader(cmd, stage, shader_state, shader);
 }
 
 VKAPI_ATTR void VKAPI_CALL
@@ -2429,15 +2480,13 @@ panvk_per_arch(CmdBindPipeline)(VkCommandBuffer commandBuffer,
       vk_cmd_set_dynamic_graphics_state(&cmdbuf->vk,
                                         &gfx_pipeline->state.dynamic);
 
-      fill_shader_state(&cmdbuf->state.gfx.shaders.vs, &gfx_pipeline->vs,
-                        MESA_SHADER_VERTEX);
-      fill_shader_state(&cmdbuf->state.gfx.shaders.fs, &gfx_pipeline->fs,
-                        MESA_SHADER_FRAGMENT);
+      panvk_cmd_bind_graphics_shader(cmdbuf, MESA_SHADER_VERTEX,
+                                     gfx_pipeline->vs);
+      panvk_cmd_bind_graphics_shader(cmdbuf, MESA_SHADER_FRAGMENT,
+                                     gfx_pipeline->fs);
       panvk_per_arch(link_shaders)(&cmdbuf->desc_pool.base,
                                    &cmdbuf->state.gfx.shaders.vs,
                                    &cmdbuf->state.gfx.shaders.fs);
-
-      cmdbuf->state.gfx.fs.rsd = 0;
       break;
    }
 
@@ -2445,8 +2494,8 @@ panvk_per_arch(CmdBindPipeline)(VkCommandBuffer commandBuffer,
       const struct panvk_compute_pipeline *compute_pipeline =
          panvk_pipeline_to_compute_pipeline(pipeline);
 
-      fill_shader_state(&cmdbuf->state.compute.shader, &compute_pipeline->cs,
-                        MESA_SHADER_COMPUTE);
+      panvk_cmd_bind_compute_shader(cmdbuf, MESA_SHADER_COMPUTE,
+                                    compute_pipeline->cs);
       break;
    }
 

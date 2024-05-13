@@ -26,14 +26,6 @@
 
 #define MAX_RTS 8
 
-struct panvk_pipeline_shader {
-   struct panvk_shader *base;
-   mali_ptr rsd;
-
-   struct pan_shader_info info;
-   bool has_img_access;
-};
-
 enum panvk_pipeline_type {
    PANVK_PIPELINE_GRAPHICS,
    PANVK_PIPELINE_COMPUTE,
@@ -44,8 +36,6 @@ struct panvk_pipeline {
    enum panvk_pipeline_type type;
 
    const struct vk_pipeline_layout *layout;
-
-   struct panvk_pool desc_pool;
 };
 
 VK_DEFINE_NONDISP_HANDLE_CASTS(panvk_pipeline, base, VkPipeline,
@@ -54,8 +44,8 @@ VK_DEFINE_NONDISP_HANDLE_CASTS(panvk_pipeline, base, VkPipeline,
 struct panvk_graphics_pipeline {
    struct panvk_pipeline base;
 
-   struct panvk_pipeline_shader vs;
-   struct panvk_pipeline_shader fs;
+   struct panvk_shader *vs;
+   struct panvk_shader *fs;
 
    struct {
       struct vk_dynamic_graphics_state dynamic;
@@ -77,7 +67,7 @@ panvk_pipeline_to_graphics_pipeline(struct panvk_pipeline *pipeline)
 struct panvk_compute_pipeline {
    struct panvk_pipeline base;
 
-   struct panvk_pipeline_shader cs;
+   struct panvk_shader *cs;
 };
 
 static struct panvk_compute_pipeline *
