@@ -13,6 +13,7 @@
 #include <stdint.h>
 
 #include "vulkan/runtime/vk_command_buffer.h"
+#include "vk_pipeline_layout.h"
 
 #include "panvk_descriptor_set.h"
 #include "panvk_descriptor_set_layout.h"
@@ -77,6 +78,10 @@ struct panvk_cmd_event_op {
 };
 
 struct panvk_descriptor_state {
+   struct panvk_set_collection_layout collection_layout;
+   /* Used for collection_layout caching */
+   struct vk_pipeline_layout *pipeline_layout;
+
    const struct panvk_descriptor_set *sets[MAX_SETS];
    struct panvk_push_descriptor_set *push_sets[MAX_SETS];
 
