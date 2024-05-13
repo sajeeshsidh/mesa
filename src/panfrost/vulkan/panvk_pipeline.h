@@ -26,6 +26,7 @@
 #define MAX_RTS 8
 
 struct panvk_pipeline_shader {
+   struct panvk_shader *base;
    mali_ptr code;
    mali_ptr rsd;
 

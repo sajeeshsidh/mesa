@@ -73,6 +73,7 @@ init_pipeline_shader(struct panvk_pipeline *pipeline,
       pshader->code = 0;
    }
 
+   pshader->base = shader;
    pshader->info = shader->info;
    pshader->has_img_access = shader->has_img_access;
 
@@ -94,8 +95,18 @@ init_pipeline_shader(struct panvk_pipeline *pipeline,
       pshader->rsd = rsd.gpu;
    }
 
-   panvk_per_arch(shader_destroy)(dev, shader, alloc);
    return VK_SUCCESS;
+}
+
+static void
+destroy_pipeline_shader(struct panvk_pipeline *pipeline,
+                        struct panvk_pipeline_shader *pshader,
+                        const VkAllocationCallbacks *alloc)
+{
+   struct panvk_device *dev = to_panvk_device(pipeline->base.device);
+
+   if (pshader->base != NULL)
+      panvk_per_arch(shader_destroy)(dev, pshader->base, alloc);
 }
 
 static mali_pixel_format
@@ -460,6 +471,24 @@ panvk_per_arch(DestroyPipeline)(VkDevice _device, VkPipeline _pipeline,
 {
    VK_FROM_HANDLE(panvk_device, device, _device);
    VK_FROM_HANDLE(panvk_pipeline, pipeline, _pipeline);
+
+   switch (pipeline->type) {
+   case PANVK_PIPELINE_GRAPHICS: {
+      struct panvk_graphics_pipeline *gfx_pipeline =
+         panvk_pipeline_to_graphics_pipeline(pipeline);
+
+      destroy_pipeline_shader(pipeline, &gfx_pipeline->vs, pAllocator);
+      destroy_pipeline_shader(pipeline, &gfx_pipeline->fs, pAllocator);
+      break;
+   }
+   case PANVK_PIPELINE_COMPUTE: {
+      struct panvk_compute_pipeline *compute_pipeline =
+         panvk_pipeline_to_compute_pipeline(pipeline);
+
+      destroy_pipeline_shader(pipeline, &compute_pipeline->cs, pAllocator);
+      break;
+   }
+   }
 
    panvk_pool_cleanup(&pipeline->bin_pool);
    panvk_pool_cleanup(&pipeline->desc_pool);
