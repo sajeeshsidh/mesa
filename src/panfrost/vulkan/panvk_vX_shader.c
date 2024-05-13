@@ -40,6 +40,7 @@
 
 #include "spirv/nir_spirv.h"
 #include "util/mesa-sha1.h"
+#include "util/u_dynarray.h"
 #include "nir_builder.h"
 #include "nir_conversion_builder.h"
 #include "nir_deref.h"
@@ -49,6 +50,7 @@
 #include "util/pan_lower_framebuffer.h"
 #include "pan_shader.h"
 
+#include "vk_log.h"
 #include "vk_util.h"
 
 static nir_def *
@@ -154,8 +156,6 @@ panvk_per_arch(shader_create)(
                        VK_SYSTEM_ALLOCATION_SCOPE_COMMAND);
    if (!shader)
       return NULL;
-
-   util_dynarray_init(&shader->binary, NULL);
 
    /* TODO these are made-up */
    const struct spirv_to_nir_options spirv_options = {
@@ -310,7 +310,31 @@ panvk_per_arch(shader_create)(
    NIR_PASS_V(nir, nir_shader_instructions_pass, panvk_lower_sysvals,
               nir_metadata_block_index | nir_metadata_dominance, NULL);
 
-   GENX(pan_shader_compile)(nir, &inputs, &shader->binary, &shader->info);
+   struct util_dynarray binary;
+   util_dynarray_init(&binary, NULL);
+
+   GENX(pan_shader_compile)(nir, &inputs, &binary, &shader->info);
+
+   void *bin_ptr = util_dynarray_element(&binary, uint8_t, 0);
+   unsigned bin_size = util_dynarray_num_elements(&binary, uint8_t);
+
+   shader->bin_size = 0;
+   shader->bin_ptr = NULL;
+
+   if (bin_size) {
+      void *data = malloc(bin_size);
+
+      if (data == NULL) {
+         ralloc_free(nir);
+         panvk_per_arch(shader_destroy)(dev, shader, alloc);
+         return NULL;
+      }
+
+      memcpy(data, bin_ptr, bin_size);
+      shader->bin_size = bin_size;
+      shader->bin_ptr = data;
+   }
+   util_dynarray_fini(&binary);
 
    /* Patch the descriptor count */
    shader->info.ubo_count =
@@ -351,7 +375,7 @@ panvk_per_arch(shader_destroy)(struct panvk_device *dev,
                                struct panvk_shader *shader,
                                const VkAllocationCallbacks *alloc)
 {
-   util_dynarray_fini(&shader->binary);
+   free((void *)shader->bin_ptr);
    vk_free2(&dev->vk.alloc, alloc, shader);
 }
 
