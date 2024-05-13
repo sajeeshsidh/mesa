@@ -2329,6 +2329,9 @@ panvk_per_arch(CmdBindDescriptorSets)(
 
       descriptors_state->sets[idx] = set;
 
+      if (!set)
+         continue;
+
       if (set->layout->num_dyn_ssbos || set->layout->num_dyn_ubos) {
          unsigned dyn_ubo_slot =
             descriptors_state->collection_layout.sets[idx].dyn_ubo_offset;
