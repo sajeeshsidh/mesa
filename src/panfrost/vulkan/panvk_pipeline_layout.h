@@ -22,7 +22,7 @@ struct panvk_pipeline_layout {
    struct vk_pipeline_layout vk;
 
    unsigned char sha1[20];
-   struct panvk_set_collection_layout set_layout;
+   struct panvk_set_collection_layout sets_layout;
 };
 
 VK_DEFINE_NONDISP_HANDLE_CASTS(panvk_pipeline_layout, vk.base, VkPipelineLayout,

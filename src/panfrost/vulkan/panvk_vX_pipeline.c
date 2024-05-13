@@ -30,7 +30,6 @@
 #include "panvk_device.h"
 #include "panvk_entrypoints.h"
 #include "panvk_pipeline.h"
-#include "panvk_pipeline_layout.h"
 #include "panvk_priv_bo.h"
 #include "panvk_shader.h"
 
@@ -44,6 +43,7 @@
 #include "vk_blend.h"
 #include "vk_format.h"
 #include "vk_pipeline_cache.h"
+#include "vk_pipeline_layout.h"
 #include "vk_render_pass.h"
 #include "vk_util.h"
 
@@ -60,9 +60,12 @@ init_pipeline_shader(struct panvk_pipeline *pipeline,
    struct panvk_device *dev = to_panvk_device(pipeline->base.device);
    struct panvk_shader *shader;
 
-   shader = panvk_per_arch(shader_create)(dev, stage_info,
-                                          pipeline->layout->vk.set_layouts,
-                                          &pipeline->layout->set_layout, alloc);
+   struct panvk_set_collection_layout sets_layout;
+   panvk_per_arch(set_collection_layout_fill)(
+      &sets_layout, pipeline->layout->set_count, pipeline->layout->set_layouts);
+
+   shader = panvk_per_arch(shader_create)(
+      dev, stage_info, pipeline->layout->set_layouts, &sets_layout, alloc);
    if (!shader)
       return vk_error(dev, VK_ERROR_OUT_OF_HOST_MEMORY);
 
@@ -312,7 +315,7 @@ panvk_graphics_pipeline_create(struct panvk_device *dev,
                                const VkAllocationCallbacks *alloc,
                                struct panvk_pipeline **out)
 {
-   VK_FROM_HANDLE(panvk_pipeline_layout, layout, create_info->layout);
+   VK_FROM_HANDLE(vk_pipeline_layout, layout, create_info->layout);
    struct vk_graphics_pipeline_all_state all;
    struct vk_graphics_pipeline_state state = {};
    VkResult result;
@@ -410,7 +413,7 @@ panvk_compute_pipeline_create(struct panvk_device *dev,
                               const VkAllocationCallbacks *alloc,
                               struct panvk_pipeline **out)
 {
-   VK_FROM_HANDLE(panvk_pipeline_layout, layout, create_info->layout);
+   VK_FROM_HANDLE(vk_pipeline_layout, layout, create_info->layout);
    struct panvk_compute_pipeline *compute_pipeline = vk_object_zalloc(
       &dev->vk, alloc, sizeof(*compute_pipeline), VK_OBJECT_TYPE_PIPELINE);
 

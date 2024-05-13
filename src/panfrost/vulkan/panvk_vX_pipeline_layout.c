@@ -39,9 +39,9 @@ panvk_per_arch(CreatePipelineLayout)(
 
    _mesa_sha1_init(&ctx);
    panvk_per_arch(set_collection_layout_fill)(
-      &layout->set_layout, layout->vk.set_count, layout->vk.set_layouts);
+      &layout->sets_layout, layout->vk.set_count, layout->vk.set_layouts);
    panvk_per_arch(set_collection_layout_hash_state)(
-      &layout->set_layout, layout->vk.set_layouts, &ctx);
+      &layout->sets_layout, layout->vk.set_layouts, &ctx);
    _mesa_sha1_final(&ctx, layout->sha1);
 
    *pPipelineLayout = panvk_pipeline_layout_to_handle(layout);

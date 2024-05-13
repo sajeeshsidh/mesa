@@ -15,6 +15,7 @@
 
 #include "vk_graphics_state.h"
 #include "vk_object.h"
+#include "vk_pipeline_layout.h"
 
 #include "util/pan_ir.h"
 
@@ -48,7 +49,7 @@ struct panvk_pipeline {
    struct vk_object_base base;
    enum panvk_pipeline_type type;
 
-   const struct panvk_pipeline_layout *layout;
+   const struct vk_pipeline_layout *layout;
 
    struct panvk_pool bin_pool;
    struct panvk_pool desc_pool;
