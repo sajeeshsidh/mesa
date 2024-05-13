@@ -32,20 +32,6 @@ get_live_changes(aco_ptr<Instruction>& instr)
    return changes;
 }
 
-void
-handle_def_fixed_to_op(RegisterDemand* demand, RegisterDemand demand_before, Instruction* instr,
-                       int op_idx)
-{
-   /* Usually the register demand before an instruction would be considered part of the previous
-    * instruction, since it's not greater than the register demand for that previous instruction.
-    * Except, it can be greater in the case of an definition fixed to a non-killed operand: the RA
-    * needs to reserve space between the two instructions for the definition (containing a copy of
-    * the operand).
-    */
-   demand_before += instr->definitions[0].getTemp();
-   demand->update(demand_before);
-}
-
 RegisterDemand
 get_temp_registers(aco_ptr<Instruction>& instr)
 {
@@ -58,18 +44,40 @@ get_temp_registers(aco_ptr<Instruction>& instr)
          temp_registers += def.getTemp();
    }
 
+   /* Usually the register demand before an instruction would be considered part of the previous
+    * instruction, since it's not greater than the register demand for that previous instruction.
+    * Except, it can be greater in case we need to copy operands around: the RA needs to reserve
+    * space between the two instructions for the copies.
+    */
+   RegisterDemand demand_between;
+
    for (Operand op : instr->operands) {
       if (op.isTemp() && op.isLateKill() && op.isFirstKill())
          temp_registers += op.getTemp();
+      if (op.isTemp() && op.isFixed() && !op.isFirstKill()) {
+         for (Operand op2 : instr->operands) {
+            if (!op2.isTemp())
+               continue;
+            if (op2 == op)
+               break;
+
+            if (op2.tempId() == op.tempId() && op2.isFixed() && op2.physReg() != op.physReg()) {
+               if (op.isLateKill())
+                  temp_registers += op.getTemp();
+               else
+                  demand_between += op.getTemp();
+               break;
+            }
+         }
+      }
    }
 
    int op_idx = get_op_fixed_to_def(instr.get());
-   if (op_idx != -1 && !instr->operands[op_idx].isKill()) {
-      RegisterDemand before_instr;
-      before_instr -= get_live_changes(instr);
-      handle_def_fixed_to_op(&temp_registers, before_instr, instr.get(), op_idx);
-   }
+   if (op_idx != -1 && !instr->operands[op_idx].isKill())
+      demand_between += instr->definitions[0].getTemp();
 
+   if (demand_between.sgpr || demand_between.vgpr)
+      temp_registers.update(demand_between - get_live_changes(instr));
    return temp_registers;
 }
 
@@ -112,13 +120,17 @@ process_live_temps_per_block(Program* program, Block* block, unsigned& worklist,
 {
    std::vector<RegisterDemand>& register_demand = program->live.register_demand[block->index];
    RegisterDemand new_demand;
+   unsigned linear_vgpr_demand = 0;
 
    register_demand.resize(block->instructions.size());
    IDSet live = program->live.live_out[block->index];
 
    /* initialize register demand */
-   for (unsigned t : live)
+   for (unsigned t : live) {
       new_demand += Temp(t, program->temp_rc[t]);
+      if (program->temp_rc[t].is_linear_vgpr())
+         linear_vgpr_demand += program->temp_rc[t].size();
+   }
    new_demand.sgpr -= phi_info[block->index].logical_phi_sgpr_ops;
 
    /* traverse the instructions backwards */
@@ -138,6 +150,9 @@ process_live_temps_per_block(Program* program, Block* block, unsigned& worklist,
          }
          if (definition.isFixed() && definition.physReg() == vcc)
             program->needs_vcc = true;
+         if (definition.isFixed() && definition.regClass().type() == RegType::vgpr)
+            block->register_demand.update(
+               RegisterDemand((int16_t)(definition.physReg().reg() - 256 + linear_vgpr_demand), 0));
 
          const Temp temp = definition.getTemp();
          const size_t n = live.erase(temp.id());
@@ -145,8 +160,9 @@ process_live_temps_per_block(Program* program, Block* block, unsigned& worklist,
          if (n) {
             new_demand -= temp;
             definition.setKill(false);
+            if (temp.regClass().is_linear_vgpr())
+               linear_vgpr_demand -= temp.size();
          } else {
-            register_demand[idx] += temp;
             definition.setKill(true);
          }
       }
@@ -167,6 +183,9 @@ process_live_temps_per_block(Program* program, Block* block, unsigned& worklist,
                continue;
             if (operand.isFixed() && operand.physReg() == vcc)
                program->needs_vcc = true;
+            if (operand.isFixed() && operand.regClass().type() == RegType::vgpr)
+               block->register_demand.update(
+                  RegisterDemand((int16_t)(operand.physReg().reg() - 256 + linear_vgpr_demand), 0));
             const Temp temp = operand.getTemp();
             const bool inserted = live.insert(temp.id()).second;
             if (inserted) {
@@ -178,18 +197,14 @@ process_live_temps_per_block(Program* program, Block* block, unsigned& worklist,
                      insn->operands[j].setKill(true);
                   }
                }
-               if (operand.isLateKill())
-                  register_demand[idx] += temp;
                new_demand += temp;
+               if (operand.regClass().is_linear_vgpr())
+                  linear_vgpr_demand += temp.size();
             }
          }
       }
 
-      int op_idx = get_op_fixed_to_def(insn);
-      if (op_idx != -1 && !insn->operands[op_idx].isKill()) {
-         RegisterDemand before_instr = new_demand;
-         handle_def_fixed_to_op(&register_demand[idx], before_instr, insn, op_idx);
-      }
+      register_demand[idx] += get_temp_registers(block->instructions[idx]);
    }
 
    /* handle phi definitions */
@@ -468,6 +483,9 @@ live_var_analysis(Program* program)
 
    program->needs_vcc = program->gfx_level >= GFX10;
 
+   for (auto& block : program->blocks)
+      block.register_demand = RegisterDemand();
+
    /* this implementation assumes that the block idx corresponds to the block's position in
     * program->blocks vector */
    while (worklist) {
@@ -483,11 +501,9 @@ live_var_analysis(Program* program)
          phi_info[block.index].linear_phi_ops;
 
       /* update block's register demand */
-      if (program->progress < CompilationProgress::after_ra) {
-         block.register_demand = RegisterDemand();
+      if (program->progress < CompilationProgress::after_ra)
          for (RegisterDemand& demand : program->live.register_demand[block.index])
             block.register_demand.update(demand);
-      }
 
       new_demand.update(block.register_demand);
    }
