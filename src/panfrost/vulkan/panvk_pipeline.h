@@ -30,11 +30,6 @@ struct panvk_pipeline_shader {
    struct panvk_shader *base;
    mali_ptr rsd;
 
-   struct {
-      mali_ptr attribs;
-      unsigned buf_strides[PANVK_VARY_BUF_MAX];
-   } varyings;
-
    struct pan_shader_info info;
    bool has_img_access;
 };

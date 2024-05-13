@@ -2401,9 +2401,6 @@ fill_shader_state(struct panvk_cmd_shader_state *state,
 
    state->shader = pshader->base;
    state->rsd = pshader->rsd;
-   state->varyings.attribs = pshader->varyings.attribs;
-   memcpy(state->varyings.buf_strides, pshader->varyings.buf_strides,
-          sizeof(pshader->varyings.buf_strides));
 
    if (state->shader != NULL) {
       state->info = state->shader->info;
@@ -2436,6 +2433,9 @@ panvk_per_arch(CmdBindPipeline)(VkCommandBuffer commandBuffer,
                         MESA_SHADER_VERTEX);
       fill_shader_state(&cmdbuf->state.gfx.shaders.fs, &gfx_pipeline->fs,
                         MESA_SHADER_FRAGMENT);
+      panvk_per_arch(link_shaders)(&cmdbuf->desc_pool.base,
+                                   &cmdbuf->state.gfx.shaders.vs,
+                                   &cmdbuf->state.gfx.shaders.fs);
 
       cmdbuf->state.gfx.fs.rsd = 0;
       break;

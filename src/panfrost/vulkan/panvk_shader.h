@@ -82,6 +82,11 @@ panvk_shader_get_dev_addr(const struct panvk_shader *shader)
    return shader != NULL ? shader->upload_addr : 0;
 }
 
+struct panvk_cmd_shader_state;
+void panvk_per_arch(link_shaders)(struct pan_pool *desc_pool,
+                                  struct panvk_cmd_shader_state *stage,
+                                  struct panvk_cmd_shader_state *next_stage);
+
 struct panvk_shader *panvk_per_arch(shader_create)(
    struct panvk_device *dev, const VkPipelineShaderStageCreateInfo *stage_info,
    struct vk_descriptor_set_layout *const *set_layouts,

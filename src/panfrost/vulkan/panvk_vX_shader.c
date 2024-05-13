@@ -29,6 +29,7 @@
 
 #include "genxml/gen_macros.h"
 
+#include "panvk_cmd_buffer.h"
 #include "panvk_descriptor_set_layout.h"
 #include "panvk_device.h"
 #include "panvk_instance.h"
@@ -523,4 +524,177 @@ panvk_per_arch(set_collection_layout_total_ubo_count)(
 {
    return layout->num_ubos + layout->num_dyn_ubos +
           (layout->num_dyn_ssbos ? 1 : 0);
+}
+
+static inline enum panvk_varying_buf_id
+panvk_varying_buf_id(gl_varying_slot loc)
+{
+   switch (loc) {
+   case VARYING_SLOT_POS:
+      return PANVK_VARY_BUF_POSITION;
+   case VARYING_SLOT_PSIZ:
+      return PANVK_VARY_BUF_PSIZ;
+   default:
+      return PANVK_VARY_BUF_GENERAL;
+   }
+}
+
+static mali_pixel_format
+panvk_varying_format(gl_varying_slot loc, enum pipe_format pfmt)
+{
+   switch (loc) {
+   case VARYING_SLOT_PNTC:
+   case VARYING_SLOT_PSIZ:
+#if PAN_ARCH <= 6
+      return (MALI_R16F << 12) | panfrost_get_default_swizzle(1);
+#else
+      return (MALI_R16F << 12) | MALI_RGB_COMPONENT_ORDER_R000;
+#endif
+   case VARYING_SLOT_POS:
+#if PAN_ARCH <= 6
+      return (MALI_SNAP_4 << 12) | panfrost_get_default_swizzle(4);
+#else
+      return (MALI_SNAP_4 << 12) | MALI_RGB_COMPONENT_ORDER_RGBA;
+#endif
+   default:
+      return GENX(panfrost_format_from_pipe_format)(pfmt)->hw;
+   }
+}
+
+struct varyings_info {
+   enum pipe_format fmts[VARYING_SLOT_MAX];
+   BITSET_DECLARE(active, VARYING_SLOT_MAX);
+};
+
+static void
+panvk_collect_varyings_info(const struct pan_shader_varying *varyings,
+                            unsigned varying_count, struct varyings_info *info)
+{
+   for (unsigned i = 0; i < varying_count; i++) {
+      gl_varying_slot loc = varyings[i].location;
+
+      if (varyings[i].format == PIPE_FORMAT_NONE)
+         continue;
+
+      info->fmts[loc] = varyings[i].format;
+      BITSET_SET(info->active, loc);
+   }
+}
+
+static mali_ptr
+panvk_emit_varying_attrs(struct pan_pool *desc_pool,
+                         const struct pan_shader_varying *varyings,
+                         unsigned varying_count,
+                         const struct varyings_info *info,
+                         unsigned *buf_offsets)
+{
+   unsigned attr_count = BITSET_COUNT(info->active);
+   struct panfrost_ptr ptr =
+      pan_pool_alloc_desc_array(desc_pool, attr_count, ATTRIBUTE);
+   struct mali_attribute_packed *attrs = ptr.cpu;
+   unsigned attr_idx = 0;
+
+   for (unsigned i = 0; i < varying_count; i++) {
+      pan_pack(&attrs[attr_idx++], ATTRIBUTE, cfg) {
+         gl_varying_slot loc = varyings[i].location;
+         enum pipe_format pfmt = varyings[i].format != PIPE_FORMAT_NONE
+                                    ? info->fmts[loc]
+                                    : PIPE_FORMAT_NONE;
+
+         if (pfmt == PIPE_FORMAT_NONE) {
+#if PAN_ARCH >= 7
+            cfg.format = (MALI_CONSTANT << 12) | MALI_RGB_COMPONENT_ORDER_0000;
+#else
+            cfg.format = (MALI_CONSTANT << 12) | PAN_V6_SWIZZLE(0, 0, 0, 0);
+#endif
+         } else {
+            cfg.buffer_index = panvk_varying_buf_id(loc);
+            cfg.offset = buf_offsets[loc];
+            cfg.format = panvk_varying_format(loc, info->fmts[loc]);
+         }
+         cfg.offset_enable = false;
+      }
+   }
+
+   return ptr.gpu;
+}
+
+void
+panvk_per_arch(link_shaders)(struct pan_pool *desc_pool,
+                             struct panvk_cmd_shader_state *stage,
+                             struct panvk_cmd_shader_state *next_stage)
+{
+   BITSET_DECLARE(active_attrs, VARYING_SLOT_MAX) = {0};
+   unsigned buf_strides[PANVK_VARY_BUF_MAX] = {0};
+   unsigned buf_offsets[VARYING_SLOT_MAX] = {0};
+   struct varyings_info out_vars = {0};
+   struct varyings_info in_vars = {0};
+   unsigned loc;
+
+   panvk_collect_varyings_info(stage->info.varyings.output,
+                               stage->info.varyings.output_count, &out_vars);
+   panvk_collect_varyings_info(next_stage->info.varyings.input,
+                               next_stage->info.varyings.input_count, &in_vars);
+
+   BITSET_OR(active_attrs, in_vars.active, out_vars.active);
+
+   /* Handle the position and point size buffers explicitly, as they are
+    * passed through separate buffer pointers to the tiler job.
+    */
+   if (next_stage->info.stage == MESA_SHADER_FRAGMENT) {
+      if (BITSET_TEST(out_vars.active, VARYING_SLOT_POS)) {
+         buf_strides[PANVK_VARY_BUF_POSITION] = sizeof(float) * 4;
+         BITSET_CLEAR(active_attrs, VARYING_SLOT_POS);
+      }
+
+      if (BITSET_TEST(out_vars.active, VARYING_SLOT_PSIZ)) {
+         buf_strides[PANVK_VARY_BUF_PSIZ] = sizeof(uint16_t);
+         BITSET_CLEAR(active_attrs, VARYING_SLOT_PSIZ);
+      }
+   }
+
+   BITSET_FOREACH_SET(loc, active_attrs, VARYING_SLOT_MAX) {
+      /* We expect stage to write to all inputs read by next_stage, and
+       * next_stage to read all inputs written by stage. If that's not the
+       * case, we keep PIPE_FORMAT_NONE to reflect the fact we should use a
+       * sink attribute (writes are discarded, reads return zeros).
+       */
+      if (in_vars.fmts[loc] == PIPE_FORMAT_NONE ||
+          out_vars.fmts[loc] == PIPE_FORMAT_NONE) {
+         in_vars.fmts[loc] = PIPE_FORMAT_NONE;
+         out_vars.fmts[loc] = PIPE_FORMAT_NONE;
+         continue;
+      }
+
+      unsigned out_size = util_format_get_blocksize(out_vars.fmts[loc]);
+      unsigned buf_idx = panvk_varying_buf_id(loc);
+
+      /* Always trust the 'next_stage' input format, so we can:
+       * - discard components that are never read
+       * - use float types for interpolated fragment shader inputs
+       * - use fp16 for floats with mediump
+       * - make sure components that are not written by 'stage' are set to zero
+       */
+      out_vars.fmts[loc] = in_vars.fmts[loc];
+
+      /* Special buffers are handled explicitly before this loop, everything
+       * else should be laid out in the general varying buffer.
+       */
+      assert(buf_idx == PANVK_VARY_BUF_GENERAL);
+
+      /* Keep things aligned a 32-bit component. */
+      buf_offsets[loc] = buf_strides[buf_idx];
+      buf_strides[buf_idx] += ALIGN_POT(out_size, 4);
+   }
+
+   stage->varyings.attribs = panvk_emit_varying_attrs(
+      desc_pool, stage->info.varyings.output, stage->info.varyings.output_count,
+      &out_vars, buf_offsets);
+   next_stage->varyings.attribs = panvk_emit_varying_attrs(
+      desc_pool, next_stage->info.varyings.input,
+      next_stage->info.varyings.input_count, &in_vars, buf_offsets);
+   memcpy(stage->varyings.buf_strides, buf_strides,
+          sizeof(stage->varyings.buf_strides));
+   memcpy(next_stage->varyings.buf_strides, buf_strides,
+          sizeof(next_stage->varyings.buf_strides));
 }
