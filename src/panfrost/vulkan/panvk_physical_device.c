@@ -18,6 +18,7 @@
 #include "vk_drm_syncobj.h"
 #include "vk_format.h"
 #include "vk_log.h"
+#include "vk_shader_module.h"
 #include "vk_util.h"
 
 #include "panvk_device.h"
@@ -79,6 +80,7 @@ get_device_extensions(const struct panvk_physical_device *device,
       .EXT_index_type_uint8 = true,
       .EXT_pipeline_creation_cache_control = true,
       .EXT_pipeline_creation_feedback = true,
+      .EXT_shader_module_identifier = true,
       .EXT_vertex_attribute_divisor = true,
    };
 }
@@ -586,6 +588,13 @@ get_device_properties(const struct panvk_instance *instance,
    snprintf(properties->driverName, VK_MAX_DRIVER_NAME_SIZE, "panvk");
    snprintf(properties->driverInfo, VK_MAX_DRIVER_INFO_SIZE,
             "Mesa " PACKAGE_VERSION MESA_GIT_SHA1);
+
+   /* VK_EXT_shader_module_identifier */
+   STATIC_ASSERT(sizeof(vk_shaderModuleIdentifierAlgorithmUUID) ==
+                 sizeof(properties->shaderModuleIdentifierAlgorithmUUID));
+   memcpy(properties->shaderModuleIdentifierAlgorithmUUID,
+          vk_shaderModuleIdentifierAlgorithmUUID,
+          sizeof(properties->shaderModuleIdentifierAlgorithmUUID));
 }
 
 void
