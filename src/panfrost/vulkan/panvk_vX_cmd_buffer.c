@@ -38,7 +38,6 @@
 #include "panvk_image_view.h"
 #include "panvk_instance.h"
 #include "panvk_physical_device.h"
-#include "panvk_pipeline.h"
 #include "panvk_priv_bo.h"
 #include "panvk_set_collection_layout.h"
 
@@ -2462,47 +2461,6 @@ panvk_cmd_bind_graphics_shader(struct panvk_cmd_buffer *cmd,
       cmd->state.gfx.fs.rsd = 0;
 
    panvk_cmd_bind_shader(cmd, stage, shader_state, shader);
-}
-
-VKAPI_ATTR void VKAPI_CALL
-panvk_per_arch(CmdBindPipeline)(VkCommandBuffer commandBuffer,
-                                VkPipelineBindPoint pipelineBindPoint,
-                                VkPipeline _pipeline)
-{
-   VK_FROM_HANDLE(panvk_cmd_buffer, cmdbuf, commandBuffer);
-   VK_FROM_HANDLE(panvk_pipeline, pipeline, _pipeline);
-
-   switch (pipelineBindPoint) {
-   case VK_PIPELINE_BIND_POINT_GRAPHICS: {
-      struct panvk_graphics_pipeline *gfx_pipeline =
-         panvk_pipeline_to_graphics_pipeline(pipeline);
-
-      vk_cmd_set_dynamic_graphics_state(&cmdbuf->vk,
-                                        &gfx_pipeline->state.dynamic);
-
-      panvk_cmd_bind_graphics_shader(cmdbuf, MESA_SHADER_VERTEX,
-                                     gfx_pipeline->vs);
-      panvk_cmd_bind_graphics_shader(cmdbuf, MESA_SHADER_FRAGMENT,
-                                     gfx_pipeline->fs);
-      panvk_per_arch(link_shaders)(&cmdbuf->desc_pool.base,
-                                   &cmdbuf->state.gfx.shaders.vs,
-                                   &cmdbuf->state.gfx.shaders.fs);
-      break;
-   }
-
-   case VK_PIPELINE_BIND_POINT_COMPUTE: {
-      const struct panvk_compute_pipeline *compute_pipeline =
-         panvk_pipeline_to_compute_pipeline(pipeline);
-
-      panvk_cmd_bind_compute_shader(cmdbuf, MESA_SHADER_COMPUTE,
-                                    compute_pipeline->cs);
-      break;
-   }
-
-   default:
-      assert(!"Unsupported bind point");
-      break;
-   }
 }
 
 VKAPI_ATTR void VKAPI_CALL

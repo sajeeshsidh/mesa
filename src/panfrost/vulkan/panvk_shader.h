@@ -92,16 +92,6 @@ void panvk_per_arch(link_shaders)(struct pan_pool *desc_pool,
                                   struct panvk_cmd_shader_state *stage,
                                   struct panvk_cmd_shader_state *next_stage);
 
-struct panvk_shader *panvk_per_arch(shader_create)(
-   struct panvk_device *dev, const VkPipelineShaderStageCreateInfo *stage_info,
-   struct vk_descriptor_set_layout *const *set_layouts,
-   const struct panvk_set_collection_layout *layout,
-   const VkAllocationCallbacks *alloc);
-
-void panvk_per_arch(shader_destroy)(struct panvk_device *dev,
-                                    struct panvk_shader *shader,
-                                    const VkAllocationCallbacks *alloc);
-
 struct panvk_lower_desc_inputs {
    const struct panvk_device *dev;
    const struct panfrost_compile_inputs *compile_inputs;

@@ -34,7 +34,6 @@
 #include "panvk_device.h"
 #include "panvk_instance.h"
 #include "panvk_physical_device.h"
-#include "panvk_pipeline.h"
 #include "panvk_sampler.h"
 #include "panvk_set_collection_layout.h"
 #include "panvk_shader.h"
@@ -703,96 +702,6 @@ panvk_shader_get_executable_internal_representations(
    /* TODO: Compiler assembly (VK_KHR_pipeline_executable_properties) */
 
    return incomplete_text ? VK_INCOMPLETE : vk_outarray_status(&out);
-}
-
-struct panvk_shader *
-panvk_per_arch(shader_create)(
-   struct panvk_device *dev, const VkPipelineShaderStageCreateInfo *stage_info,
-   struct vk_descriptor_set_layout *const *set_layouts,
-   const struct panvk_set_collection_layout *layout,
-   const VkAllocationCallbacks *alloc)
-{
-   VK_FROM_HANDLE(vk_shader_module, module, stage_info->module);
-   struct panvk_physical_device *phys_dev =
-      to_panvk_physical_device(dev->vk.physical);
-   gl_shader_stage stage = vk_to_mesa_shader_stage(stage_info->stage);
-   struct panvk_shader *shader;
-
-   shader = vk_zalloc2(&dev->vk.alloc, alloc, sizeof(*shader), 8,
-                       VK_SYSTEM_ALLOCATION_SCOPE_COMMAND);
-   if (!shader)
-      return NULL;
-
-   shader->sets_layout = *layout;
-
-   /* TODO these are made-up */
-   const struct spirv_to_nir_options spirv_options = {
-      .ubo_addr_format = nir_address_format_32bit_index_offset,
-      .ssbo_addr_format = dev->vk.enabled_features.robustBufferAccess
-                             ? nir_address_format_64bit_bounded_global
-                             : nir_address_format_64bit_global_32bit_offset,
-      .phys_ssbo_addr_format = nir_address_format_64bit_global,
-   };
-
-   nir_shader *nir;
-   VkResult result = vk_shader_module_to_nir(
-      &dev->vk, module, stage, stage_info->pName,
-      stage_info->pSpecializationInfo, &spirv_options,
-      GENX(pan_shader_get_compiler_options)(), NULL, &nir);
-   if (result != VK_SUCCESS) {
-      vk_free2(&dev->vk.alloc, alloc, shader);
-      return NULL;
-   }
-
-   panvk_preprocess_nir(&phys_dev->vk, nir);
-
-   struct vk_pipeline_robustness_state rs = {
-      .storage_buffers =
-         dev->vk.enabled_features.robustBufferAccess
-            ? VK_PIPELINE_ROBUSTNESS_BUFFER_BEHAVIOR_ROBUST_BUFFER_ACCESS_EXT
-            : VK_PIPELINE_ROBUSTNESS_BUFFER_BEHAVIOR_DISABLED_EXT,
-      .uniform_buffers = VK_PIPELINE_ROBUSTNESS_BUFFER_BEHAVIOR_DISABLED_EXT,
-      .vertex_inputs = VK_PIPELINE_ROBUSTNESS_BUFFER_BEHAVIOR_DISABLED_EXT,
-      .images = VK_PIPELINE_ROBUSTNESS_IMAGE_BEHAVIOR_DISABLED_EXT,
-   };
-
-   struct panfrost_compile_inputs inputs = {
-      .gpu_id = phys_dev->kmod.props.gpu_prod_id,
-      .no_ubo_to_push = true,
-      .no_idvs = true, /* TODO */
-   };
-
-   panvk_lower_nir(dev, nir, set_layouts, &rs, &shader->sets_layout, &inputs,
-                   &shader->has_img_access);
-
-   result = panvk_compile_nir(dev, nir, 0, &inputs, shader);
-
-   if (result != VK_SUCCESS)
-      goto err;
-
-   result = panvk_shader_upload(dev, shader, alloc);
-
-   if (result != VK_SUCCESS)
-      goto err;
-
-   ralloc_free(nir);
-   return shader;
-
-err:
-   ralloc_free(nir);
-   panvk_per_arch(shader_destroy)(dev, shader, alloc);
-   return NULL;
-}
-
-void
-panvk_per_arch(shader_destroy)(struct panvk_device *dev,
-                               struct panvk_shader *shader,
-                               const VkAllocationCallbacks *alloc)
-{
-   panvk_priv_bo_destroy(shader->upload_bo, alloc);
-
-   free((void *)shader->bin_ptr);
-   vk_free2(&dev->vk.alloc, alloc, shader);
 }
 
 void

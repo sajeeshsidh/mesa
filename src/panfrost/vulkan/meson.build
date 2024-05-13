@@ -69,7 +69,6 @@ foreach arch : [6, 7]
       'panvk_vX_meta_copy.c',
       'panvk_vX_meta_clear.c',
       'panvk_vX_nir_lower_descriptors.c',
-      'panvk_vX_pipeline.c',
       'panvk_vX_queue.c',
       'panvk_vX_sampler.c',
       'panvk_vX_shader.c',
