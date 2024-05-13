@@ -106,9 +106,26 @@ struct panvk_attrib_buf {
    unsigned size;
 };
 
+struct panvk_cmd_shader_state {
+   const struct panvk_shader *shader;
+   mali_ptr rsd;
+
+   struct {
+      mali_ptr attribs;
+      unsigned buf_strides[PANVK_VARY_BUF_MAX];
+   } varyings;
+
+   struct pan_shader_info info;
+   bool has_img_access;
+};
+
 struct panvk_cmd_graphics_state {
    struct panvk_descriptor_state desc_state;
-   const struct panvk_graphics_pipeline *pipeline;
+
+   struct {
+      struct panvk_cmd_shader_state vs;
+      struct panvk_cmd_shader_state fs;
+   } shaders;
 
    struct {
       struct vk_vertex_input_state vi;
@@ -158,7 +175,7 @@ struct panvk_cmd_graphics_state {
 
 struct panvk_cmd_compute_state {
    struct panvk_descriptor_state desc_state;
-   const struct panvk_compute_pipeline *pipeline;
+   struct panvk_cmd_shader_state shader;
    struct panvk_compute_sysvals sysvals;
 };
 
@@ -181,23 +198,6 @@ struct panvk_cmd_buffer {
 
 VK_DEFINE_HANDLE_CASTS(panvk_cmd_buffer, vk.base, VkCommandBuffer,
                        VK_OBJECT_TYPE_COMMAND_BUFFER)
-
-static inline const struct panvk_pipeline *
-panvk_cmd_get_pipeline(const struct panvk_cmd_buffer *cmdbuf,
-                       VkPipelineBindPoint bindpoint)
-{
-   switch (bindpoint) {
-   case VK_PIPELINE_BIND_POINT_GRAPHICS:
-      return &cmdbuf->state.gfx.pipeline->base;
-
-   case VK_PIPELINE_BIND_POINT_COMPUTE:
-      return &cmdbuf->state.compute.pipeline->base;
-
-   default:
-      assert(!"Unsupported bind point");
-      return NULL;
-   }
-}
 
 static inline struct panvk_descriptor_state *
 panvk_cmd_get_desc_state(struct panvk_cmd_buffer *cmdbuf,

@@ -73,13 +73,6 @@ init_pipeline_shader(struct panvk_pipeline *pipeline,
    pshader->info = shader->info;
    pshader->has_img_access = shader->has_img_access;
 
-   if (stage_info->stage == VK_SHADER_STAGE_COMPUTE_BIT) {
-      struct panvk_compute_pipeline *compute_pipeline =
-         panvk_pipeline_to_compute_pipeline(pipeline);
-
-      compute_pipeline->local_size = shader->local_size;
-   }
-
    if (stage_info->stage != VK_SHADER_STAGE_FRAGMENT_BIT) {
       struct panfrost_ptr rsd =
          pan_pool_alloc_desc(&pipeline->desc_pool.base, RENDERER_STATE);

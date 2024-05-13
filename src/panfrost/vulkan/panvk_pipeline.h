@@ -83,8 +83,6 @@ struct panvk_compute_pipeline {
    struct panvk_pipeline base;
 
    struct panvk_pipeline_shader cs;
-
-   struct pan_compute_dim local_size;
 };
 
 static struct panvk_compute_pipeline *
