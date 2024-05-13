@@ -60,8 +60,9 @@ init_pipeline_shader(struct panvk_pipeline *pipeline,
    struct panvk_device *dev = to_panvk_device(pipeline->base.device);
    struct panvk_shader *shader;
 
-   shader =
-      panvk_per_arch(shader_create)(dev, stage_info, pipeline->layout, alloc);
+   shader = panvk_per_arch(shader_create)(dev, stage_info,
+                                          pipeline->layout->vk.set_layouts,
+                                          &pipeline->layout->set_layout, alloc);
    if (!shader)
       return vk_error(dev, VK_ERROR_OUT_OF_HOST_MEMORY);
 

@@ -20,6 +20,7 @@
 #include "panvk_macros.h"
 #include "panvk_mempool.h"
 #include "panvk_pipeline.h"
+#include "panvk_set_collection_layout.h"
 #include "panvk_shader.h"
 
 #include "pan_jc.h"
@@ -28,9 +29,12 @@
 
 #include "genxml/gen_macros.h"
 
-#define MAX_BIND_POINTS         2 /* compute + graphics */
-#define MAX_VBS                 16
-#define MAX_PUSH_CONSTANTS_SIZE 128
+#define MAX_BIND_POINTS             2 /* compute + graphics */
+#define MAX_VBS                     16
+#define MAX_PUSH_CONSTANTS_SIZE     128
+#define MAX_SETS                    4
+#define MAX_DYNAMIC_UNIFORM_BUFFERS 16
+#define MAX_DYNAMIC_STORAGE_BUFFERS 8
 
 struct panvk_batch {
    struct list_head node;

@@ -34,6 +34,8 @@
 #include "panvk_physical_device.h"
 #include "panvk_pipeline.h"
 #include "panvk_pipeline_layout.h"
+#include "panvk_sampler.h"
+#include "panvk_set_collection_layout.h"
 #include "panvk_shader.h"
 
 #include "spirv/nir_spirv.h"
@@ -134,10 +136,11 @@ shared_type_info(const struct glsl_type *type, unsigned *size, unsigned *align)
 }
 
 struct panvk_shader *
-panvk_per_arch(shader_create)(struct panvk_device *dev,
-                              const VkPipelineShaderStageCreateInfo *stage_info,
-                              const struct panvk_pipeline_layout *layout,
-                              const VkAllocationCallbacks *alloc)
+panvk_per_arch(shader_create)(
+   struct panvk_device *dev, const VkPipelineShaderStageCreateInfo *stage_info,
+   struct vk_descriptor_set_layout *const *set_layouts,
+   const struct panvk_set_collection_layout *layout,
+   const VkAllocationCallbacks *alloc)
 {
    VK_FROM_HANDLE(vk_shader_module, module, stage_info->module);
    struct panvk_physical_device *phys_dev =
@@ -233,6 +236,7 @@ panvk_per_arch(shader_create)(struct panvk_device *dev,
    struct panvk_lower_desc_inputs lower_inputs = {
       .dev = dev,
       .compile_inputs = &inputs,
+      .set_layouts = set_layouts,
       .layout = layout,
    };
 
@@ -310,7 +314,7 @@ panvk_per_arch(shader_create)(struct panvk_device *dev,
 
    /* Patch the descriptor count */
    shader->info.ubo_count =
-      panvk_per_arch(pipeline_layout_total_ubo_count)(layout);
+      panvk_per_arch(set_collection_layout_total_ubo_count)(layout);
    shader->info.sampler_count = layout->num_samplers;
    shader->info.texture_count = layout->num_textures;
 
@@ -349,4 +353,148 @@ panvk_per_arch(shader_destroy)(struct panvk_device *dev,
 {
    util_dynarray_fini(&shader->binary);
    vk_free2(&dev->vk.alloc, alloc, shader);
+}
+
+void
+panvk_per_arch(set_collection_layout_fill)(
+   struct panvk_set_collection_layout *layout, unsigned set_layout_count,
+   struct vk_descriptor_set_layout *const *set_layouts)
+{
+   layout->set_count = set_layout_count;
+
+   unsigned sampler_idx = 0, tex_idx = 0, ubo_idx = 0;
+   unsigned dyn_ubo_idx = 0, dyn_ssbo_idx = 0, img_idx = 0;
+   unsigned dyn_desc_ubo_offset = 0;
+
+   for (unsigned set = 0; set < layout->set_count; set++) {
+      /* TODO: Handle missing set layout */
+      if (set_layouts[set] == NULL)
+         continue;
+
+      const struct panvk_descriptor_set_layout *set_layout =
+         vk_to_panvk_descriptor_set_layout(set_layouts[set]);
+
+      layout->sets[set].sampler_offset = sampler_idx;
+      layout->sets[set].tex_offset = tex_idx;
+      layout->sets[set].ubo_offset = ubo_idx;
+      layout->sets[set].dyn_ubo_offset = dyn_ubo_idx;
+      layout->sets[set].dyn_ssbo_offset = dyn_ssbo_idx;
+      layout->sets[set].img_offset = img_idx;
+      layout->sets[set].dyn_desc_ubo_offset = dyn_desc_ubo_offset;
+
+      layout->sets[set].num_ubos = set_layout->num_ubos;
+      layout->sets[set].num_dyn_ubos = set_layout->num_dyn_ubos;
+
+      sampler_idx += set_layout->num_samplers;
+      tex_idx += set_layout->num_textures;
+      ubo_idx += set_layout->num_ubos;
+      dyn_ubo_idx += set_layout->num_dyn_ubos;
+      dyn_ssbo_idx += set_layout->num_dyn_ssbos;
+      img_idx += set_layout->num_imgs;
+      dyn_desc_ubo_offset +=
+         set_layout->num_dyn_ssbos * sizeof(struct panvk_ssbo_addr);
+   }
+
+   layout->num_samplers = sampler_idx;
+   layout->num_textures = tex_idx;
+   layout->num_ubos = ubo_idx;
+   layout->num_dyn_ubos = dyn_ubo_idx;
+   layout->num_dyn_ssbos = dyn_ssbo_idx;
+   layout->num_imgs = img_idx;
+
+   /* Some NIR texture operations don't require a sampler, but Bifrost/Midgard
+    * ones always expect one. Add a dummy sampler to deal with this limitation.
+    */
+   if (layout->num_textures) {
+      layout->num_samplers++;
+      for (unsigned set = 0; set < layout->set_count; set++)
+         layout->sets[set].sampler_offset++;
+   }
+}
+
+void
+panvk_per_arch(set_collection_layout_hash_state)(
+   const struct panvk_set_collection_layout *layout,
+   struct vk_descriptor_set_layout *const *set_layouts,
+   struct mesa_sha1 *sha1_ctx)
+{
+   for (unsigned set = 0; set < layout->set_count; set++) {
+      const struct panvk_descriptor_set_layout *set_layout =
+         vk_to_panvk_descriptor_set_layout(set_layouts[set]);
+
+      for (unsigned b = 0; b < set_layout->binding_count; b++) {
+         const struct panvk_descriptor_set_binding_layout *binding_layout =
+            &set_layout->bindings[b];
+
+         if (binding_layout->immutable_samplers) {
+            for (unsigned s = 0; s < binding_layout->array_size; s++) {
+               struct panvk_sampler *sampler =
+                  binding_layout->immutable_samplers[s];
+
+               _mesa_sha1_update(sha1_ctx, &sampler->desc,
+                                 sizeof(sampler->desc));
+            }
+         }
+         _mesa_sha1_update(sha1_ctx, &binding_layout->type,
+                           sizeof(binding_layout->type));
+         _mesa_sha1_update(sha1_ctx, &binding_layout->array_size,
+                           sizeof(binding_layout->array_size));
+         _mesa_sha1_update(sha1_ctx, &binding_layout->shader_stages,
+                           sizeof(binding_layout->shader_stages));
+      }
+   }
+}
+
+unsigned
+panvk_per_arch(set_collection_layout_ubo_start)(
+   const struct panvk_set_collection_layout *layout, unsigned set,
+   bool is_dynamic)
+{
+   if (is_dynamic)
+      return layout->num_ubos + layout->sets[set].dyn_ubo_offset;
+
+   return layout->sets[set].ubo_offset;
+}
+
+unsigned
+panvk_per_arch(set_collection_layout_ubo_index)(
+   const struct panvk_set_collection_layout *layout,
+   struct vk_descriptor_set_layout *const *set_layouts, unsigned set,
+   unsigned binding, unsigned array_index)
+{
+   const struct panvk_descriptor_set_layout *set_layout =
+      vk_to_panvk_descriptor_set_layout(set_layouts[set]);
+   const struct panvk_descriptor_set_binding_layout *binding_layout =
+      &set_layout->bindings[binding];
+
+   const bool is_dynamic =
+      binding_layout->type == VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC;
+   const uint32_t ubo_idx =
+      is_dynamic ? binding_layout->dyn_ubo_idx : binding_layout->ubo_idx;
+
+   return panvk_per_arch(set_collection_layout_ubo_start)(layout, set,
+                                                          is_dynamic) +
+          ubo_idx + array_index;
+}
+
+unsigned
+panvk_per_arch(set_collection_layout_dyn_desc_ubo_index)(
+   const struct panvk_set_collection_layout *layout)
+{
+   return layout->num_ubos + layout->num_dyn_ubos;
+}
+
+unsigned
+panvk_per_arch(set_collection_layout_dyn_ubos_offset)(
+   const struct panvk_set_collection_layout *layout)
+{
+   return layout->num_ubos;
+}
+
+unsigned
+panvk_per_arch(set_collection_layout_total_ubo_count)(
+   const struct panvk_set_collection_layout *layout)
+{
+   return layout->num_ubos + layout->num_dyn_ubos +
+          (layout->num_dyn_ssbos ? 1 : 0);
 }

@@ -27,15 +27,16 @@
  * DEALINGS IN THE SOFTWARE.
  */
 
+#include "panvk_descriptor_set_layout.h"
 #include "panvk_device.h"
-#include "panvk_pipeline_layout.h"
 #include "panvk_shader.h"
 
 #include "nir.h"
 #include "nir_builder.h"
 
 struct apply_descriptors_ctx {
-   const struct panvk_pipeline_layout *layout;
+   struct vk_descriptor_set_layout *const *set_layouts;
+   const struct panvk_set_collection_layout *layout;
    bool add_bounds_checks;
    bool has_img_access;
    nir_address_format desc_addr_format;
@@ -64,7 +65,7 @@ addr_format_for_desc_type(VkDescriptorType desc_type,
 static const struct panvk_descriptor_set_layout *
 get_set_layout(uint32_t set, const struct apply_descriptors_ctx *ctx)
 {
-   return vk_to_panvk_descriptor_set_layout(ctx->layout->vk.set_layouts[set]);
+   return vk_to_panvk_descriptor_set_layout(ctx->set_layouts[set]);
 }
 
 static const struct panvk_descriptor_set_binding_layout *
@@ -111,8 +112,8 @@ build_res_index(nir_builder *b, uint32_t set, uint32_t binding,
    case VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC: {
       assert(addr_format == nir_address_format_32bit_index_offset);
 
-      const unsigned ubo_idx = panvk_per_arch(pipeline_layout_ubo_index)(
-         ctx->layout, set, binding, 0);
+      const unsigned ubo_idx = panvk_per_arch(set_collection_layout_ubo_index)(
+         ctx->layout, ctx->set_layouts, set, binding, 0);
 
       const uint32_t packed = (array_size - 1) << 16 | ubo_idx;
 
@@ -127,11 +128,11 @@ build_res_index(nir_builder *b, uint32_t set, uint32_t binding,
       const bool is_dynamic =
          bind_layout->type == VK_DESCRIPTOR_TYPE_STORAGE_BUFFER_DYNAMIC;
       const unsigned desc_ubo_idx =
-         is_dynamic
-            ? panvk_per_arch(pipeline_layout_dyn_desc_ubo_index)(ctx->layout)
-            : panvk_per_arch(pipeline_layout_ubo_start)(ctx->layout, set,
-                                                        false) +
-                 set_layout->desc_ubo_index;
+         is_dynamic ? panvk_per_arch(set_collection_layout_dyn_desc_ubo_index)(
+                         ctx->layout)
+                    : panvk_per_arch(set_collection_layout_ubo_start)(
+                         ctx->layout, set, false) +
+                         set_layout->desc_ubo_index;
       const unsigned desc_ubo_offset =
          bind_layout->desc_ubo_offset +
          (is_dynamic ? ctx->layout->sets[set].dyn_desc_ubo_offset : 0);
@@ -318,7 +319,7 @@ load_resource_deref_desc(nir_builder *b, nir_deref_instr *deref,
       index_ssa = nir_imm_int(b, index_imm);
 
    const unsigned set_ubo_idx =
-      panvk_per_arch(pipeline_layout_ubo_start)(ctx->layout, set, false) +
+      panvk_per_arch(set_collection_layout_ubo_start)(ctx->layout, set, false) +
       set_layout->desc_ubo_index;
 
    nir_def *desc_ubo_offset =
@@ -557,6 +558,7 @@ panvk_per_arch(nir_lower_descriptors)(
    bool *has_img_access_out)
 {
    struct apply_descriptors_ctx ctx = {
+      .set_layouts = inputs->set_layouts,
       .layout = inputs->layout,
       .desc_addr_format = nir_address_format_32bit_index_offset,
       .ubo_addr_format = nir_address_format_32bit_index_offset,

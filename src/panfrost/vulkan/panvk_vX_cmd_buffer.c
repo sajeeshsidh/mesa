@@ -41,6 +41,7 @@
 #include "panvk_pipeline.h"
 #include "panvk_pipeline_layout.h"
 #include "panvk_priv_bo.h"
+#include "panvk_set_collection_layout.h"
 
 #include "pan_blitter.h"
 #include "pan_desc.h"
@@ -401,9 +402,9 @@ panvk_cmd_unprepare_push_sets(struct panvk_cmd_buffer *cmdbuf,
 static void
 panvk_cmd_prepare_dyn_ssbos(struct panvk_cmd_buffer *cmdbuf,
                             struct panvk_descriptor_state *desc_state,
-                            const struct panvk_pipeline *pipeline)
+                            const struct panvk_set_collection_layout *set_layout)
 {
-   if (!pipeline->layout->num_dyn_ssbos || desc_state->dyn_desc_ubo)
+   if (!set_layout->num_dyn_ssbos || desc_state->dyn_desc_ubo)
       return;
 
    struct panfrost_ptr ssbo_descs = pan_pool_alloc_aligned(
@@ -417,51 +418,49 @@ panvk_cmd_prepare_dyn_ssbos(struct panvk_cmd_buffer *cmdbuf,
 static void
 panvk_cmd_prepare_ubos(struct panvk_cmd_buffer *cmdbuf,
                        struct panvk_descriptor_state *desc_state,
-                       const struct panvk_pipeline *pipeline)
+                       const struct panvk_set_collection_layout *layout)
 {
    unsigned ubo_count =
-      panvk_per_arch(pipeline_layout_total_ubo_count)(pipeline->layout);
+      panvk_per_arch(set_collection_layout_total_ubo_count)(layout);
 
    if (!ubo_count || desc_state->ubos)
       return;
 
-   panvk_cmd_prepare_dyn_ssbos(cmdbuf, desc_state, pipeline);
+   panvk_cmd_prepare_dyn_ssbos(cmdbuf, desc_state, layout);
 
    struct panfrost_ptr ubos = pan_pool_alloc_desc_array(
       &cmdbuf->desc_pool.base, ubo_count, UNIFORM_BUFFER);
    struct mali_uniform_buffer_packed *ubo_descs = ubos.cpu;
 
-   for (unsigned s = 0; s < pipeline->layout->vk.set_count; s++) {
-      const struct panvk_descriptor_set_layout *set_layout =
-         vk_to_panvk_descriptor_set_layout(pipeline->layout->vk.set_layouts[s]);
+   for (unsigned s = 0; s < layout->set_count; s++) {
+      const struct panvk_set_collection_set_info *set_info = &layout->sets[s];
       const struct panvk_descriptor_set *set = desc_state->sets[s];
 
       unsigned ubo_start =
-         panvk_per_arch(pipeline_layout_ubo_start)(pipeline->layout, s, false);
+         panvk_per_arch(set_collection_layout_ubo_start)(layout, s, false);
 
       if (!set) {
          memset(&ubo_descs[ubo_start], 0,
-                set_layout->num_ubos * sizeof(*ubo_descs));
+                set_info->num_ubos * sizeof(*ubo_descs));
       } else {
          memcpy(&ubo_descs[ubo_start], set->ubos,
-                set_layout->num_ubos * sizeof(*ubo_descs));
+                set_info->num_ubos * sizeof(*ubo_descs));
       }
    }
 
    unsigned dyn_ubos_offset =
-      panvk_per_arch(pipeline_layout_dyn_ubos_offset)(pipeline->layout);
+      panvk_per_arch(set_collection_layout_dyn_ubos_offset)(layout);
 
    memcpy(&ubo_descs[dyn_ubos_offset], desc_state->dyn.ubos,
-          pipeline->layout->num_dyn_ubos * sizeof(*ubo_descs));
+          layout->num_dyn_ubos * sizeof(*ubo_descs));
 
-   if (pipeline->layout->num_dyn_ssbos) {
+   if (layout->num_dyn_ssbos) {
       unsigned dyn_desc_ubo =
-         panvk_per_arch(pipeline_layout_dyn_desc_ubo_index)(pipeline->layout);
+         panvk_per_arch(set_collection_layout_dyn_desc_ubo_index)(layout);
 
       pan_pack(&ubo_descs[dyn_desc_ubo], UNIFORM_BUFFER, cfg) {
          cfg.pointer = desc_state->dyn_desc_ubo;
-         cfg.entries =
-            pipeline->layout->num_dyn_ssbos * sizeof(struct panvk_ssbo_addr);
+         cfg.entries = layout->num_dyn_ssbos * sizeof(struct panvk_ssbo_addr);
       }
    }
 
@@ -471,9 +470,9 @@ panvk_cmd_prepare_ubos(struct panvk_cmd_buffer *cmdbuf,
 static void
 panvk_cmd_prepare_textures(struct panvk_cmd_buffer *cmdbuf,
                            struct panvk_descriptor_state *desc_state,
-                           const struct panvk_pipeline *pipeline)
+                           const struct panvk_set_collection_layout *layout)
 {
-   unsigned num_textures = pipeline->layout->num_textures;
+   unsigned num_textures = layout->num_textures;
 
    if (!num_textures || desc_state->textures)
       return;
@@ -500,9 +499,9 @@ panvk_cmd_prepare_textures(struct panvk_cmd_buffer *cmdbuf,
 static void
 panvk_cmd_prepare_samplers(struct panvk_cmd_buffer *cmdbuf,
                            struct panvk_descriptor_state *desc_state,
-                           const struct panvk_pipeline *pipeline)
+                           const struct panvk_set_collection_layout *layout)
 {
-   unsigned num_samplers = pipeline->layout->num_samplers;
+   unsigned num_samplers = layout->num_samplers;
 
    if (!num_samplers || desc_state->samplers)
       return;
@@ -962,17 +961,17 @@ panvk_draw_prepare_varyings(struct panvk_cmd_buffer *cmdbuf,
 static void
 panvk_fill_img_attribs(struct panvk_cmd_buffer *cmdbuf,
                        struct panvk_descriptor_state *desc_state,
-                       const struct panvk_pipeline *pipeline, void *attrib_bufs,
-                       void *attribs, unsigned first_buf)
+                       const struct panvk_set_collection_layout *set_layout,
+                       void *attrib_bufs, void *attribs, unsigned first_buf)
 {
-   for (unsigned s = 0; s < pipeline->layout->vk.set_count; s++) {
+   for (unsigned s = 0; s < set_layout->set_count; s++) {
       const struct panvk_descriptor_set *set = desc_state->sets[s];
 
       if (!set)
          continue;
 
       const struct panvk_descriptor_set_layout *layout = set->layout;
-      unsigned img_idx = pipeline->layout->sets[s].img_offset;
+      unsigned img_idx = set_layout->sets[s].img_offset;
       unsigned offset = img_idx * pan_size(ATTRIBUTE_BUFFER) * 2;
       unsigned size = layout->num_imgs * pan_size(ATTRIBUTE_BUFFER) * 2;
 
@@ -993,19 +992,19 @@ panvk_fill_img_attribs(struct panvk_cmd_buffer *cmdbuf,
 static void
 panvk_prepare_img_attribs(struct panvk_cmd_buffer *cmdbuf,
                           struct panvk_descriptor_state *desc_state,
-                          const struct panvk_pipeline *pipeline)
+                          const struct panvk_set_collection_layout *set_layout)
 {
    if (desc_state->img.attribs)
       return;
 
-   unsigned attrib_count = pipeline->layout->num_imgs;
-   unsigned attrib_buf_count = (pipeline->layout->num_imgs * 2);
+   unsigned attrib_count = set_layout->num_imgs;
+   unsigned attrib_buf_count = (set_layout->num_imgs * 2);
    struct panfrost_ptr bufs = pan_pool_alloc_desc_array(
       &cmdbuf->desc_pool.base, attrib_buf_count + 1, ATTRIBUTE_BUFFER);
    struct panfrost_ptr attribs = pan_pool_alloc_desc_array(
       &cmdbuf->desc_pool.base, attrib_count, ATTRIBUTE);
 
-   panvk_fill_img_attribs(cmdbuf, desc_state, pipeline, bufs.cpu, attribs.cpu,
+   panvk_fill_img_attribs(cmdbuf, desc_state, set_layout, bufs.cpu, attribs.cpu,
                           0);
 
    desc_state->img.attrib_bufs = bufs.gpu;
@@ -1113,8 +1112,9 @@ panvk_draw_prepare_vs_attribs(struct panvk_cmd_buffer *cmdbuf,
    const struct panvk_graphics_pipeline *pipeline = cmdbuf->state.gfx.pipeline;
    const struct vk_vertex_input_state *vi =
       cmdbuf->vk.dynamic_graphics_state.vi;
-   unsigned num_imgs =
-      pipeline->vs.has_img_access ? pipeline->base.layout->num_imgs : 0;
+   unsigned num_imgs = pipeline->vs.has_img_access
+                          ? pipeline->base.layout->set_layout.num_imgs
+                          : 0;
    unsigned num_vs_attribs = util_last_bit(vi->attributes_valid);
    unsigned num_vbs = util_last_bit(vi->bindings_valid);
    unsigned attrib_count =
@@ -1169,9 +1169,9 @@ panvk_draw_prepare_vs_attribs(struct panvk_cmd_buffer *cmdbuf,
 
       memset(attribs.cpu + num_vs_attribs * pan_size(ATTRIBUTE), 0,
              (MAX_VS_ATTRIBS - num_vs_attribs) * pan_size(ATTRIBUTE));
-      panvk_fill_img_attribs(cmdbuf, desc_state, &pipeline->base,
-                             bufs.cpu + bufs_offset,
-                             attribs.cpu + attribs_offset, num_vbs * 2);
+      panvk_fill_img_attribs(
+         cmdbuf, desc_state, &pipeline->base.layout->set_layout,
+         bufs.cpu + bufs_offset, attribs.cpu + attribs_offset, num_vbs * 2);
       desc_state->img.attrib_bufs = bufs.gpu + bufs_offset;
       desc_state->img.attribs = attribs.gpu + attribs_offset;
    }
@@ -1196,7 +1196,8 @@ panvk_draw_prepare_attributes(struct panvk_cmd_buffer *cmdbuf,
    draw->vs.attribute_bufs = cmdbuf->state.gfx.vs.attrib_bufs;
 
    if (pipeline->fs.has_img_access) {
-      panvk_prepare_img_attribs(cmdbuf, desc_state, &pipeline->base);
+      panvk_prepare_img_attribs(cmdbuf, desc_state,
+                                &pipeline->base.layout->set_layout);
       draw->fs.attributes = desc_state->img.attribs;
       draw->fs.attribute_bufs = desc_state->img.attrib_bufs;
    }
@@ -1528,9 +1529,12 @@ panvk_cmd_draw(struct panvk_cmd_buffer *cmdbuf, struct panvk_draw_info *draw)
    panvk_cmd_prepare_push_uniforms(cmdbuf, desc_state,
                                    &cmdbuf->state.gfx.sysvals,
                                    sizeof(cmdbuf->state.gfx.sysvals));
-   panvk_cmd_prepare_ubos(cmdbuf, desc_state, &pipeline->base);
-   panvk_cmd_prepare_textures(cmdbuf, desc_state, &pipeline->base);
-   panvk_cmd_prepare_samplers(cmdbuf, desc_state, &pipeline->base);
+   panvk_cmd_prepare_ubos(cmdbuf, desc_state,
+                          &pipeline->base.layout->set_layout);
+   panvk_cmd_prepare_textures(cmdbuf, desc_state,
+                              &pipeline->base.layout->set_layout);
+   panvk_cmd_prepare_samplers(cmdbuf, desc_state,
+                              &pipeline->base.layout->set_layout);
 
    /* TODO: indexed draws */
    draw->tls = batch->tls.gpu;
@@ -1967,12 +1971,14 @@ panvk_per_arch(CmdDispatch)(VkCommandBuffer commandBuffer, uint32_t x,
    panvk_cmd_prepare_push_sets(cmdbuf, desc_state, &pipeline->base);
 
    if (pipeline->cs.has_img_access)
-      panvk_prepare_img_attribs(cmdbuf, desc_state, &pipeline->base);
+      panvk_prepare_img_attribs(cmdbuf, desc_state,
+                                &pipeline->base.layout->set_layout);
 
    dispatch.attributes = desc_state->img.attribs;
    dispatch.attribute_bufs = desc_state->img.attrib_bufs;
 
-   panvk_cmd_prepare_ubos(cmdbuf, desc_state, &pipeline->base);
+   panvk_cmd_prepare_ubos(cmdbuf, desc_state,
+                          &pipeline->base.layout->set_layout);
    dispatch.ubos = desc_state->ubos;
 
    panvk_cmd_prepare_push_uniforms(cmdbuf, desc_state,
@@ -1980,10 +1986,12 @@ panvk_per_arch(CmdDispatch)(VkCommandBuffer commandBuffer, uint32_t x,
                                    sizeof(cmdbuf->state.compute.sysvals));
    dispatch.push_uniforms = desc_state->push_uniforms;
 
-   panvk_cmd_prepare_textures(cmdbuf, desc_state, &pipeline->base);
+   panvk_cmd_prepare_textures(cmdbuf, desc_state,
+                              &pipeline->base.layout->set_layout);
    dispatch.textures = desc_state->textures;
 
-   panvk_cmd_prepare_samplers(cmdbuf, desc_state, &pipeline->base);
+   panvk_cmd_prepare_samplers(cmdbuf, desc_state,
+                              &pipeline->base.layout->set_layout);
    dispatch.samplers = desc_state->samplers;
 
    panfrost_pack_work_groups_compute(
@@ -2318,8 +2326,8 @@ panvk_per_arch(CmdBindDescriptorSets)(
       descriptors_state->sets[idx] = set;
 
       if (set->layout->num_dyn_ssbos || set->layout->num_dyn_ubos) {
-         unsigned dyn_ubo_slot = playout->sets[idx].dyn_ubo_offset;
-         unsigned dyn_ssbo_slot = playout->sets[idx].dyn_ssbo_offset;
+         unsigned dyn_ubo_slot = playout->set_layout.sets[idx].dyn_ubo_offset;
+         unsigned dyn_ssbo_slot = playout->set_layout.sets[idx].dyn_ssbo_offset;
 
          for (unsigned b = 0; b < set->layout->binding_count; b++) {
             for (unsigned e = 0; e < set->layout->bindings[b].array_size; e++) {

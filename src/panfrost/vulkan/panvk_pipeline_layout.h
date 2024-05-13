@@ -16,53 +16,16 @@
 
 #include "panvk_descriptor_set_layout.h"
 #include "panvk_macros.h"
-
-#define MAX_SETS                    4
-#define MAX_DYNAMIC_UNIFORM_BUFFERS 16
-#define MAX_DYNAMIC_STORAGE_BUFFERS 8
-#define MAX_DYNAMIC_BUFFERS                                                    \
-   (MAX_DYNAMIC_UNIFORM_BUFFERS + MAX_DYNAMIC_STORAGE_BUFFERS)
+#include "panvk_set_collection_layout.h"
 
 struct panvk_pipeline_layout {
    struct vk_pipeline_layout vk;
 
    unsigned char sha1[20];
-
-   unsigned num_samplers;
-   unsigned num_textures;
-   unsigned num_ubos;
-   unsigned num_dyn_ubos;
-   unsigned num_dyn_ssbos;
-   uint32_t num_imgs;
-
-   struct {
-      unsigned sampler_offset;
-      unsigned tex_offset;
-      unsigned ubo_offset;
-      unsigned dyn_ubo_offset;
-      unsigned dyn_ssbo_offset;
-      unsigned img_offset;
-      unsigned dyn_desc_ubo_offset;
-   } sets[MAX_SETS];
+   struct panvk_set_collection_layout set_layout;
 };
 
 VK_DEFINE_NONDISP_HANDLE_CASTS(panvk_pipeline_layout, vk.base, VkPipelineLayout,
                                VK_OBJECT_TYPE_PIPELINE_LAYOUT)
-
-unsigned panvk_per_arch(pipeline_layout_ubo_start)(
-   const struct panvk_pipeline_layout *layout, unsigned set, bool is_dynamic);
-
-unsigned panvk_per_arch(pipeline_layout_ubo_index)(
-   const struct panvk_pipeline_layout *layout, unsigned set, unsigned binding,
-   unsigned array_index);
-
-unsigned panvk_per_arch(pipeline_layout_dyn_desc_ubo_index)(
-   const struct panvk_pipeline_layout *layout);
-
-unsigned panvk_per_arch(pipeline_layout_dyn_ubos_offset)(
-   const struct panvk_pipeline_layout *layout);
-
-unsigned panvk_per_arch(pipeline_layout_total_ubo_count)(
-   const struct panvk_pipeline_layout *layout);
 
 #endif
