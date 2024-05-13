@@ -2491,9 +2491,9 @@ panvk_per_arch(CmdPushDescriptorSetKHR)(
    const VkWriteDescriptorSet *pDescriptorWrites)
 {
    VK_FROM_HANDLE(panvk_cmd_buffer, cmdbuf, commandBuffer);
-   VK_FROM_HANDLE(panvk_pipeline_layout, playout, layout);
+   VK_FROM_HANDLE(vk_pipeline_layout, playout, layout);
    const struct panvk_descriptor_set_layout *set_layout =
-      vk_to_panvk_descriptor_set_layout(playout->vk.set_layouts[set]);
+      vk_to_panvk_descriptor_set_layout(playout->set_layouts[set]);
    struct panvk_push_descriptor_set *push_set =
       panvk_cmd_push_descriptors(cmdbuf, pipelineBindPoint, set);
    if (!push_set)
