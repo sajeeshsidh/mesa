@@ -29,11 +29,11 @@
 
 #include "genxml/gen_macros.h"
 
+#include "panvk_descriptor_set_layout.h"
 #include "panvk_device.h"
 #include "panvk_instance.h"
 #include "panvk_physical_device.h"
 #include "panvk_pipeline.h"
-#include "panvk_pipeline_layout.h"
 #include "panvk_sampler.h"
 #include "panvk_set_collection_layout.h"
 #include "panvk_shader.h"
@@ -435,39 +435,6 @@ panvk_per_arch(set_collection_layout_fill)(
       layout->num_samplers++;
       for (unsigned set = 0; set < layout->set_count; set++)
          layout->sets[set].sampler_offset++;
-   }
-}
-
-void
-panvk_per_arch(set_collection_layout_hash_state)(
-   const struct panvk_set_collection_layout *layout,
-   struct vk_descriptor_set_layout *const *set_layouts,
-   struct mesa_sha1 *sha1_ctx)
-{
-   for (unsigned set = 0; set < layout->set_count; set++) {
-      const struct panvk_descriptor_set_layout *set_layout =
-         vk_to_panvk_descriptor_set_layout(set_layouts[set]);
-
-      for (unsigned b = 0; b < set_layout->binding_count; b++) {
-         const struct panvk_descriptor_set_binding_layout *binding_layout =
-            &set_layout->bindings[b];
-
-         if (binding_layout->immutable_samplers) {
-            for (unsigned s = 0; s < binding_layout->array_size; s++) {
-               struct panvk_sampler *sampler =
-                  binding_layout->immutable_samplers[s];
-
-               _mesa_sha1_update(sha1_ctx, &sampler->desc,
-                                 sizeof(sampler->desc));
-            }
-         }
-         _mesa_sha1_update(sha1_ctx, &binding_layout->type,
-                           sizeof(binding_layout->type));
-         _mesa_sha1_update(sha1_ctx, &binding_layout->array_size,
-                           sizeof(binding_layout->array_size));
-         _mesa_sha1_update(sha1_ctx, &binding_layout->shader_stages,
-                           sizeof(binding_layout->shader_stages));
-      }
    }
 }
 
