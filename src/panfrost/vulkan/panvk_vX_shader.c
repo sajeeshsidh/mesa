@@ -52,6 +52,7 @@
 #include "pan_shader.h"
 
 #include "vk_log.h"
+#include "vk_pipeline.h"
 #include "vk_shader.h"
 #include "vk_util.h"
 
@@ -137,6 +138,113 @@ shared_type_info(const struct glsl_type *type, unsigned *size, unsigned *align)
       glsl_type_is_boolean(type) ? 4 : glsl_get_bit_size(type) / 8;
    unsigned length = glsl_get_vector_elements(type);
    *size = comp_size * length, *align = comp_size * (length == 3 ? 4 : length);
+}
+
+static inline nir_address_format
+panvk_buffer_ubo_addr_format(VkPipelineRobustnessBufferBehaviorEXT robustness)
+{
+   switch (robustness) {
+   case VK_PIPELINE_ROBUSTNESS_BUFFER_BEHAVIOR_DISABLED_EXT:
+   case VK_PIPELINE_ROBUSTNESS_BUFFER_BEHAVIOR_ROBUST_BUFFER_ACCESS_EXT:
+   case VK_PIPELINE_ROBUSTNESS_BUFFER_BEHAVIOR_ROBUST_BUFFER_ACCESS_2_EXT:
+      return nir_address_format_32bit_index_offset;
+   default:
+      unreachable("Invalid robust buffer access behavior");
+   }
+}
+
+static inline nir_address_format
+panvk_buffer_ssbo_addr_format(VkPipelineRobustnessBufferBehaviorEXT robustness)
+{
+   switch (robustness) {
+   case VK_PIPELINE_ROBUSTNESS_BUFFER_BEHAVIOR_DISABLED_EXT:
+      return nir_address_format_64bit_global_32bit_offset;
+   case VK_PIPELINE_ROBUSTNESS_BUFFER_BEHAVIOR_ROBUST_BUFFER_ACCESS_EXT:
+   case VK_PIPELINE_ROBUSTNESS_BUFFER_BEHAVIOR_ROBUST_BUFFER_ACCESS_2_EXT:
+      return nir_address_format_64bit_bounded_global;
+   default:
+      unreachable("Invalid robust buffer access behavior");
+   }
+}
+
+static void
+panvk_lower_nir(struct panvk_device *dev, nir_shader *nir,
+                struct vk_descriptor_set_layout *const *set_layouts,
+                const struct vk_pipeline_robustness_state *rs,
+                const struct panvk_set_collection_layout *layout,
+                const struct panfrost_compile_inputs *compile_input,
+                bool *has_img_access)
+{
+   struct panvk_instance *instance =
+      to_panvk_instance(dev->vk.physical->instance);
+   gl_shader_stage stage = nir->info.stage;
+
+   /* TODO */
+   struct panvk_lower_desc_inputs lower_inputs = {
+      .dev = dev,
+      .compile_inputs = compile_input,
+      .layout = layout,
+      .set_layouts = set_layouts,
+   };
+
+   NIR_PASS_V(nir, panvk_per_arch(nir_lower_descriptors), &lower_inputs,
+              has_img_access);
+
+   NIR_PASS_V(nir, nir_lower_explicit_io, nir_var_mem_ubo,
+              panvk_buffer_ubo_addr_format(rs->uniform_buffers));
+   NIR_PASS_V(nir, nir_lower_explicit_io, nir_var_mem_ssbo,
+              panvk_buffer_ssbo_addr_format(rs->storage_buffers));
+   NIR_PASS_V(nir, nir_lower_explicit_io, nir_var_mem_push_const,
+              nir_address_format_32bit_offset);
+   NIR_PASS_V(nir, nir_lower_explicit_io, nir_var_mem_global,
+              nir_address_format_64bit_global);
+
+   if (gl_shader_stage_uses_workgroup(stage)) {
+      if (!nir->info.shared_memory_explicit_layout) {
+         NIR_PASS_V(nir, nir_lower_vars_to_explicit_types, nir_var_mem_shared,
+                    shared_type_info);
+      }
+
+      NIR_PASS_V(nir, nir_lower_explicit_io, nir_var_mem_shared,
+                 nir_address_format_32bit_offset);
+   }
+
+   if (stage == MESA_SHADER_VERTEX) {
+      /* We need the driver_location to match the vertex attribute location,
+       * so we can use the attribute layout described by
+       * vk_vertex_input_state where there are holes in the attribute locations.
+       */
+      nir_foreach_shader_in_variable(var, nir) {
+         assert(var->data.location >= VERT_ATTRIB_GENERIC0 &&
+                var->data.location <= VERT_ATTRIB_GENERIC15);
+         var->data.driver_location = var->data.location - VERT_ATTRIB_GENERIC0;
+      }
+   } else {
+      nir_assign_io_var_locations(nir, nir_var_shader_in, &nir->num_inputs,
+                                  stage);
+   }
+
+   nir_assign_io_var_locations(nir, nir_var_shader_out, &nir->num_outputs,
+                               stage);
+
+   /* Needed to turn shader_temp into function_temp since the backend only
+    * handles the latter for now.
+    */
+   NIR_PASS_V(nir, nir_lower_global_vars_to_local);
+
+   nir_shader_gather_info(nir, nir_shader_get_entrypoint(nir));
+   if (unlikely(instance->debug_flags & PANVK_DEBUG_NIR)) {
+      fprintf(stderr, "translated nir:\n");
+      nir_print_shader(nir, stderr);
+   }
+
+   pan_shader_preprocess(nir, compile_input->gpu_id);
+
+   if (stage == MESA_SHADER_VERTEX)
+      NIR_PASS_V(nir, pan_lower_image_index, MAX_VS_ATTRIBS);
+
+   NIR_PASS_V(nir, nir_shader_instructions_pass, panvk_lower_sysvals,
+              nir_metadata_block_index | nir_metadata_dominance, NULL);
 }
 
 static VkResult
@@ -241,8 +349,6 @@ panvk_per_arch(shader_create)(
    VK_FROM_HANDLE(vk_shader_module, module, stage_info->module);
    struct panvk_physical_device *phys_dev =
       to_panvk_physical_device(dev->vk.physical);
-   struct panvk_instance *instance =
-      to_panvk_instance(dev->vk.physical->instance);
    gl_shader_stage stage = vk_to_mesa_shader_stage(stage_info->stage);
    struct panvk_shader *shader;
 
@@ -274,12 +380,6 @@ panvk_per_arch(shader_create)(
 
    NIR_PASS_V(nir, nir_lower_io_to_temporaries, nir_shader_get_entrypoint(nir),
               true, true);
-
-   struct panfrost_compile_inputs inputs = {
-      .gpu_id = phys_dev->kmod.props.gpu_prod_id,
-      .no_ubo_to_push = true,
-      .no_idvs = true, /* TODO */
-   };
 
    NIR_PASS_V(nir, nir_lower_indirect_derefs,
               nir_var_shader_in | nir_var_shader_out, UINT32_MAX);
@@ -329,35 +429,6 @@ panvk_per_arch(shader_create)(
    };
    NIR_PASS_V(nir, nir_lower_tex, &lower_tex_options);
 
-   struct panvk_lower_desc_inputs lower_inputs = {
-      .dev = dev,
-      .compile_inputs = &inputs,
-      .set_layouts = set_layouts,
-      .layout = layout,
-   };
-
-   NIR_PASS_V(nir, panvk_per_arch(nir_lower_descriptors), &lower_inputs,
-              &shader->has_img_access);
-
-   NIR_PASS_V(nir, nir_lower_explicit_io, nir_var_mem_ubo,
-              nir_address_format_32bit_index_offset);
-   NIR_PASS_V(nir, nir_lower_explicit_io, nir_var_mem_ssbo,
-              spirv_options.ssbo_addr_format);
-   NIR_PASS_V(nir, nir_lower_explicit_io, nir_var_mem_push_const,
-              nir_address_format_32bit_offset);
-   NIR_PASS_V(nir, nir_lower_explicit_io, nir_var_mem_global,
-              nir_address_format_64bit_global);
-
-   if (gl_shader_stage_uses_workgroup(stage)) {
-      if (!nir->info.shared_memory_explicit_layout) {
-         NIR_PASS_V(nir, nir_lower_vars_to_explicit_types, nir_var_mem_shared,
-                    shared_type_info);
-      }
-
-      NIR_PASS_V(nir, nir_lower_explicit_io, nir_var_mem_shared,
-                 nir_address_format_32bit_offset);
-   }
-
    NIR_PASS_V(nir, nir_lower_system_values);
 
    nir_lower_compute_system_values_options options = {
@@ -369,42 +440,24 @@ panvk_per_arch(shader_create)(
    NIR_PASS_V(nir, nir_split_var_copies);
    NIR_PASS_V(nir, nir_lower_var_copies);
 
-   if (stage == MESA_SHADER_VERTEX) {
-      /* We need the driver_location to match the vertex attribute location,
-       * so we can use the attribute layout described by
-       * vk_vertex_input_state where there are holes in the attribute locations.
-       */
-      nir_foreach_shader_in_variable(var, nir) {
-         assert(var->data.location >= VERT_ATTRIB_GENERIC0 &&
-                var->data.location <= VERT_ATTRIB_GENERIC15);
-         var->data.driver_location = var->data.location - VERT_ATTRIB_GENERIC0;
-      }
-   } else {
-      nir_assign_io_var_locations(nir, nir_var_shader_in, &nir->num_inputs,
-                                  stage);
-   }
+   struct vk_pipeline_robustness_state rs = {
+      .storage_buffers =
+         dev->vk.enabled_features.robustBufferAccess
+            ? VK_PIPELINE_ROBUSTNESS_BUFFER_BEHAVIOR_ROBUST_BUFFER_ACCESS_EXT
+            : VK_PIPELINE_ROBUSTNESS_BUFFER_BEHAVIOR_DISABLED_EXT,
+      .uniform_buffers = VK_PIPELINE_ROBUSTNESS_BUFFER_BEHAVIOR_DISABLED_EXT,
+      .vertex_inputs = VK_PIPELINE_ROBUSTNESS_BUFFER_BEHAVIOR_DISABLED_EXT,
+      .images = VK_PIPELINE_ROBUSTNESS_IMAGE_BEHAVIOR_DISABLED_EXT,
+   };
 
-   nir_assign_io_var_locations(nir, nir_var_shader_out, &nir->num_outputs,
-                               stage);
+   struct panfrost_compile_inputs inputs = {
+      .gpu_id = phys_dev->kmod.props.gpu_prod_id,
+      .no_ubo_to_push = true,
+      .no_idvs = true, /* TODO */
+   };
 
-   /* Needed to turn shader_temp into function_temp since the backend only
-    * handles the latter for now.
-    */
-   NIR_PASS_V(nir, nir_lower_global_vars_to_local);
-
-   nir_shader_gather_info(nir, nir_shader_get_entrypoint(nir));
-   if (unlikely(instance->debug_flags & PANVK_DEBUG_NIR)) {
-      fprintf(stderr, "translated nir:\n");
-      nir_print_shader(nir, stderr);
-   }
-
-   pan_shader_preprocess(nir, inputs.gpu_id);
-
-   if (stage == MESA_SHADER_VERTEX)
-      NIR_PASS_V(nir, pan_lower_image_index, MAX_VS_ATTRIBS);
-
-   NIR_PASS_V(nir, nir_shader_instructions_pass, panvk_lower_sysvals,
-              nir_metadata_block_index | nir_metadata_dominance, NULL);
+   panvk_lower_nir(dev, nir, set_layouts, &rs, &shader->sets_layout, &inputs,
+                   &shader->has_img_access);
 
    result = panvk_compile_nir(dev, nir, 0, &inputs, shader);
 
