@@ -79,6 +79,9 @@ struct panvk_shader {
 
    mali_ptr upload_addr;
    uint32_t upload_size;
+
+   const char *nir_str;
+   const char *asm_str;
 };
 
 static inline mali_ptr
