@@ -1,0 +1,868 @@
+test_object_interface:1607:pipeline state: Test failed: Test object has 1 references left.
+test_object_interface:1613: Test failed: ID3D12Device has 1 references left.
+test_object_interface_null_cases:1307: Test failed: Unexpected ref-count 1
+test_multithread_private_data:1120: Test failed: ID3D12Device has 1 references left.
+test_reset_command_allocator:1269: Test failed: ID3D12Device has 1 references left.
+test_cpu_signal_fence:800: Test failed: ID3D12Device has 1 references left.
+test_gpu_signal_fence:1023: Test failed: ID3D12Device has 1 references left.
+test_multithread_fence_wait:1137: Test failed: ID3D12Device has 1 references left.
+test_fence_values:531: Test failed: ID3D12Device has 1 references left.
+test_clear_depth_stencil_view:138: Test failed: ID3D12Device has 1 references left.
+test_clear_render_target_view:411: Test failed: ID3D12Device has 1 references left.
+test_shader_instructions:3479:124:f32tof16: Test failed: Got {0x00000000, 0x00000000, 0x00000000, 0x00000000}, expected {0x00000001, 0x00000002, 0x00000003, 0x00000004} at (0, 0).
+test_shader_instructions:3479:125:f32tof16: Test failed: Got {0x00008000, 0x00008000, 0x00008000, 0x00008000}, expected {0x00008001, 0x00008002, 0x00008003, 0x00008004} at (0, 0).
+test_query_pipeline_statistics:295: Test failed: HSInvocations: Got 3, expected 0.
+test_vertex_id_dxbc:10761: Test failed: Found unexpected value {0x0000000a, 0x00000000, 0x00000003, 0x00000000}.
+test_vertex_id_dxbc:10761: Test failed: Found unexpected value {0x0000000b, 0x00000000, 0x00000004, 0x00000000}.
+test_vertex_id_dxbc:10761: Test failed: Found unexpected value {0x0000000c, 0x00000000, 0x00000005, 0x00000000}.
+test_vertex_id_dxbc:10761: Test failed: Found unexpected value {0x0000000d, 0x00000000, 0x00000006, 0x00000000}.
+test_vertex_id_dxbc:10761: Test failed: Found unexpected value {0x0000000e, 0x00000000, 0x00000007, 0x00000000}.
+test_vertex_id_dxbc:10761: Test failed: Found unexpected value {0x0000000f, 0x00000000, 0x00000008, 0x00000000}.
+test_vertex_id_dxbc:10761: Test failed: Found unexpected value {0x0000000e, 0x00000001, 0x00000007, 0x00000000}.
+test_vertex_id_dxbc:10761: Test failed: Found unexpected value {0x0000000f, 0x00000001, 0x00000008, 0x00000000}.
+test_vertex_id_dxbc:10761: Test failed: Found unexpected value {0x0000000e, 0x00000002, 0x00000007, 0x00000000}.
+test_vertex_id_dxbc:10761: Test failed: Found unexpected value {0x0000000f, 0x00000002, 0x00000008, 0x00000000}.
+test_vertex_id_dxbc:10761: Test failed: Found unexpected value {0x0000000a, 0x00000000, 0x00000003, 0x00000000}.
+test_vertex_id_dxbc:10761: Test failed: Found unexpected value {0x0000000b, 0x00000000, 0x00000004, 0x00000000}.
+test_vertex_id_dxbc:10761: Test failed: Found unexpected value {0x0000000c, 0x00000000, 0x00000005, 0x00000000}.
+test_vertex_id_dxbc:10761: Test failed: Found unexpected value {0x0000000d, 0x00000000, 0x00000006, 0x00000000}.
+test_vertex_id_dxbc:10761: Test failed: Found unexpected value {0x0000000e, 0x00000000, 0x00000007, 0x00000000}.
+test_vertex_id_dxbc:10761: Test failed: Found unexpected value {0x0000000f, 0x00000000, 0x00000008, 0x00000000}.
+test_vertex_id_dxbc:10761: Test failed: Found unexpected value {0x0000000e, 0x00000001, 0x00000007, 0x00000000}.
+test_vertex_id_dxbc:10761: Test failed: Found unexpected value {0x0000000f, 0x00000001, 0x00000008, 0x00000000}.
+test_vertex_id_dxbc:10761: Test failed: Found unexpected value {0x0000000e, 0x00000002, 0x00000007, 0x00000000}.
+test_vertex_id_dxbc:10761: Test failed: Found unexpected value {0x0000000f, 0x00000002, 0x00000008, 0x00000000}.
+test_vertex_id_dxbc:10767: Test failed: Failed to find value {0x0000000a, 0x00000000, 0x00000000, 0x00000000}.
+test_vertex_id_dxbc:10767: Test failed: Failed to find value {0x0000000b, 0x00000000, 0x00000001, 0x00000000}.
+test_vertex_id_dxbc:10767: Test failed: Failed to find value {0x0000000c, 0x00000000, 0x00000002, 0x00000000}.
+test_vertex_id_dxbc:10767: Test failed: Failed to find value {0x0000000d, 0x00000000, 0x00000003, 0x00000000}.
+test_vertex_id_dxbc:10767: Test failed: Failed to find value {0x0000000e, 0x00000000, 0x00000000, 0x00000000}.
+test_vertex_id_dxbc:10767: Test failed: Failed to find value {0x0000000f, 0x00000000, 0x00000001, 0x00000000}.
+test_vertex_id_dxbc:10767: Test failed: Failed to find value {0x0000000e, 0x00000001, 0x00000000, 0x00000000}.
+test_vertex_id_dxbc:10767: Test failed: Failed to find value {0x0000000f, 0x00000001, 0x00000001, 0x00000000}.
+test_vertex_id_dxbc:10767: Test failed: Failed to find value {0x0000000e, 0x00000002, 0x00000000, 0x00000000}.
+test_vertex_id_dxbc:10767: Test failed: Failed to find value {0x0000000f, 0x00000002, 0x00000001, 0x00000000}.
+test_vertex_id_dxbc:10767: Test failed: Failed to find value {0x0000000a, 0x00000000, 0x00000000, 0x00000000}.
+test_vertex_id_dxbc:10767: Test failed: Failed to find value {0x0000000b, 0x00000000, 0x00000001, 0x00000000}.
+test_vertex_id_dxbc:10767: Test failed: Failed to find value {0x0000000c, 0x00000000, 0x00000002, 0x00000000}.
+test_vertex_id_dxbc:10767: Test failed: Failed to find value {0x0000000d, 0x00000000, 0x00000003, 0x00000000}.
+test_vertex_id_dxbc:10767: Test failed: Failed to find value {0x0000000e, 0x00000000, 0x00000008, 0x00000000}.
+test_vertex_id_dxbc:10767: Test failed: Failed to find value {0x0000000f, 0x00000000, 0x00000009, 0x00000000}.
+test_vertex_id_dxbc:10767: Test failed: Failed to find value {0x0000000e, 0x00000001, 0x00000008, 0x00000000}.
+test_vertex_id_dxbc:10767: Test failed: Failed to find value {0x0000000f, 0x00000001, 0x00000009, 0x00000000}.
+test_vertex_id_dxbc:10767: Test failed: Failed to find value {0x0000000e, 0x00000002, 0x00000008, 0x00000000}.
+test_vertex_id_dxbc:10767: Test failed: Failed to find value {0x0000000f, 0x00000002, 0x00000009, 0x00000000}.
+test_vertex_id_dxil:10761: Test failed: Found unexpected value {0x0000000a, 0x00000000, 0x00000003, 0x00000000}.
+test_vertex_id_dxil:10761: Test failed: Found unexpected value {0x0000000b, 0x00000000, 0x00000004, 0x00000000}.
+test_vertex_id_dxil:10761: Test failed: Found unexpected value {0x0000000c, 0x00000000, 0x00000005, 0x00000000}.
+test_vertex_id_dxil:10761: Test failed: Found unexpected value {0x0000000d, 0x00000000, 0x00000006, 0x00000000}.
+test_vertex_id_dxil:10761: Test failed: Found unexpected value {0x0000000e, 0x00000000, 0x00000007, 0x00000000}.
+test_vertex_id_dxil:10761: Test failed: Found unexpected value {0x0000000f, 0x00000000, 0x00000008, 0x00000000}.
+test_vertex_id_dxil:10761: Test failed: Found unexpected value {0x0000000e, 0x00000001, 0x00000007, 0x00000000}.
+test_vertex_id_dxil:10761: Test failed: Found unexpected value {0x0000000f, 0x00000001, 0x00000008, 0x00000000}.
+test_vertex_id_dxil:10761: Test failed: Found unexpected value {0x0000000e, 0x00000002, 0x00000007, 0x00000000}.
+test_vertex_id_dxil:10761: Test failed: Found unexpected value {0x0000000f, 0x00000002, 0x00000008, 0x00000000}.
+test_vertex_id_dxil:10761: Test failed: Found unexpected value {0x0000000a, 0x00000000, 0x00000003, 0x00000000}.
+test_vertex_id_dxil:10761: Test failed: Found unexpected value {0x0000000b, 0x00000000, 0x00000004, 0x00000000}.
+test_vertex_id_dxil:10761: Test failed: Found unexpected value {0x0000000c, 0x00000000, 0x00000005, 0x00000000}.
+test_vertex_id_dxil:10761: Test failed: Found unexpected value {0x0000000d, 0x00000000, 0x00000006, 0x00000000}.
+test_vertex_id_dxil:10761: Test failed: Found unexpected value {0x0000000e, 0x00000000, 0x00000007, 0x00000000}.
+test_vertex_id_dxil:10761: Test failed: Found unexpected value {0x0000000f, 0x00000000, 0x00000008, 0x00000000}.
+test_vertex_id_dxil:10761: Test failed: Found unexpected value {0x0000000e, 0x00000001, 0x00000007, 0x00000000}.
+test_vertex_id_dxil:10761: Test failed: Found unexpected value {0x0000000f, 0x00000001, 0x00000008, 0x00000000}.
+test_vertex_id_dxil:10761: Test failed: Found unexpected value {0x0000000e, 0x00000002, 0x00000007, 0x00000000}.
+test_vertex_id_dxil:10761: Test failed: Found unexpected value {0x0000000f, 0x00000002, 0x00000008, 0x00000000}.
+test_vertex_id_dxil:10767: Test failed: Failed to find value {0x0000000a, 0x00000000, 0x00000000, 0x00000000}.
+test_vertex_id_dxil:10767: Test failed: Failed to find value {0x0000000b, 0x00000000, 0x00000001, 0x00000000}.
+test_vertex_id_dxil:10767: Test failed: Failed to find value {0x0000000c, 0x00000000, 0x00000002, 0x00000000}.
+test_vertex_id_dxil:10767: Test failed: Failed to find value {0x0000000d, 0x00000000, 0x00000003, 0x00000000}.
+test_vertex_id_dxil:10767: Test failed: Failed to find value {0x0000000e, 0x00000000, 0x00000000, 0x00000000}.
+test_vertex_id_dxil:10767: Test failed: Failed to find value {0x0000000f, 0x00000000, 0x00000001, 0x00000000}.
+test_vertex_id_dxil:10767: Test failed: Failed to find value {0x0000000e, 0x00000001, 0x00000000, 0x00000000}.
+test_vertex_id_dxil:10767: Test failed: Failed to find value {0x0000000f, 0x00000001, 0x00000001, 0x00000000}.
+test_vertex_id_dxil:10767: Test failed: Failed to find value {0x0000000e, 0x00000002, 0x00000000, 0x00000000}.
+test_vertex_id_dxil:10767: Test failed: Failed to find value {0x0000000f, 0x00000002, 0x00000001, 0x00000000}.
+test_vertex_id_dxil:10767: Test failed: Failed to find value {0x0000000a, 0x00000000, 0x00000000, 0x00000000}.
+test_vertex_id_dxil:10767: Test failed: Failed to find value {0x0000000b, 0x00000000, 0x00000001, 0x00000000}.
+test_vertex_id_dxil:10767: Test failed: Failed to find value {0x0000000c, 0x00000000, 0x00000002, 0x00000000}.
+test_vertex_id_dxil:10767: Test failed: Failed to find value {0x0000000d, 0x00000000, 0x00000003, 0x00000000}.
+test_vertex_id_dxil:10767: Test failed: Failed to find value {0x0000000e, 0x00000000, 0x00000008, 0x00000000}.
+test_vertex_id_dxil:10767: Test failed: Failed to find value {0x0000000f, 0x00000000, 0x00000009, 0x00000000}.
+test_vertex_id_dxil:10767: Test failed: Failed to find value {0x0000000e, 0x00000001, 0x00000008, 0x00000000}.
+test_vertex_id_dxil:10767: Test failed: Failed to find value {0x0000000f, 0x00000001, 0x00000009, 0x00000000}.
+test_vertex_id_dxil:10767: Test failed: Failed to find value {0x0000000e, 0x00000002, 0x00000008, 0x00000000}.
+test_vertex_id_dxil:10767: Test failed: Failed to find value {0x0000000f, 0x00000002, 0x00000009, 0x00000000}.
+test_primitive_restart_list_topology_stream_output:160: Test failed: Got unexpected counter 192, expected 240.
+test_primitive_restart_list_topology_stream_output:173: Test failed: Got {2.00000000e+03, 2.00000000e+03, 2.00000000e+03, 2.00000000e+03}, expected {9.00000000e+00, 9.00000000e+00, 9.00000000e+00, 9.00000000e+00}.
+test_primitive_restart_list_topology_stream_output:173: Test failed: Got {3.00000000e+03, 3.00000000e+03, 3.00000000e+03, 3.00000000e+03}, expected {-1.00000000e+00, -1.00000000e+00, -1.00000000e+00, -1.00000000e+00}.
+test_primitive_restart_list_topology_stream_output:173: Test failed: Got {4.00000000e+03, 4.00000000e+03, 4.00000000e+03, 4.00000000e+03}, expected {-1.00000000e+00, -1.00000000e+00, -1.00000000e+00, -1.00000000e+00}.
+test_primitive_restart_list_topology_stream_output:173: Test failed: Got {0.00000000e+00, 0.00000000e+00, 0.00000000e+00, 0.00000000e+00}, expected {2.00000000e+03, 2.00000000e+03, 2.00000000e+03, 2.00000000e+03}.
+test_primitive_restart_list_topology_stream_output:173: Test failed: Got {0.00000000e+00, 0.00000000e+00, 0.00000000e+00, 0.00000000e+00}, expected {3.00000000e+03, 3.00000000e+03, 3.00000000e+03, 3.00000000e+03}.
+test_primitive_restart_list_topology_stream_output:173: Test failed: Got {0.00000000e+00, 0.00000000e+00, 0.00000000e+00, 0.00000000e+00}, expected {4.00000000e+03, 4.00000000e+03, 4.00000000e+03, 4.00000000e+03}.
+test_stress_fallback_render_target_allocation_device:2826: Test failed: Failed to create heap, hr #8007000e.
+test_stress_fallback_render_target_allocation_device:2826: Test failed: Failed to create heap, hr #8007000e.
+test_stress_fallback_render_target_allocation_device:2826: Test failed: Failed to create heap, hr #8007000e.
+test_stress_fallback_render_target_allocation_device:2826: Test failed: Failed to create heap, hr #8007000e.
+test_stress_fallback_render_target_allocation_device:2826: Test failed: Failed to create heap, hr #8007000e.
+test_stress_fallback_render_target_allocation_device:2826: Test failed: Failed to create heap, hr #8007000e.
+test_stress_fallback_render_target_allocation_device:2826: Test failed: Failed to create heap, hr #8007000e.
+test_stress_fallback_render_target_allocation_device:2826: Test failed: Failed to create heap, hr #8007000e.
+test_stress_fallback_render_target_allocation_device:2826: Test failed: Failed to create heap, hr #8007000e.
+test_stress_fallback_render_target_allocation_device:2826: Test failed: Failed to create heap, hr #8007000e.
+test_stress_fallback_render_target_allocation_device:2826: Test failed: Failed to create heap, hr #8007000e.
+test_stress_fallback_render_target_allocation_device:2826: Test failed: Failed to create heap, hr #8007000e.
+test_stress_fallback_render_target_allocation_device:2826: Test failed: Failed to create heap, hr #8007000e.
+test_stress_fallback_render_target_allocation_device:2826: Test failed: Failed to create heap, hr #8007000e.
+test_stress_fallback_render_target_allocation_device:2826: Test failed: Failed to create heap, hr #8007000e.
+test_stress_fallback_render_target_allocation_device:2826: Test failed: Failed to create heap, hr #8007000e.
+test_stress_fallback_render_target_allocation_device:2826: Test failed: Failed to create heap, hr #8007000e.
+test_stress_fallback_render_target_allocation_device:2826: Test failed: Failed to create heap, hr #8007000e.
+test_stress_fallback_render_target_allocation_device:2826: Test failed: Failed to create heap, hr #8007000e.
+test_stress_fallback_render_target_allocation_device:2826: Test failed: Failed to create heap, hr #8007000e.
+test_stress_fallback_render_target_allocation_device:2826: Test failed: Failed to create heap, hr #8007000e.
+test_stress_fallback_render_target_allocation_device:2826: Test failed: Failed to create heap, hr #8007000e.
+test_stress_fallback_render_target_allocation_device:2826: Test failed: Failed to create heap, hr #8007000e.
+test_stress_fallback_render_target_allocation_device:2826: Test failed: Failed to create heap, hr #8007000e.
+test_stress_fallback_render_target_allocation_device:2826: Test failed: Failed to create heap, hr #8007000e.
+test_stress_fallback_render_target_allocation_device:2826: Test failed: Failed to create heap, hr #8007000e.
+test_stress_fallback_render_target_allocation_device:2826: Test failed: Failed to create heap, hr #8007000e.
+test_stress_fallback_render_target_allocation_device:2826: Test failed: Failed to create heap, hr #8007000e.
+test_stress_fallback_render_target_allocation_device:2826: Test failed: Failed to create heap, hr #8007000e.
+test_stress_fallback_render_target_allocation_device:2826: Test failed: Failed to create heap, hr #8007000e.
+test_stress_fallback_render_target_allocation_device:2826: Test failed: Failed to create heap, hr #8007000e.
+test_stress_fallback_render_target_allocation_device:2826: Test failed: Failed to create heap, hr #8007000e.
+test_stress_fallback_render_target_allocation_device:2826: Test failed: Failed to create heap, hr #8007000e.
+test_stress_fallback_render_target_allocation_device:2826: Test failed: Failed to create heap, hr #8007000e.
+test_stress_fallback_render_target_allocation_device:2826: Test failed: Failed to create heap, hr #8007000e.
+test_stress_fallback_render_target_allocation_device:2826: Test failed: Failed to create heap, hr #8007000e.
+test_stress_fallback_render_target_allocation_device:2826: Test failed: Failed to create heap, hr #8007000e.
+test_stress_fallback_render_target_allocation_device:2826: Test failed: Failed to create heap, hr #8007000e.
+test_stress_fallback_render_target_allocation_device:2826: Test failed: Failed to create heap, hr #8007000e.
+test_stress_fallback_render_target_allocation_device:2826: Test failed: Failed to create heap, hr #8007000e.
+test_stress_fallback_render_target_allocation_device:2826: Test failed: Failed to create heap, hr #8007000e.
+test_stress_fallback_render_target_allocation_device:2826: Test failed: Failed to create heap, hr #8007000e.
+test_stress_fallback_render_target_allocation_device:2826: Test failed: Failed to create heap, hr #8007000e.
+test_stress_fallback_render_target_allocation_device:2826: Test failed: Failed to create heap, hr #8007000e.
+test_stress_fallback_render_target_allocation_device:2826: Test failed: Failed to create heap, hr #8007000e.
+test_stress_fallback_render_target_allocation_device:2826: Test failed: Failed to create heap, hr #8007000e.
+test_stress_fallback_render_target_allocation_device:2826: Test failed: Failed to create heap, hr #8007000e.
+test_stress_fallback_render_target_allocation_device:2826: Test failed: Failed to create heap, hr #8007000e.
+test_stress_fallback_render_target_allocation_device:2826: Test failed: Failed to create heap, hr #8007000e.
+test_stress_fallback_render_target_allocation_device:2826: Test failed: Failed to create heap, hr #8007000e.
+test_stress_fallback_render_target_allocation_device:2826: Test failed: Failed to create heap, hr #8007000e.
+test_stress_fallback_render_target_allocation_device:2826: Test failed: Failed to create heap, hr #8007000e.
+test_stress_fallback_render_target_allocation_device:2826: Test failed: Failed to create heap, hr #8007000e.
+test_stress_fallback_render_target_allocation_device:2826: Test failed: Failed to create heap, hr #8007000e.
+test_stress_fallback_render_target_allocation_device:2826: Test failed: Failed to create heap, hr #8007000e.
+test_stress_fallback_render_target_allocation_device:2826: Test failed: Failed to create heap, hr #8007000e.
+test_stress_fallback_render_target_allocation_device:2826: Test failed: Failed to create heap, hr #8007000e.
+test_stress_fallback_render_target_allocation_device:2826: Test failed: Failed to create heap, hr #8007000e.
+test_stress_fallback_render_target_allocation_device:2826: Test failed: Failed to create heap, hr #8007000e.
+test_stress_fallback_render_target_allocation_device:2826: Test failed: Failed to create heap, hr #8007000e.
+test_stress_fallback_render_target_allocation_device:2826: Test failed: Failed to create heap, hr #8007000e.
+test_stress_fallback_render_target_allocation_device:2826: Test failed: Failed to create heap, hr #8007000e.
+test_stress_fallback_render_target_allocation_device:2826: Test failed: Failed to create heap, hr #8007000e.
+test_stress_fallback_render_target_allocation_device:2826: Test failed: Failed to create heap, hr #8007000e.
+test_stress_fallback_render_target_allocation_device:2826: Test failed: Failed to create heap, hr #8007000e.
+test_stress_fallback_render_target_allocation_device:2826: Test failed: Failed to create heap, hr #8007000e.
+test_stress_fallback_render_target_allocation_device:2826: Test failed: Failed to create heap, hr #8007000e.
+test_stress_fallback_render_target_allocation_device:2826: Test failed: Failed to create heap, hr #8007000e.
+test_stress_fallback_render_target_allocation_device:2826: Test failed: Failed to create heap, hr #8007000e.
+test_stress_fallback_render_target_allocation_device:2826: Test failed: Failed to create heap, hr #8007000e.
+test_stress_fallback_render_target_allocation_device:2826: Test failed: Failed to create heap, hr #8007000e.
+test_stress_fallback_render_target_allocation_device:2826: Test failed: Failed to create heap, hr #8007000e.
+test_stress_fallback_render_target_allocation_device:2826: Test failed: Failed to create heap, hr #8007000e.
+test_stress_fallback_render_target_allocation_device:2826: Test failed: Failed to create heap, hr #8007000e.
+test_stress_fallback_render_target_allocation_device:2826: Test failed: Failed to create heap, hr #8007000e.
+test_stress_fallback_render_target_allocation_device:2826: Test failed: Failed to create heap, hr #8007000e.
+test_stress_fallback_render_target_allocation_device:2826: Test failed: Failed to create heap, hr #8007000e.
+test_stress_fallback_render_target_allocation_device:2826: Test failed: Failed to create heap, hr #8007000e.
+test_stress_fallback_render_target_allocation_device:2826: Test failed: Failed to create heap, hr #8007000e.
+test_stress_fallback_render_target_allocation_device:2826: Test failed: Failed to create heap, hr #8007000e.
+test_stress_fallback_render_target_allocation_device:2826: Test failed: Failed to create heap, hr #8007000e.
+test_stress_fallback_render_target_allocation_device:2826: Test failed: Failed to create heap, hr #8007000e.
+test_stress_fallback_render_target_allocation_device:2826: Test failed: Failed to create heap, hr #8007000e.
+test_stress_fallback_render_target_allocation_device:2826: Test failed: Failed to create heap, hr #8007000e.
+test_stress_fallback_render_target_allocation_device:2826: Test failed: Failed to create heap, hr #8007000e.
+test_stress_fallback_render_target_allocation_device:2826: Test failed: Failed to create heap, hr #8007000e.
+test_stress_fallback_render_target_allocation_device:2826: Test failed: Failed to create heap, hr #8007000e.
+test_stress_fallback_render_target_allocation_device:2826: Test failed: Failed to create heap, hr #8007000e.
+test_stress_fallback_render_target_allocation_device:2826: Test failed: Failed to create heap, hr #8007000e.
+test_stress_fallback_render_target_allocation_device:2826: Test failed: Failed to create heap, hr #8007000e.
+test_stress_fallback_render_target_allocation_device:2826: Test failed: Failed to create heap, hr #8007000e.
+test_stress_fallback_render_target_allocation_device:2826: Test failed: Failed to create heap, hr #8007000e.
+test_stress_fallback_render_target_allocation_device:2826: Test failed: Failed to create heap, hr #8007000e.
+test_stress_fallback_render_target_allocation_device:2826: Test failed: Failed to create heap, hr #8007000e.
+test_stress_fallback_render_target_allocation_device:2826: Test failed: Failed to create heap, hr #8007000e.
+test_stress_fallback_render_target_allocation_device:2826: Test failed: Failed to create heap, hr #8007000e.
+test_stress_fallback_render_target_allocation_device:2826: Test failed: Failed to create heap, hr #8007000e.
+test_stress_fallback_render_target_allocation_device:2826: Test failed: Failed to create heap, hr #8007000e.
+test_stress_fallback_render_target_allocation_device:2826: Test failed: Failed to create heap, hr #8007000e.
+test_stress_fallback_render_target_allocation_device:2826: Test failed: Failed to create heap, hr #8007000e.
+test_stress_fallback_render_target_allocation_device:2826: Test failed: Failed to create heap, hr #8007000e.
+test_stress_fallback_render_target_allocation_device:2826: Test failed: Failed to create heap, hr #8007000e.
+test_stress_fallback_render_target_allocation_device:2826: Test failed: Failed to create heap, hr #8007000e.
+test_stress_fallback_render_target_allocation_device:2826: Test failed: Failed to create heap, hr #8007000e.
+test_stress_fallback_render_target_allocation_device:2826: Test failed: Failed to create heap, hr #8007000e.
+test_stress_fallback_render_target_allocation_device:2826: Test failed: Failed to create heap, hr #8007000e.
+test_stress_fallback_render_target_allocation_device:2826: Test failed: Failed to create heap, hr #8007000e.
+test_stress_fallback_render_target_allocation_device:2826: Test failed: Failed to create heap, hr #8007000e.
+test_stress_fallback_render_target_allocation_device:2826: Test failed: Failed to create heap, hr #8007000e.
+test_stress_fallback_render_target_allocation_device:2826: Test failed: Failed to create heap, hr #8007000e.
+test_stress_fallback_render_target_allocation_device:2826: Test failed: Failed to create heap, hr #8007000e.
+test_stress_fallback_render_target_allocation_device:2826: Test failed: Failed to create heap, hr #8007000e.
+test_stress_fallback_render_target_allocation_device:2826: Test failed: Failed to create heap, hr #8007000e.
+test_stress_fallback_render_target_allocation_device:2826: Test failed: Failed to create heap, hr #8007000e.
+test_stress_fallback_render_target_allocation_device:2826: Test failed: Failed to create heap, hr #8007000e.
+test_stress_fallback_render_target_allocation_device:2826: Test failed: Failed to create heap, hr #8007000e.
+test_stress_fallback_render_target_allocation_device:2826: Test failed: Failed to create heap, hr #8007000e.
+test_stress_fallback_render_target_allocation_device:2826: Test failed: Failed to create heap, hr #8007000e.
+test_stress_fallback_render_target_allocation_device:2826: Test failed: Failed to create heap, hr #8007000e.
+test_stress_fallback_render_target_allocation_device:2826: Test failed: Failed to create heap, hr #8007000e.
+test_stress_fallback_render_target_allocation_device:2826: Test failed: Failed to create heap, hr #8007000e.
+test_stress_fallback_render_target_allocation_device:2826: Test failed: Failed to create heap, hr #8007000e.
+test_stress_fallback_render_target_allocation_device:2826: Test failed: Failed to create heap, hr #8007000e.
+test_stress_fallback_render_target_allocation_device:2826: Test failed: Failed to create heap, hr #8007000e.
+test_stress_fallback_render_target_allocation_device:2826: Test failed: Failed to create heap, hr #8007000e.
+test_stress_fallback_render_target_allocation_device:2826: Test failed: Failed to create heap, hr #8007000e.
+test_stress_fallback_render_target_allocation_device:2826: Test failed: Failed to create heap, hr #8007000e.
+test_stress_fallback_render_target_allocation_device:2826: Test failed: Failed to create heap, hr #8007000e.
+test_stress_fallback_render_target_allocation_device:2826: Test failed: Failed to create heap, hr #8007000e.
+test_stress_fallback_render_target_allocation_device:2826: Test failed: Failed to create heap, hr #8007000e.
+test_stress_fallback_render_target_allocation_device:2826: Test failed: Failed to create heap, hr #8007000e.
+test_stress_fallback_render_target_allocation_device:2826: Test failed: Failed to create heap, hr #8007000e.
+test_stress_fallback_render_target_allocation_device:2826: Test failed: Failed to create heap, hr #8007000e.
+test_stress_fallback_render_target_allocation_device:2826: Test failed: Failed to create heap, hr #8007000e.
+test_stress_fallback_render_target_allocation_device:2826: Test failed: Failed to create heap, hr #8007000e.
+test_stress_fallback_render_target_allocation_device:2826: Test failed: Failed to create heap, hr #8007000e.
+test_stress_fallback_render_target_allocation_device:2826: Test failed: Failed to create heap, hr #8007000e.
+test_stress_fallback_render_target_allocation_device:2826: Test failed: Failed to create heap, hr #8007000e.
+test_stress_fallback_render_target_allocation_device:2826: Test failed: Failed to create heap, hr #8007000e.
+test_stress_fallback_render_target_allocation_device:2826: Test failed: Failed to create heap, hr #8007000e.
+test_stress_fallback_render_target_allocation_device:2826: Test failed: Failed to create heap, hr #8007000e.
+test_stress_fallback_render_target_allocation_device:2826: Test failed: Failed to create heap, hr #8007000e.
+test_stress_fallback_render_target_allocation_device:2826: Test failed: Failed to create heap, hr #8007000e.
+test_stress_fallback_render_target_allocation_device:2826: Test failed: Failed to create heap, hr #8007000e.
+test_stress_fallback_render_target_allocation_device:2826: Test failed: Failed to create heap, hr #8007000e.
+test_stress_fallback_render_target_allocation_device:2826: Test failed: Failed to create heap, hr #8007000e.
+test_stress_fallback_render_target_allocation_device:2826: Test failed: Failed to create heap, hr #8007000e.
+test_stress_fallback_render_target_allocation_device:2826: Test failed: Failed to create heap, hr #8007000e.
+test_stress_fallback_render_target_allocation_device:2826: Test failed: Failed to create heap, hr #8007000e.
+test_stress_fallback_render_target_allocation_device:2826: Test failed: Failed to create heap, hr #8007000e.
+test_stress_fallback_render_target_allocation_device:2826: Test failed: Failed to create heap, hr #8007000e.
+test_stress_fallback_render_target_allocation_device:2826: Test failed: Failed to create heap, hr #8007000e.
+test_stress_fallback_render_target_allocation_device:2826: Test failed: Failed to create heap, hr #8007000e.
+test_stress_fallback_render_target_allocation_device:2826: Test failed: Failed to create heap, hr #8007000e.
+test_stress_fallback_render_target_allocation_device:2826: Test failed: Failed to create heap, hr #8007000e.
+test_stress_fallback_render_target_allocation_device:2826: Test failed: Failed to create heap, hr #8007000e.
+test_stress_fallback_render_target_allocation_device:2826: Test failed: Failed to create heap, hr #8007000e.
+test_stress_fallback_render_target_allocation_device:2826: Test failed: Failed to create heap, hr #8007000e.
+test_stress_fallback_render_target_allocation_device:2826: Test failed: Failed to create heap, hr #8007000e.
+test_stress_fallback_render_target_allocation_device:2826: Test failed: Failed to create heap, hr #8007000e.
+test_stress_fallback_render_target_allocation_device:2826: Test failed: Failed to create heap, hr #8007000e.
+test_stress_fallback_render_target_allocation_device:2826: Test failed: Failed to create heap, hr #8007000e.
+test_stress_fallback_render_target_allocation_device:2826: Test failed: Failed to create heap, hr #8007000e.
+test_stress_fallback_render_target_allocation_device:2826: Test failed: Failed to create heap, hr #8007000e.
+test_stress_fallback_render_target_allocation_device:2826: Test failed: Failed to create heap, hr #8007000e.
+test_stress_fallback_render_target_allocation_device:2826: Test failed: Failed to create heap, hr #8007000e.
+test_stress_fallback_render_target_allocation_device:2826: Test failed: Failed to create heap, hr #8007000e.
+test_stress_fallback_render_target_allocation_device:2826: Test failed: Failed to create heap, hr #8007000e.
+test_stress_fallback_render_target_allocation_device:2826: Test failed: Failed to create heap, hr #8007000e.
+test_stress_fallback_render_target_allocation_device:2826: Test failed: Failed to create heap, hr #8007000e.
+test_stress_fallback_render_target_allocation_device:2826: Test failed: Failed to create heap, hr #8007000e.
+test_stress_fallback_render_target_allocation_device:2826: Test failed: Failed to create heap, hr #8007000e.
+test_stress_fallback_render_target_allocation_device:2826: Test failed: Failed to create heap, hr #8007000e.
+test_stress_fallback_render_target_allocation_device:2826: Test failed: Failed to create heap, hr #8007000e.
+test_stress_fallback_render_target_allocation_device:2826: Test failed: Failed to create heap, hr #8007000e.
+test_stress_fallback_render_target_allocation_device:2826: Test failed: Failed to create heap, hr #8007000e.
+test_stress_fallback_render_target_allocation_device:2826: Test failed: Failed to create heap, hr #8007000e.
+test_stress_fallback_render_target_allocation_device:2826: Test failed: Failed to create heap, hr #8007000e.
+test_stress_fallback_render_target_allocation_device:2826: Test failed: Failed to create heap, hr #8007000e.
+test_stress_fallback_render_target_allocation_device:2826: Test failed: Failed to create heap, hr #8007000e.
+test_stress_fallback_render_target_allocation_device:2826: Test failed: Failed to create heap, hr #8007000e.
+test_stress_fallback_render_target_allocation_device:2826: Test failed: Failed to create heap, hr #8007000e.
+test_stress_fallback_render_target_allocation_device:2826: Test failed: Failed to create heap, hr #8007000e.
+test_stress_fallback_render_target_allocation_device:2826: Test failed: Failed to create heap, hr #8007000e.
+test_stress_fallback_render_target_allocation_device:2826: Test failed: Failed to create heap, hr #8007000e.
+test_stress_fallback_render_target_allocation_device:2826: Test failed: Failed to create heap, hr #8007000e.
+test_stress_fallback_render_target_allocation_device:2826: Test failed: Failed to create heap, hr #8007000e.
+test_stress_fallback_render_target_allocation_device:2826: Test failed: Failed to create heap, hr #8007000e.
+test_stress_fallback_render_target_allocation_device:2826: Test failed: Failed to create heap, hr #8007000e.
+test_stress_fallback_render_target_allocation_device:2826: Test failed: Failed to create heap, hr #8007000e.
+test_stress_fallback_render_target_allocation_device:2826: Test failed: Failed to create heap, hr #8007000e.
+test_stress_fallback_render_target_allocation_device:2826: Test failed: Failed to create heap, hr #8007000e.
+test_stress_fallback_render_target_allocation_device:2826: Test failed: Failed to create heap, hr #8007000e.
+test_stress_fallback_render_target_allocation_device:2826: Test failed: Failed to create heap, hr #8007000e.
+test_stress_fallback_render_target_allocation_device:2826: Test failed: Failed to create heap, hr #8007000e.
+test_stress_fallback_render_target_allocation_device:2826: Test failed: Failed to create heap, hr #8007000e.
+test_stress_fallback_render_target_allocation_device:2826: Test failed: Failed to create heap, hr #8007000e.
+test_stress_fallback_render_target_allocation_device:2826: Test failed: Failed to create heap, hr #8007000e.
+test_stress_fallback_render_target_allocation_device:2826: Test failed: Failed to create heap, hr #8007000e.
+test_stress_fallback_render_target_allocation_device:2826: Test failed: Failed to create heap, hr #8007000e.
+test_stress_fallback_render_target_allocation_device:2826: Test failed: Failed to create heap, hr #8007000e.
+test_stress_fallback_render_target_allocation_device:2826: Test failed: Failed to create heap, hr #8007000e.
+test_stress_fallback_render_target_allocation_device:2826: Test failed: Failed to create heap, hr #8007000e.
+test_stress_fallback_render_target_allocation_device:2826: Test failed: Failed to create heap, hr #8007000e.
+test_stress_fallback_render_target_allocation_device:2826: Test failed: Failed to create heap, hr #8007000e.
+test_stress_fallback_render_target_allocation_device:2826: Test failed: Failed to create heap, hr #8007000e.
+test_stress_fallback_render_target_allocation_device:2826: Test failed: Failed to create heap, hr #8007000e.
+test_stress_fallback_render_target_allocation_device:2826: Test failed: Failed to create heap, hr #8007000e.
+test_stress_fallback_render_target_allocation_device:2826: Test failed: Failed to create heap, hr #8007000e.
+test_stress_fallback_render_target_allocation_device:2826: Test failed: Failed to create heap, hr #8007000e.
+test_stress_fallback_render_target_allocation_device:2826: Test failed: Failed to create heap, hr #8007000e.
+test_stress_fallback_render_target_allocation_device:2826: Test failed: Failed to create heap, hr #8007000e.
+test_stress_fallback_render_target_allocation_device:2826: Test failed: Failed to create heap, hr #8007000e.
+test_stress_fallback_render_target_allocation_device:2826: Test failed: Failed to create heap, hr #8007000e.
+test_stress_fallback_render_target_allocation_device:2826: Test failed: Failed to create heap, hr #8007000e.
+test_stress_fallback_render_target_allocation_device:2826: Test failed: Failed to create heap, hr #8007000e.
+test_stress_fallback_render_target_allocation_device:2826: Test failed: Failed to create heap, hr #8007000e.
+test_stress_fallback_render_target_allocation_device:2826: Test failed: Failed to create heap, hr #8007000e.
+test_stress_fallback_render_target_allocation_device:2826: Test failed: Failed to create heap, hr #8007000e.
+test_stress_fallback_render_target_allocation_device:2826: Test failed: Failed to create heap, hr #8007000e.
+test_stress_fallback_render_target_allocation_device:2826: Test failed: Failed to create heap, hr #8007000e.
+test_stress_fallback_render_target_allocation_device:2826: Test failed: Failed to create heap, hr #8007000e.
+test_stress_fallback_render_target_allocation_device:2826: Test failed: Failed to create heap, hr #8007000e.
+test_stress_fallback_render_target_allocation_device:2826: Test failed: Failed to create heap, hr #8007000e.
+test_stress_fallback_render_target_allocation_device:2826: Test failed: Failed to create heap, hr #8007000e.
+test_stress_fallback_render_target_allocation_device:2826: Test failed: Failed to create heap, hr #8007000e.
+test_stress_fallback_render_target_allocation_device:2826: Test failed: Failed to create heap, hr #8007000e.
+test_stress_fallback_render_target_allocation_device:2826: Test failed: Failed to create heap, hr #8007000e.
+test_stress_fallback_render_target_allocation_device:2826: Test failed: Failed to create heap, hr #8007000e.
+test_stress_fallback_render_target_allocation_device:2826: Test failed: Failed to create heap, hr #8007000e.
+test_stress_fallback_render_target_allocation_device:2826: Test failed: Failed to create heap, hr #8007000e.
+test_stress_fallback_render_target_allocation_device:2826: Test failed: Failed to create heap, hr #8007000e.
+test_stress_fallback_render_target_allocation_device:2826: Test failed: Failed to create heap, hr #8007000e.
+test_stress_fallback_render_target_allocation_device:2826: Test failed: Failed to create heap, hr #8007000e.
+test_stress_fallback_render_target_allocation_device:2826: Test failed: Failed to create heap, hr #8007000e.
+test_stress_fallback_render_target_allocation_device:2826: Test failed: Failed to create heap, hr #8007000e.
+test_stress_fallback_render_target_allocation_device:2826: Test failed: Failed to create heap, hr #8007000e.
+test_stress_fallback_render_target_allocation_device:2826: Test failed: Failed to create heap, hr #8007000e.
+test_stress_fallback_render_target_allocation_device:2826: Test failed: Failed to create heap, hr #8007000e.
+test_stress_fallback_render_target_allocation_device:2826: Test failed: Failed to create heap, hr #8007000e.
+test_stress_fallback_render_target_allocation_device:2826: Test failed: Failed to create heap, hr #8007000e.
+test_stress_fallback_render_target_allocation_device:2826: Test failed: Failed to create heap, hr #8007000e.
+test_stress_fallback_render_target_allocation_device:2826: Test failed: Failed to create heap, hr #8007000e.
+test_stress_fallback_render_target_allocation_device:2826: Test failed: Failed to create heap, hr #8007000e.
+test_stress_fallback_render_target_allocation_device:2826: Test failed: Failed to create heap, hr #8007000e.
+test_stress_fallback_render_target_allocation_device:2826: Test failed: Failed to create heap, hr #8007000e.
+test_stress_fallback_render_target_allocation_device:2826: Test failed: Failed to create heap, hr #8007000e.
+test_stress_fallback_render_target_allocation_device:2826: Test failed: Failed to create heap, hr #8007000e.
+test_stress_fallback_render_target_allocation_device:2826: Test failed: Failed to create heap, hr #8007000e.
+test_stress_fallback_render_target_allocation_device:2826: Test failed: Failed to create heap, hr #8007000e.
+test_stress_fallback_render_target_allocation_device:2826: Test failed: Failed to create heap, hr #8007000e.
+test_stress_fallback_render_target_allocation_device:2826: Test failed: Failed to create heap, hr #8007000e.
+test_stress_fallback_render_target_allocation_device:2826: Test failed: Failed to create heap, hr #8007000e.
+test_stress_fallback_render_target_allocation_device:2826: Test failed: Failed to create heap, hr #8007000e.
+test_stress_fallback_render_target_allocation_device:2826: Test failed: Failed to create heap, hr #8007000e.
+test_stress_fallback_render_target_allocation_device:2826: Test failed: Failed to create heap, hr #8007000e.
+test_stress_fallback_render_target_allocation_device:2826: Test failed: Failed to create heap, hr #8007000e.
+test_stress_fallback_render_target_allocation_device:2826: Test failed: Failed to create heap, hr #8007000e.
+test_stress_fallback_render_target_allocation_device:2826: Test failed: Failed to create heap, hr #8007000e.
+test_stress_fallback_render_target_allocation_device:2826: Test failed: Failed to create heap, hr #8007000e.
+test_stress_fallback_render_target_allocation_device:2826: Test failed: Failed to create heap, hr #8007000e.
+test_stress_fallback_render_target_allocation_device:2826: Test failed: Failed to create heap, hr #8007000e.
+test_stress_fallback_render_target_allocation_device:2826: Test failed: Failed to create heap, hr #8007000e.
+test_stress_fallback_render_target_allocation_device:2826: Test failed: Failed to create heap, hr #8007000e.
+test_stress_fallback_render_target_allocation_device:2826: Test failed: Failed to create heap, hr #8007000e.
+test_stress_fallback_render_target_allocation_device:2826: Test failed: Failed to create heap, hr #8007000e.
+test_stress_fallback_render_target_allocation_device:2826: Test failed: Failed to create heap, hr #8007000e.
+test_stress_fallback_render_target_allocation_device:2826: Test failed: Failed to create heap, hr #8007000e.
+test_stress_fallback_render_target_allocation_device:2826: Test failed: Failed to create heap, hr #8007000e.
+test_stress_fallback_render_target_allocation_device:2826: Test failed: Failed to create heap, hr #8007000e.
+test_stress_fallback_render_target_allocation_device:2826: Test failed: Failed to create heap, hr #8007000e.
+test_stress_fallback_render_target_allocation_device:2826: Test failed: Failed to create heap, hr #8007000e.
+test_stress_fallback_render_target_allocation_device:2826: Test failed: Failed to create heap, hr #8007000e.
+test_stress_fallback_render_target_allocation_device:2826: Test failed: Failed to create heap, hr #8007000e.
+test_stress_fallback_render_target_allocation_device:2826: Test failed: Failed to create heap, hr #8007000e.
+test_stress_fallback_render_target_allocation_device:2826: Test failed: Failed to create heap, hr #8007000e.
+test_stress_fallback_render_target_allocation_device:2826: Test failed: Failed to create heap, hr #8007000e.
+test_stress_fallback_render_target_allocation_device:2826: Test failed: Failed to create heap, hr #8007000e.
+test_stress_fallback_render_target_allocation_device:2826: Test failed: Failed to create heap, hr #8007000e.
+test_stress_fallback_render_target_allocation_device:2826: Test failed: Failed to create heap, hr #8007000e.
+test_stress_fallback_render_target_allocation_device:2826: Test failed: Failed to create heap, hr #8007000e.
+test_stress_fallback_render_target_allocation_device:2826: Test failed: Failed to create heap, hr #8007000e.
+test_stress_fallback_render_target_allocation_device:2826: Test failed: Failed to create heap, hr #8007000e.
+test_stress_fallback_render_target_allocation_device:2826: Test failed: Failed to create heap, hr #8007000e.
+test_stress_fallback_render_target_allocation_device:2826: Test failed: Failed to create heap, hr #8007000e.
+test_stress_fallback_render_target_allocation_device:2826: Test failed: Failed to create heap, hr #8007000e.
+test_stress_fallback_render_target_allocation_device:2826: Test failed: Failed to create heap, hr #8007000e.
+test_stress_fallback_render_target_allocation_device:2826: Test failed: Failed to create heap, hr #8007000e.
+test_stress_fallback_render_target_allocation_device:2826: Test failed: Failed to create heap, hr #8007000e.
+test_stress_fallback_render_target_allocation_device:2826: Test failed: Failed to create heap, hr #8007000e.
+test_stress_fallback_render_target_allocation_device:2826: Test failed: Failed to create heap, hr #8007000e.
+test_stress_fallback_render_target_allocation_device:2826: Test failed: Failed to create heap, hr #8007000e.
+test_stress_fallback_render_target_allocation_device:2826: Test failed: Failed to create heap, hr #8007000e.
+test_stress_fallback_render_target_allocation_device:2826: Test failed: Failed to create heap, hr #8007000e.
+test_stress_fallback_render_target_allocation_device:2826: Test failed: Failed to create heap, hr #8007000e.
+test_stress_fallback_render_target_allocation_device:2826: Test failed: Failed to create heap, hr #8007000e.
+test_stress_fallback_render_target_allocation_device:2826: Test failed: Failed to create heap, hr #8007000e.
+test_stress_fallback_render_target_allocation_device:2826: Test failed: Failed to create heap, hr #8007000e.
+test_stress_fallback_render_target_allocation_device:2826: Test failed: Failed to create heap, hr #8007000e.
+test_stress_fallback_render_target_allocation_device:2826: Test failed: Failed to create heap, hr #8007000e.
+test_stress_fallback_render_target_allocation_device:2826: Test failed: Failed to create heap, hr #8007000e.
+test_stress_fallback_render_target_allocation_device:2826: Test failed: Failed to create heap, hr #8007000e.
+test_stress_fallback_render_target_allocation_device:2826: Test failed: Failed to create heap, hr #8007000e.
+test_stress_fallback_render_target_allocation_device:2826: Test failed: Failed to create heap, hr #8007000e.
+test_stress_fallback_render_target_allocation_device:2826: Test failed: Failed to create heap, hr #8007000e.
+test_stress_fallback_render_target_allocation_device:2826: Test failed: Failed to create heap, hr #8007000e.
+test_stress_fallback_render_target_allocation_device:2826: Test failed: Failed to create heap, hr #8007000e.
+test_stress_fallback_render_target_allocation_device:2826: Test failed: Failed to create heap, hr #8007000e.
+test_stress_fallback_render_target_allocation_device:2826: Test failed: Failed to create heap, hr #8007000e.
+test_stress_fallback_render_target_allocation_device:2826: Test failed: Failed to create heap, hr #8007000e.
+test_stress_fallback_render_target_allocation_device:2826: Test failed: Failed to create heap, hr #8007000e.
+test_stress_fallback_render_target_allocation_device:2826: Test failed: Failed to create heap, hr #8007000e.
+test_stress_fallback_render_target_allocation_device:2826: Test failed: Failed to create heap, hr #8007000e.
+test_stress_fallback_render_target_allocation_device:2826: Test failed: Failed to create heap, hr #8007000e.
+test_stress_fallback_render_target_allocation_device:2826: Test failed: Failed to create heap, hr #8007000e.
+test_stress_fallback_render_target_allocation_device:2826: Test failed: Failed to create heap, hr #8007000e.
+test_stress_fallback_render_target_allocation_device:2826: Test failed: Failed to create heap, hr #8007000e.
+test_stress_fallback_render_target_allocation_device:2826: Test failed: Failed to create heap, hr #8007000e.
+test_stress_fallback_render_target_allocation_device:2826: Test failed: Failed to create heap, hr #8007000e.
+test_stress_fallback_render_target_allocation_device:2826: Test failed: Failed to create heap, hr #8007000e.
+test_stress_fallback_render_target_allocation_device:2826: Test failed: Failed to create heap, hr #8007000e.
+test_stress_fallback_render_target_allocation_device:2826: Test failed: Failed to create heap, hr #8007000e.
+test_stress_fallback_render_target_allocation_device:2826: Test failed: Failed to create heap, hr #8007000e.
+test_stress_fallback_render_target_allocation_device:2826: Test failed: Failed to create heap, hr #8007000e.
+test_stress_fallback_render_target_allocation_device:2826: Test failed: Failed to create heap, hr #8007000e.
+test_stress_fallback_render_target_allocation_device:2826: Test failed: Failed to create heap, hr #8007000e.
+test_stress_fallback_render_target_allocation_device:2826: Test failed: Failed to create heap, hr #8007000e.
+test_stress_fallback_render_target_allocation_device:2826: Test failed: Failed to create heap, hr #8007000e.
+test_stress_fallback_render_target_allocation_device:2826: Test failed: Failed to create heap, hr #8007000e.
+test_stress_fallback_render_target_allocation_device:2826: Test failed: Failed to create heap, hr #8007000e.
+test_stress_fallback_render_target_allocation_device:2826: Test failed: Failed to create heap, hr #8007000e.
+test_stress_fallback_render_target_allocation_device:2826: Test failed: Failed to create heap, hr #8007000e.
+test_stress_fallback_render_target_allocation_device:2826: Test failed: Failed to create heap, hr #8007000e.
+test_stress_fallback_render_target_allocation_device:2826: Test failed: Failed to create heap, hr #8007000e.
+test_stress_fallback_render_target_allocation_device:2826: Test failed: Failed to create heap, hr #8007000e.
+test_stress_fallback_render_target_allocation_device:2826: Test failed: Failed to create heap, hr #8007000e.
+test_stress_fallback_render_target_allocation_device:2826: Test failed: Failed to create heap, hr #8007000e.
+test_stress_fallback_render_target_allocation_device:2826: Test failed: Failed to create heap, hr #8007000e.
+test_stress_fallback_render_target_allocation_device:2826: Test failed: Failed to create heap, hr #8007000e.
+test_stress_fallback_render_target_allocation_device:2826: Test failed: Failed to create heap, hr #8007000e.
+test_stress_fallback_render_target_allocation_device:2826: Test failed: Failed to create heap, hr #8007000e.
+test_stress_fallback_render_target_allocation_device:2826: Test failed: Failed to create heap, hr #8007000e.
+test_stress_fallback_render_target_allocation_device:2826: Test failed: Failed to create heap, hr #8007000e.
+test_stress_fallback_render_target_allocation_device:2826: Test failed: Failed to create heap, hr #8007000e.
+test_stress_fallback_render_target_allocation_device:2826: Test failed: Failed to create heap, hr #8007000e.
+test_stress_fallback_render_target_allocation_device:2826: Test failed: Failed to create heap, hr #8007000e.
+test_stress_fallback_render_target_allocation_device:2826: Test failed: Failed to create heap, hr #8007000e.
+test_stress_fallback_render_target_allocation_device:2826: Test failed: Failed to create heap, hr #8007000e.
+test_stress_fallback_render_target_allocation_device:2826: Test failed: Failed to create heap, hr #8007000e.
+test_stress_fallback_render_target_allocation_device:2826: Test failed: Failed to create heap, hr #8007000e.
+test_stress_fallback_render_target_allocation_device:2826: Test failed: Failed to create heap, hr #8007000e.
+test_stress_fallback_render_target_allocation_device:2826: Test failed: Failed to create heap, hr #8007000e.
+test_stress_fallback_render_target_allocation_device:2826: Test failed: Failed to create heap, hr #8007000e.
+test_stress_fallback_render_target_allocation_device:2826: Test failed: Failed to create heap, hr #8007000e.
+test_stress_fallback_render_target_allocation_device:2826: Test failed: Failed to create heap, hr #8007000e.
+test_stress_fallback_render_target_allocation_device:2826: Test failed: Failed to create heap, hr #8007000e.
+test_stress_fallback_render_target_allocation_device:2826: Test failed: Failed to create heap, hr #8007000e.
+test_stress_fallback_render_target_allocation_device:2826: Test failed: Failed to create heap, hr #8007000e.
+test_stress_fallback_render_target_allocation_device:2826: Test failed: Failed to create heap, hr #8007000e.
+test_stress_fallback_render_target_allocation_device:2826: Test failed: Failed to create heap, hr #8007000e.
+test_stress_fallback_render_target_allocation_device:2826: Test failed: Failed to create heap, hr #8007000e.
+test_stress_fallback_render_target_allocation_device:2826: Test failed: Failed to create heap, hr #8007000e.
+test_stress_fallback_render_target_allocation_device:2826: Test failed: Failed to create heap, hr #8007000e.
+test_stress_fallback_render_target_allocation_device:2826: Test failed: Failed to create heap, hr #8007000e.
+test_stress_fallback_render_target_allocation_device:2826: Test failed: Failed to create heap, hr #8007000e.
+test_stress_fallback_render_target_allocation_device:2826: Test failed: Failed to create heap, hr #8007000e.
+test_stress_fallback_render_target_allocation_device:2826: Test failed: Failed to create heap, hr #8007000e.
+test_stress_fallback_render_target_allocation_device:2826: Test failed: Failed to create heap, hr #8007000e.
+test_stress_fallback_render_target_allocation_device:2826: Test failed: Failed to create heap, hr #8007000e.
+test_stress_fallback_render_target_allocation_device:2826: Test failed: Failed to create heap, hr #8007000e.
+test_stress_fallback_render_target_allocation_device:2826: Test failed: Failed to create heap, hr #8007000e.
+test_stress_fallback_render_target_allocation_device:2826: Test failed: Failed to create heap, hr #8007000e.
+test_stress_fallback_render_target_allocation_device:2826: Test failed: Failed to create heap, hr #8007000e.
+test_stress_fallback_render_target_allocation_device:2826: Test failed: Failed to create heap, hr #8007000e.
+test_stress_fallback_render_target_allocation_device:2826: Test failed: Failed to create heap, hr #8007000e.
+test_stress_fallback_render_target_allocation_device:2826: Test failed: Failed to create heap, hr #8007000e.
+test_stress_fallback_render_target_allocation_device:2826: Test failed: Failed to create heap, hr #8007000e.
+test_stress_fallback_render_target_allocation_device:2826: Test failed: Failed to create heap, hr #8007000e.
+test_stress_fallback_render_target_allocation_device:2826: Test failed: Failed to create heap, hr #8007000e.
+test_stress_fallback_render_target_allocation_device:2826: Test failed: Failed to create heap, hr #8007000e.
+test_stress_fallback_render_target_allocation_device:2826: Test failed: Failed to create heap, hr #8007000e.
+test_stress_fallback_render_target_allocation_device:2826: Test failed: Failed to create heap, hr #8007000e.
+test_stress_fallback_render_target_allocation_device:2826: Test failed: Failed to create heap, hr #8007000e.
+test_stress_fallback_render_target_allocation_device:2826: Test failed: Failed to create heap, hr #8007000e.
+test_stress_fallback_render_target_allocation_device:2826: Test failed: Failed to create heap, hr #8007000e.
+test_stress_fallback_render_target_allocation_device:2826: Test failed: Failed to create heap, hr #8007000e.
+test_stress_fallback_render_target_allocation_device:2826: Test failed: Failed to create heap, hr #8007000e.
+test_stress_fallback_render_target_allocation_device:2826: Test failed: Failed to create heap, hr #8007000e.
+test_stress_fallback_render_target_allocation_device:2826: Test failed: Failed to create heap, hr #8007000e.
+test_stress_fallback_render_target_allocation_device:2826: Test failed: Failed to create heap, hr #8007000e.
+test_stress_fallback_render_target_allocation_device:2826: Test failed: Failed to create heap, hr #8007000e.
+test_stress_fallback_render_target_allocation_device:2826: Test failed: Failed to create heap, hr #8007000e.
+test_stress_fallback_render_target_allocation_device:2826: Test failed: Failed to create heap, hr #8007000e.
+test_stress_fallback_render_target_allocation_device:2826: Test failed: Failed to create heap, hr #8007000e.
+test_stress_fallback_render_target_allocation_device:2826: Test failed: Failed to create heap, hr #8007000e.
+test_stress_fallback_render_target_allocation_device:2826: Test failed: Failed to create heap, hr #8007000e.
+test_stress_fallback_render_target_allocation_device:2826: Test failed: Failed to create heap, hr #8007000e.
+test_stress_fallback_render_target_allocation_device:2826: Test failed: Failed to create heap, hr #8007000e.
+test_stress_fallback_render_target_allocation_device:2826: Test failed: Failed to create heap, hr #8007000e.
+test_stress_fallback_render_target_allocation_device:2826: Test failed: Failed to create heap, hr #8007000e.
+test_stress_fallback_render_target_allocation_device:2826: Test failed: Failed to create heap, hr #8007000e.
+test_stress_fallback_render_target_allocation_device:2826: Test failed: Failed to create heap, hr #8007000e.
+test_stress_fallback_render_target_allocation_device:2826: Test failed: Failed to create heap, hr #8007000e.
+test_stress_fallback_render_target_allocation_device:2826: Test failed: Failed to create heap, hr #8007000e.
+test_stress_fallback_render_target_allocation_device:2826: Test failed: Failed to create heap, hr #8007000e.
+test_stress_fallback_render_target_allocation_device:2826: Test failed: Failed to create heap, hr #8007000e.
+test_stress_fallback_render_target_allocation_device:2826: Test failed: Failed to create heap, hr #8007000e.
+test_stress_fallback_render_target_allocation_device:2826: Test failed: Failed to create heap, hr #8007000e.
+test_stress_fallback_render_target_allocation_device:2826: Test failed: Failed to create heap, hr #8007000e.
+test_stress_fallback_render_target_allocation_device:2826: Test failed: Failed to create heap, hr #8007000e.
+test_stress_fallback_render_target_allocation_device:2826: Test failed: Failed to create heap, hr #8007000e.
+test_stress_fallback_render_target_allocation_device:2826: Test failed: Failed to create heap, hr #8007000e.
+test_stress_fallback_render_target_allocation_device:2826: Test failed: Failed to create heap, hr #8007000e.
+test_stress_fallback_render_target_allocation_device:2826: Test failed: Failed to create heap, hr #8007000e.
+test_stress_fallback_render_target_allocation_device:2826: Test failed: Failed to create heap, hr #8007000e.
+test_stress_fallback_render_target_allocation_device:2826: Test failed: Failed to create heap, hr #8007000e.
+test_stress_fallback_render_target_allocation_device:2826: Test failed: Failed to create heap, hr #8007000e.
+test_stress_fallback_render_target_allocation_device:2826: Test failed: Failed to create heap, hr #8007000e.
+test_stress_fallback_render_target_allocation_device:2826: Test failed: Failed to create heap, hr #8007000e.
+test_stress_fallback_render_target_allocation_device:2826: Test failed: Failed to create heap, hr #8007000e.
+test_stress_fallback_render_target_allocation_device:2826: Test failed: Failed to create heap, hr #8007000e.
+test_stress_fallback_render_target_allocation_device:2826: Test failed: Failed to create heap, hr #8007000e.
+test_stress_fallback_render_target_allocation_device:2826: Test failed: Failed to create heap, hr #8007000e.
+test_stress_fallback_render_target_allocation_device:2826: Test failed: Failed to create heap, hr #8007000e.
+test_stress_fallback_render_target_allocation_device:2826: Test failed: Failed to create heap, hr #8007000e.
+test_stress_fallback_render_target_allocation_device:2826: Test failed: Failed to create heap, hr #8007000e.
+test_stress_fallback_render_target_allocation_device:2826: Test failed: Failed to create heap, hr #8007000e.
+test_stress_fallback_render_target_allocation_device:2826: Test failed: Failed to create heap, hr #8007000e.
+test_stress_fallback_render_target_allocation_device:2826: Test failed: Failed to create heap, hr #8007000e.
+test_stress_fallback_render_target_allocation_device:2826: Test failed: Failed to create heap, hr #8007000e.
+test_stress_fallback_render_target_allocation_device:2826: Test failed: Failed to create heap, hr #8007000e.
+test_stress_fallback_render_target_allocation_device:2826: Test failed: Failed to create heap, hr #8007000e.
+test_stress_fallback_render_target_allocation_device:2826: Test failed: Failed to create heap, hr #8007000e.
+test_stress_fallback_render_target_allocation_device:2826: Test failed: Failed to create heap, hr #8007000e.
+test_stress_fallback_render_target_allocation_device:2826: Test failed: Failed to create heap, hr #8007000e.
+test_stress_fallback_render_target_allocation_device:2826: Test failed: Failed to create heap, hr #8007000e.
+test_stress_fallback_render_target_allocation_device:2826: Test failed: Failed to create heap, hr #8007000e.
+test_stress_fallback_render_target_allocation_device:2826: Test failed: Failed to create heap, hr #8007000e.
+test_stress_fallback_render_target_allocation_device:2826: Test failed: Failed to create heap, hr #8007000e.
+test_stress_fallback_render_target_allocation_device:2826: Test failed: Failed to create heap, hr #8007000e.
+test_stress_fallback_render_target_allocation_device:2826: Test failed: Failed to create heap, hr #8007000e.
+test_stress_fallback_render_target_allocation_device:2826: Test failed: Failed to create heap, hr #8007000e.
+test_stress_fallback_render_target_allocation_device:2826: Test failed: Failed to create heap, hr #8007000e.
+test_stress_fallback_render_target_allocation_device:2826: Test failed: Failed to create heap, hr #8007000e.
+test_stress_fallback_render_target_allocation_device:2826: Test failed: Failed to create heap, hr #8007000e.
+test_stress_fallback_render_target_allocation_device:2826: Test failed: Failed to create heap, hr #8007000e.
+test_stress_fallback_render_target_allocation_device:2826: Test failed: Failed to create heap, hr #8007000e.
+test_stress_fallback_render_target_allocation_device:2826: Test failed: Failed to create heap, hr #8007000e.
+test_stress_fallback_render_target_allocation_device:2826: Test failed: Failed to create heap, hr #8007000e.
+test_stress_fallback_render_target_allocation_device:2826: Test failed: Failed to create heap, hr #8007000e.
+test_stress_fallback_render_target_allocation_device:2826: Test failed: Failed to create heap, hr #8007000e.
+test_stress_fallback_render_target_allocation_device:2826: Test failed: Failed to create heap, hr #8007000e.
+test_stress_fallback_render_target_allocation_device:2826: Test failed: Failed to create heap, hr #8007000e.
+test_stress_fallback_render_target_allocation_device:2826: Test failed: Failed to create heap, hr #8007000e.
+test_stress_fallback_render_target_allocation_device:2826: Test failed: Failed to create heap, hr #8007000e.
+test_stress_fallback_render_target_allocation_device:2826: Test failed: Failed to create heap, hr #8007000e.
+test_stress_fallback_render_target_allocation_device:2826: Test failed: Failed to create heap, hr #8007000e.
+test_stress_fallback_render_target_allocation_device:2826: Test failed: Failed to create heap, hr #8007000e.
+test_stress_fallback_render_target_allocation_device:2826: Test failed: Failed to create heap, hr #8007000e.
+test_stress_fallback_render_target_allocation_device:2826: Test failed: Failed to create heap, hr #8007000e.
+test_stress_fallback_render_target_allocation_device:2826: Test failed: Failed to create heap, hr #8007000e.
+test_stress_fallback_render_target_allocation_device:2826: Test failed: Failed to create heap, hr #8007000e.
+test_stress_fallback_render_target_allocation_device:2826: Test failed: Failed to create heap, hr #8007000e.
+test_stress_fallback_render_target_allocation_device:2826: Test failed: Failed to create heap, hr #8007000e.
+test_stress_fallback_render_target_allocation_device:2826: Test failed: Failed to create heap, hr #8007000e.
+test_stress_fallback_render_target_allocation_device:2826: Test failed: Failed to create heap, hr #8007000e.
+test_stress_fallback_render_target_allocation_device:2826: Test failed: Failed to create heap, hr #8007000e.
+test_stress_fallback_render_target_allocation_device:2826: Test failed: Failed to create heap, hr #8007000e.
+test_stress_fallback_render_target_allocation_device:2826: Test failed: Failed to create heap, hr #8007000e.
+test_stress_fallback_render_target_allocation_device:2826: Test failed: Failed to create heap, hr #8007000e.
+test_stress_fallback_render_target_allocation_device:2826: Test failed: Failed to create heap, hr #8007000e.
+test_stress_fallback_render_target_allocation_device:2826: Test failed: Failed to create heap, hr #8007000e.
+test_stress_fallback_render_target_allocation_device:2826: Test failed: Failed to create heap, hr #8007000e.
+test_stress_fallback_render_target_allocation_device:2826: Test failed: Failed to create heap, hr #8007000e.
+test_stress_fallback_render_target_allocation_device:2826: Test failed: Failed to create heap, hr #8007000e.
+test_stress_fallback_render_target_allocation_device:2826: Test failed: Failed to create heap, hr #8007000e.
+test_stress_fallback_render_target_allocation_device:2826: Test failed: Failed to create heap, hr #8007000e.
+test_stress_fallback_render_target_allocation_device:2826: Test failed: Failed to create heap, hr #8007000e.
+test_stress_fallback_render_target_allocation_device:2826: Test failed: Failed to create heap, hr #8007000e.
+test_stress_fallback_render_target_allocation_device:2826: Test failed: Failed to create heap, hr #8007000e.
+test_stress_fallback_render_target_allocation_device:2826: Test failed: Failed to create heap, hr #8007000e.
+test_stress_fallback_render_target_allocation_device:2826: Test failed: Failed to create heap, hr #8007000e.
+test_stress_fallback_render_target_allocation_device:2826: Test failed: Failed to create heap, hr #8007000e.
+test_stress_fallback_render_target_allocation_device:2826: Test failed: Failed to create heap, hr #8007000e.
+test_stress_fallback_render_target_allocation_device:2826: Test failed: Failed to create heap, hr #8007000e.
+test_stress_fallback_render_target_allocation_device:2826: Test failed: Failed to create heap, hr #8007000e.
+test_stress_fallback_render_target_allocation_device:2826: Test failed: Failed to create heap, hr #8007000e.
+test_stress_fallback_render_target_allocation_device:2826: Test failed: Failed to create heap, hr #8007000e.
+test_stress_fallback_render_target_allocation_device:2826: Test failed: Failed to create heap, hr #8007000e.
+test_stress_fallback_render_target_allocation_device:2826: Test failed: Failed to create heap, hr #8007000e.
+test_stress_fallback_render_target_allocation_device:2826: Test failed: Failed to create heap, hr #8007000e.
+test_stress_fallback_render_target_allocation_device:2826: Test failed: Failed to create heap, hr #8007000e.
+test_stress_fallback_render_target_allocation_device:2826: Test failed: Failed to create heap, hr #8007000e.
+test_stress_fallback_render_target_allocation_device:2826: Test failed: Failed to create heap, hr #8007000e.
+test_stress_fallback_render_target_allocation_device:2826: Test failed: Failed to create heap, hr #8007000e.
+test_stress_fallback_render_target_allocation_device:2826: Test failed: Failed to create heap, hr #8007000e.
+test_stress_fallback_render_target_allocation_device:2826: Test failed: Failed to create heap, hr #8007000e.
+test_stress_fallback_render_target_allocation_device:2826: Test failed: Failed to create heap, hr #8007000e.
+test_stress_fallback_render_target_allocation_device:2826: Test failed: Failed to create heap, hr #8007000e.
+test_stress_fallback_render_target_allocation_device:2826: Test failed: Failed to create heap, hr #8007000e.
+test_stress_fallback_render_target_allocation_device:2826: Test failed: Failed to create heap, hr #8007000e.
+test_stress_fallback_render_target_allocation_device:2826: Test failed: Failed to create heap, hr #8007000e.
+test_stress_fallback_render_target_allocation_device:2826: Test failed: Failed to create heap, hr #8007000e.
+test_stress_fallback_render_target_allocation_device:2826: Test failed: Failed to create heap, hr #8007000e.
+test_stress_fallback_render_target_allocation_device:2826: Test failed: Failed to create heap, hr #8007000e.
+test_stress_fallback_render_target_allocation_device:2826: Test failed: Failed to create heap, hr #8007000e.
+test_stress_fallback_render_target_allocation_device:2826: Test failed: Failed to create heap, hr #8007000e.
+test_stress_fallback_render_target_allocation_device:2826: Test failed: Failed to create heap, hr #8007000e.
+test_stress_fallback_render_target_allocation_device:2826: Test failed: Failed to create heap, hr #8007000e.
+test_stress_fallback_render_target_allocation_device:2826: Test failed: Failed to create heap, hr #8007000e.
+test_stress_fallback_render_target_allocation_device:2826: Test failed: Failed to create heap, hr #8007000e.
+test_stress_fallback_render_target_allocation_device:2826: Test failed: Failed to create heap, hr #8007000e.
+test_shader_waveop_maximal_convergence:1765: Test failed: Element 1, 0 != 9.
+test_shader_waveop_maximal_convergence:1765: Test failed: Element 2, 0 != 4.
+test_shader_waveop_maximal_convergence:1765: Test failed: Element 3, 0 != 9.
+test_shader_waveop_maximal_convergence:1765: Test failed: Element 7, 0 != 4.
+test_shader_waveop_maximal_convergence:1765: Test failed: Element 9, 0 != 4.
+test_sampler_rounding:5453:Test 1: Test failed: UV [raw 376.609375] [snap lo 1.#79, snap hi 1.#79]: Expected value in range ([248.849854, 249.150146] / 256.0), got (247.992172 / 256.0)
+test_sampler_rounding:5453:Test 1: Test failed: UV [raw 376.625000] [snap lo 1.#79, snap hi 1.#79]: Expected value in range ([248.849854, 249.150146] / 256.0), got (247.992172 / 256.0)
+test_sampler_rounding:5453:Test 1: Test failed: UV [raw 376.640625] [snap lo 1.#79, snap hi 1.#79]: Expected value in range ([248.849854, 249.150146] / 256.0), got (247.992172 / 256.0)
+test_sampler_rounding:5453:Test 1: Test failed: UV [raw 376.656250] [snap lo 1.#79, snap hi 1.#79]: Expected value in range ([248.849854, 249.150146] / 256.0), got (247.992172 / 256.0)
+test_sampler_rounding:5453:Test 1: Test failed: UV [raw 376.671875] [snap lo 1.#79, snap hi 1.#79]: Expected value in range ([248.849854, 249.150146] / 256.0), got (247.992172 / 256.0)
+test_sampler_rounding:5453:Test 1: Test failed: UV [raw 376.687500] [snap lo 1.#79, snap hi 1.#79]: Expected value in range ([248.849854, 249.150146] / 256.0), got (247.992172 / 256.0)
+test_sampler_rounding:5453:Test 1: Test failed: UV [raw 376.703125] [snap lo 1.#79, snap hi 1.#79]: Expected value in range ([248.849854, 249.150146] / 256.0), got (247.992172 / 256.0)
+test_sampler_rounding:5453:Test 1: Test failed: UV [raw 376.718750] [snap lo 1.#79, snap hi 1.#79]: Expected value in range ([248.849854, 249.150146] / 256.0), got (247.992172 / 256.0)
+test_sampler_rounding:5453:Test 1: Test failed: UV [raw 376.734375] [snap lo 1.#79, snap hi 1.#79]: Expected value in range ([248.849854, 249.150146] / 256.0), got (247.992172 / 256.0)
+test_sampler_rounding:5453:Test 1: Test failed: UV [raw 376.750000] [snap lo 1.#79, snap hi 1.#79]: Expected value in range ([248.849854, 249.150146] / 256.0), got (247.992172 / 256.0)
+test_sampler_rounding:5453:Test 1: Test failed: UV [raw 376.765625] [snap lo 1.#79, snap hi 1.#79]: Expected value in range ([248.849854, 249.150146] / 256.0), got (247.992172 / 256.0)
+test_sampler_rounding:5453:Test 1: Test failed: UV [raw 376.781250] [snap lo 1.#79, snap hi 1.#79]: Expected value in range ([248.849854, 249.150146] / 256.0), got (247.992172 / 256.0)
+test_sampler_rounding:5453:Test 1: Test failed: UV [raw 376.796875] [snap lo 1.#79, snap hi 1.#79]: Expected value in range ([248.849854, 249.150146] / 256.0), got (247.992172 / 256.0)
+test_sampler_rounding:5453:Test 1: Test failed: UV [raw 376.812500] [snap lo 1.#79, snap hi 1.#79]: Expected value in range ([248.849854, 249.150146] / 256.0), got (247.992172 / 256.0)
+test_sampler_rounding:5453:Test 1: Test failed: UV [raw 376.828125] [snap lo 1.#79, snap hi 1.#79]: Expected value in range ([248.849854, 249.150146] / 256.0), got (247.992172 / 256.0)
+test_sampler_rounding:5453:Test 1: Test failed: UV [raw 376.843750] [snap lo 1.#79, snap hi 1.#79]: Expected value in range ([248.849854, 249.150146] / 256.0), got (247.992172 / 256.0)
+test_sampler_rounding:5453:Test 1: Test failed: UV [raw 376.859375] [snap lo 1.#79, snap hi 1.#79]: Expected value in range ([248.849854, 249.150146] / 256.0), got (247.992172 / 256.0)
+test_sampler_rounding:5453:Test 1: Test failed: UV [raw 376.875000] [snap lo 1.#79, snap hi 1.#79]: Expected value in range ([248.849854, 249.150146] / 256.0), got (247.992172 / 256.0)
+test_sampler_rounding:5453:Test 1: Test failed: UV [raw 376.890625] [snap lo 1.#79, snap hi 1.#79]: Expected value in range ([248.849854, 249.150146] / 256.0), got (247.992172 / 256.0)
+test_sampler_rounding:5453:Test 1: Test failed: UV [raw 376.906250] [snap lo 1.#79, snap hi 1.#79]: Expected value in range ([248.849854, 249.150146] / 256.0), got (247.992172 / 256.0)
+test_sampler_rounding:5453:Test 1: Test failed: UV [raw 376.921875] [snap lo 1.#79, snap hi 1.#79]: Expected value in range ([248.849854, 249.150146] / 256.0), got (247.992172 / 256.0)
+test_sampler_rounding:5453:Test 1: Test failed: UV [raw 376.937500] [snap lo 1.#79, snap hi 1.#79]: Expected value in range ([248.849854, 249.150146] / 256.0), got (247.992172 / 256.0)
+test_sampler_rounding:5453:Test 1: Test failed: UV [raw 376.953125] [snap lo 1.#79, snap hi 1.#79]: Expected value in range ([248.849854, 249.150146] / 256.0), got (247.992172 / 256.0)
+test_sampler_rounding:5453:Test 1: Test failed: UV [raw 376.968750] [snap lo 1.#79, snap hi 1.#79]: Expected value in range ([248.849854, 249.150146] / 256.0), got (247.992172 / 256.0)
+test_sampler_rounding:5453:Test 1: Test failed: UV [raw 376.984375] [snap lo 1.#79, snap hi 1.#79]: Expected value in range ([248.849854, 249.150146] / 256.0), got (247.992172 / 256.0)
+test_sampler_rounding:5453:Test 1: Test failed: UV [raw 377.609375] [snap lo 1.#7a, snap hi 1.#7a]: Expected value in range ([249.849854, 250.150146] / 256.0), got (248.993164 / 256.0)
+test_sampler_rounding:5453:Test 1: Test failed: UV [raw 377.625000] [snap lo 1.#7a, snap hi 1.#7a]: Expected value in range ([249.849854, 250.150146] / 256.0), got (248.993164 / 256.0)
+test_sampler_rounding:5453:Test 1: Test failed: UV [raw 377.640625] [snap lo 1.#7a, snap hi 1.#7a]: Expected value in range ([249.849854, 250.150146] / 256.0), got (248.993164 / 256.0)
+test_sampler_rounding:5453:Test 1: Test failed: UV [raw 377.656250] [snap lo 1.#7a, snap hi 1.#7a]: Expected value in range ([249.849854, 250.150146] / 256.0), got (248.993164 / 256.0)
+test_sampler_rounding:5453:Test 1: Test failed: UV [raw 377.671875] [snap lo 1.#7a, snap hi 1.#7a]: Expected value in range ([249.849854, 250.150146] / 256.0), got (248.993164 / 256.0)
+test_sampler_rounding:5453:Test 1: Test failed: UV [raw 377.687500] [snap lo 1.#7a, snap hi 1.#7a]: Expected value in range ([249.849854, 250.150146] / 256.0), got (248.993164 / 256.0)
+test_sampler_rounding:5453:Test 1: Test failed: UV [raw 377.703125] [snap lo 1.#7a, snap hi 1.#7a]: Expected value in range ([249.849854, 250.150146] / 256.0), got (248.993164 / 256.0)
+test_sampler_rounding:5453:Test 1: Test failed: UV [raw 377.718750] [snap lo 1.#7a, snap hi 1.#7a]: Expected value in range ([249.849854, 250.150146] / 256.0), got (248.993164 / 256.0)
+test_sampler_rounding:5453:Test 1: Test failed: UV [raw 377.734375] [snap lo 1.#7a, snap hi 1.#7a]: Expected value in range ([249.849854, 250.150146] / 256.0), got (248.993164 / 256.0)
+test_sampler_rounding:5453:Test 1: Test failed: UV [raw 377.750000] [snap lo 1.#7a, snap hi 1.#7a]: Expected value in range ([249.849854, 250.150146] / 256.0), got (248.993164 / 256.0)
+test_sampler_rounding:5453:Test 1: Test failed: UV [raw 377.765625] [snap lo 1.#7a, snap hi 1.#7a]: Expected value in range ([249.849854, 250.150146] / 256.0), got (248.993164 / 256.0)
+test_sampler_rounding:5453:Test 1: Test failed: UV [raw 377.781250] [snap lo 1.#7a, snap hi 1.#7a]: Expected value in range ([249.849854, 250.150146] / 256.0), got (248.993164 / 256.0)
+test_sampler_rounding:5453:Test 1: Test failed: UV [raw 377.796875] [snap lo 1.#7a, snap hi 1.#7a]: Expected value in range ([249.849854, 250.150146] / 256.0), got (248.993164 / 256.0)
+test_sampler_rounding:5453:Test 1: Test failed: UV [raw 377.812500] [snap lo 1.#7a, snap hi 1.#7a]: Expected value in range ([249.849854, 250.150146] / 256.0), got (248.993164 / 256.0)
+test_sampler_rounding:5453:Test 1: Test failed: UV [raw 377.828125] [snap lo 1.#7a, snap hi 1.#7a]: Expected value in range ([249.849854, 250.150146] / 256.0), got (248.993164 / 256.0)
+test_sampler_rounding:5453:Test 1: Test failed: UV [raw 377.843750] [snap lo 1.#7a, snap hi 1.#7a]: Expected value in range ([249.849854, 250.150146] / 256.0), got (248.993164 / 256.0)
+test_sampler_rounding:5453:Test 1: Test failed: UV [raw 377.859375] [snap lo 1.#7a, snap hi 1.#7a]: Expected value in range ([249.849854, 250.150146] / 256.0), got (248.993164 / 256.0)
+test_sampler_rounding:5453:Test 1: Test failed: UV [raw 377.875000] [snap lo 1.#7a, snap hi 1.#7a]: Expected value in range ([249.849854, 250.150146] / 256.0), got (248.993164 / 256.0)
+test_sampler_rounding:5453:Test 1: Test failed: UV [raw 377.890625] [snap lo 1.#7a, snap hi 1.#7a]: Expected value in range ([249.849854, 250.150146] / 256.0), got (248.993164 / 256.0)
+test_sampler_rounding:5453:Test 1: Test failed: UV [raw 377.906250] [snap lo 1.#7a, snap hi 1.#7a]: Expected value in range ([249.849854, 250.150146] / 256.0), got (248.993164 / 256.0)
+test_sampler_rounding:5453:Test 1: Test failed: UV [raw 377.921875] [snap lo 1.#7a, snap hi 1.#7a]: Expected value in range ([249.849854, 250.150146] / 256.0), got (248.993164 / 256.0)
+test_sampler_rounding:5453:Test 1: Test failed: UV [raw 377.937500] [snap lo 1.#7a, snap hi 1.#7a]: Expected value in range ([249.849854, 250.150146] / 256.0), got (248.993164 / 256.0)
+test_sampler_rounding:5453:Test 1: Test failed: UV [raw 377.953125] [snap lo 1.#7a, snap hi 1.#7a]: Expected value in range ([249.849854, 250.150146] / 256.0), got (248.993164 / 256.0)
+test_sampler_rounding:5453:Test 1: Test failed: UV [raw 377.968750] [snap lo 1.#7a, snap hi 1.#7a]: Expected value in range ([249.849854, 250.150146] / 256.0), got (248.993164 / 256.0)
+test_sampler_rounding:5453:Test 1: Test failed: UV [raw 377.984375] [snap lo 1.#7a, snap hi 1.#7a]: Expected value in range ([249.849854, 250.150146] / 256.0), got (248.993164 / 256.0)
+test_sampler_rounding:5453:Test 1: Test failed: UV [raw 378.609375] [snap lo 1.#7b, snap hi 1.#7b]: Expected value in range ([250.849854, 251.150146] / 256.0), got (249.994141 / 256.0)
+test_sampler_rounding:5453:Test 1: Test failed: UV [raw 378.625000] [snap lo 1.#7b, snap hi 1.#7b]: Expected value in range ([250.849854, 251.150146] / 256.0), got (249.994141 / 256.0)
+test_sampler_rounding:5453:Test 1: Test failed: UV [raw 378.640625] [snap lo 1.#7b, snap hi 1.#7b]: Expected value in range ([250.849854, 251.150146] / 256.0), got (249.994141 / 256.0)
+test_sampler_rounding:5453:Test 1: Test failed: UV [raw 378.656250] [snap lo 1.#7b, snap hi 1.#7b]: Expected value in range ([250.849854, 251.150146] / 256.0), got (249.994141 / 256.0)
+test_sampler_rounding:5453:Test 1: Test failed: UV [raw 378.671875] [snap lo 1.#7b, snap hi 1.#7b]: Expected value in range ([250.849854, 251.150146] / 256.0), got (249.994141 / 256.0)
+test_sampler_rounding:5453:Test 1: Test failed: UV [raw 378.687500] [snap lo 1.#7b, snap hi 1.#7b]: Expected value in range ([250.849854, 251.150146] / 256.0), got (249.994141 / 256.0)
+test_sampler_rounding:5453:Test 1: Test failed: UV [raw 378.703125] [snap lo 1.#7b, snap hi 1.#7b]: Expected value in range ([250.849854, 251.150146] / 256.0), got (249.994141 / 256.0)
+test_sampler_rounding:5453:Test 1: Test failed: UV [raw 378.718750] [snap lo 1.#7b, snap hi 1.#7b]: Expected value in range ([250.849854, 251.150146] / 256.0), got (249.994141 / 256.0)
+test_sampler_rounding:5453:Test 1: Test failed: UV [raw 378.734375] [snap lo 1.#7b, snap hi 1.#7b]: Expected value in range ([250.849854, 251.150146] / 256.0), got (249.994141 / 256.0)
+test_sampler_rounding:5453:Test 1: Test failed: UV [raw 378.750000] [snap lo 1.#7b, snap hi 1.#7b]: Expected value in range ([250.849854, 251.150146] / 256.0), got (249.994141 / 256.0)
+test_sampler_rounding:5453:Test 1: Test failed: UV [raw 378.765625] [snap lo 1.#7b, snap hi 1.#7b]: Expected value in range ([250.849854, 251.150146] / 256.0), got (249.994141 / 256.0)
+test_sampler_rounding:5453:Test 1: Test failed: UV [raw 378.781250] [snap lo 1.#7b, snap hi 1.#7b]: Expected value in range ([250.849854, 251.150146] / 256.0), got (249.994141 / 256.0)
+test_sampler_rounding:5453:Test 1: Test failed: UV [raw 378.796875] [snap lo 1.#7b, snap hi 1.#7b]: Expected value in range ([250.849854, 251.150146] / 256.0), got (249.994141 / 256.0)
+test_sampler_rounding:5453:Test 1: Test failed: UV [raw 378.812500] [snap lo 1.#7b, snap hi 1.#7b]: Expected value in range ([250.849854, 251.150146] / 256.0), got (249.994141 / 256.0)
+test_sampler_rounding:5453:Test 1: Test failed: UV [raw 378.828125] [snap lo 1.#7b, snap hi 1.#7b]: Expected value in range ([250.849854, 251.150146] / 256.0), got (249.994141 / 256.0)
+test_sampler_rounding:5453:Test 1: Test failed: UV [raw 378.843750] [snap lo 1.#7b, snap hi 1.#7b]: Expected value in range ([250.849854, 251.150146] / 256.0), got (249.994141 / 256.0)
+test_sampler_rounding:5453:Test 1: Test failed: UV [raw 378.859375] [snap lo 1.#7b, snap hi 1.#7b]: Expected value in range ([250.849854, 251.150146] / 256.0), got (249.994141 / 256.0)
+test_sampler_rounding:5453:Test 1: Test failed: UV [raw 378.875000] [snap lo 1.#7b, snap hi 1.#7b]: Expected value in range ([250.849854, 251.150146] / 256.0), got (249.994141 / 256.0)
+test_sampler_rounding:5453:Test 1: Test failed: UV [raw 378.890625] [snap lo 1.#7b, snap hi 1.#7b]: Expected value in range ([250.849854, 251.150146] / 256.0), got (249.994141 / 256.0)
+test_sampler_rounding:5453:Test 1: Test failed: UV [raw 378.906250] [snap lo 1.#7b, snap hi 1.#7b]: Expected value in range ([250.849854, 251.150146] / 256.0), got (249.994141 / 256.0)
+test_sampler_rounding:5453:Test 1: Test failed: UV [raw 378.921875] [snap lo 1.#7b, snap hi 1.#7b]: Expected value in range ([250.849854, 251.150146] / 256.0), got (249.994141 / 256.0)
+test_sampler_rounding:5453:Test 1: Test failed: UV [raw 378.937500] [snap lo 1.#7b, snap hi 1.#7b]: Expected value in range ([250.849854, 251.150146] / 256.0), got (249.994141 / 256.0)
+test_sampler_rounding:5453:Test 1: Test failed: UV [raw 378.953125] [snap lo 1.#7b, snap hi 1.#7b]: Expected value in range ([250.849854, 251.150146] / 256.0), got (249.994141 / 256.0)
+test_sampler_rounding:5453:Test 1: Test failed: UV [raw 378.968750] [snap lo 1.#7b, snap hi 1.#7b]: Expected value in range ([250.849854, 251.150146] / 256.0), got (249.994141 / 256.0)
+test_sampler_rounding:5453:Test 1: Test failed: UV [raw 378.984375] [snap lo 1.#7b, snap hi 1.#7b]: Expected value in range ([250.849854, 251.150146] / 256.0), got (249.994141 / 256.0)
+test_sampler_rounding:5453:Test 1: Test failed: UV [raw 379.609375] [snap lo 1.#7c, snap hi 1.#7c]: Expected value in range ([251.849854, 252.150146] / 256.0), got (250.995117 / 256.0)
+test_sampler_rounding:5453:Test 1: Test failed: UV [raw 379.625000] [snap lo 1.#7c, snap hi 1.#7c]: Expected value in range ([251.849854, 252.150146] / 256.0), got (250.995117 / 256.0)
+test_sampler_rounding:5453:Test 1: Test failed: UV [raw 379.640625] [snap lo 1.#7c, snap hi 1.#7c]: Expected value in range ([251.849854, 252.150146] / 256.0), got (250.995117 / 256.0)
+test_sampler_rounding:5453:Test 1: Test failed: UV [raw 379.656250] [snap lo 1.#7c, snap hi 1.#7c]: Expected value in range ([251.849854, 252.150146] / 256.0), got (250.995117 / 256.0)
+test_sampler_rounding:5453:Test 1: Test failed: UV [raw 379.671875] [snap lo 1.#7c, snap hi 1.#7c]: Expected value in range ([251.849854, 252.150146] / 256.0), got (250.995117 / 256.0)
+test_sampler_rounding:5453:Test 1: Test failed: UV [raw 379.687500] [snap lo 1.#7c, snap hi 1.#7c]: Expected value in range ([251.849854, 252.150146] / 256.0), got (250.995117 / 256.0)
+test_sampler_rounding:5453:Test 1: Test failed: UV [raw 379.703125] [snap lo 1.#7c, snap hi 1.#7c]: Expected value in range ([251.849854, 252.150146] / 256.0), got (250.995117 / 256.0)
+test_sampler_rounding:5453:Test 1: Test failed: UV [raw 379.718750] [snap lo 1.#7c, snap hi 1.#7c]: Expected value in range ([251.849854, 252.150146] / 256.0), got (250.995117 / 256.0)
+test_sampler_rounding:5453:Test 1: Test failed: UV [raw 379.734375] [snap lo 1.#7c, snap hi 1.#7c]: Expected value in range ([251.849854, 252.150146] / 256.0), got (250.995117 / 256.0)
+test_sampler_rounding:5453:Test 1: Test failed: UV [raw 379.750000] [snap lo 1.#7c, snap hi 1.#7c]: Expected value in range ([251.849854, 252.150146] / 256.0), got (250.995117 / 256.0)
+test_sampler_rounding:5453:Test 1: Test failed: UV [raw 379.765625] [snap lo 1.#7c, snap hi 1.#7c]: Expected value in range ([251.849854, 252.150146] / 256.0), got (250.995117 / 256.0)
+test_sampler_rounding:5453:Test 1: Test failed: UV [raw 379.781250] [snap lo 1.#7c, snap hi 1.#7c]: Expected value in range ([251.849854, 252.150146] / 256.0), got (250.995117 / 256.0)
+test_sampler_rounding:5453:Test 1: Test failed: UV [raw 379.796875] [snap lo 1.#7c, snap hi 1.#7c]: Expected value in range ([251.849854, 252.150146] / 256.0), got (250.995117 / 256.0)
+test_sampler_rounding:5453:Test 1: Test failed: UV [raw 379.812500] [snap lo 1.#7c, snap hi 1.#7c]: Expected value in range ([251.849854, 252.150146] / 256.0), got (250.995117 / 256.0)
+test_sampler_rounding:5453:Test 1: Test failed: UV [raw 379.828125] [snap lo 1.#7c, snap hi 1.#7c]: Expected value in range ([251.849854, 252.150146] / 256.0), got (250.995117 / 256.0)
+test_sampler_rounding:5453:Test 1: Test failed: UV [raw 379.843750] [snap lo 1.#7c, snap hi 1.#7c]: Expected value in range ([251.849854, 252.150146] / 256.0), got (250.995117 / 256.0)
+test_sampler_rounding:5453:Test 1: Test failed: UV [raw 379.859375] [snap lo 1.#7c, snap hi 1.#7c]: Expected value in range ([251.849854, 252.150146] / 256.0), got (250.995117 / 256.0)
+test_sampler_rounding:5453:Test 1: Test failed: UV [raw 379.875000] [snap lo 1.#7c, snap hi 1.#7c]: Expected value in range ([251.849854, 252.150146] / 256.0), got (250.995117 / 256.0)
+test_sampler_rounding:5453:Test 1: Test failed: UV [raw 379.890625] [snap lo 1.#7c, snap hi 1.#7c]: Expected value in range ([251.849854, 252.150146] / 256.0), got (250.995117 / 256.0)
+test_sampler_rounding:5453:Test 1: Test failed: UV [raw 379.906250] [snap lo 1.#7c, snap hi 1.#7c]: Expected value in range ([251.849854, 252.150146] / 256.0), got (250.995117 / 256.0)
+test_sampler_rounding:5453:Test 1: Test failed: UV [raw 379.921875] [snap lo 1.#7c, snap hi 1.#7c]: Expected value in range ([251.849854, 252.150146] / 256.0), got (250.995117 / 256.0)
+test_sampler_rounding:5453:Test 1: Test failed: UV [raw 379.937500] [snap lo 1.#7c, snap hi 1.#7c]: Expected value in range ([251.849854, 252.150146] / 256.0), got (250.995117 / 256.0)
+test_sampler_rounding:5453:Test 1: Test failed: UV [raw 379.953125] [snap lo 1.#7c, snap hi 1.#7c]: Expected value in range ([251.849854, 252.150146] / 256.0), got (250.995117 / 256.0)
+test_sampler_rounding:5453:Test 1: Test failed: UV [raw 379.968750] [snap lo 1.#7c, snap hi 1.#7c]: Expected value in range ([251.849854, 252.150146] / 256.0), got (250.995117 / 256.0)
+test_sampler_rounding:5453:Test 1: Test failed: UV [raw 379.984375] [snap lo 1.#7c, snap hi 1.#7c]: Expected value in range ([251.849854, 252.150146] / 256.0), got (250.995117 / 256.0)
+test_sampler_rounding:5453:Test 1: Test failed: UV [raw 380.609375] [snap lo 1.#7d, snap hi 1.#7d]: Expected value in range ([252.849854, 253.150146] / 256.0), got (251.996094 / 256.0)
+test_sampler_rounding:5453:Test 1: Test failed: UV [raw 380.625000] [snap lo 1.#7d, snap hi 1.#7d]: Expected value in range ([252.849854, 253.150146] / 256.0), got (251.996094 / 256.0)
+test_sampler_rounding:5453:Test 1: Test failed: UV [raw 380.640625] [snap lo 1.#7d, snap hi 1.#7d]: Expected value in range ([252.849854, 253.150146] / 256.0), got (251.996094 / 256.0)
+test_sampler_rounding:5453:Test 1: Test failed: UV [raw 380.656250] [snap lo 1.#7d, snap hi 1.#7d]: Expected value in range ([252.849854, 253.150146] / 256.0), got (251.996094 / 256.0)
+test_sampler_rounding:5453:Test 1: Test failed: UV [raw 380.671875] [snap lo 1.#7d, snap hi 1.#7d]: Expected value in range ([252.849854, 253.150146] / 256.0), got (251.996094 / 256.0)
+test_sampler_rounding:5453:Test 1: Test failed: UV [raw 380.687500] [snap lo 1.#7d, snap hi 1.#7d]: Expected value in range ([252.849854, 253.150146] / 256.0), got (251.996094 / 256.0)
+test_sampler_rounding:5453:Test 1: Test failed: UV [raw 380.703125] [snap lo 1.#7d, snap hi 1.#7d]: Expected value in range ([252.849854, 253.150146] / 256.0), got (251.996094 / 256.0)
+test_sampler_rounding:5453:Test 1: Test failed: UV [raw 380.718750] [snap lo 1.#7d, snap hi 1.#7d]: Expected value in range ([252.849854, 253.150146] / 256.0), got (251.996094 / 256.0)
+test_sampler_rounding:5453:Test 1: Test failed: UV [raw 380.734375] [snap lo 1.#7d, snap hi 1.#7d]: Expected value in range ([252.849854, 253.150146] / 256.0), got (251.996094 / 256.0)
+test_sampler_rounding:5453:Test 1: Test failed: UV [raw 380.750000] [snap lo 1.#7d, snap hi 1.#7d]: Expected value in range ([252.849854, 253.150146] / 256.0), got (251.996094 / 256.0)
+test_sampler_rounding:5453:Test 1: Test failed: UV [raw 380.765625] [snap lo 1.#7d, snap hi 1.#7d]: Expected value in range ([252.849854, 253.150146] / 256.0), got (251.996094 / 256.0)
+test_sampler_rounding:5453:Test 1: Test failed: UV [raw 380.781250] [snap lo 1.#7d, snap hi 1.#7d]: Expected value in range ([252.849854, 253.150146] / 256.0), got (251.996094 / 256.0)
+test_sampler_rounding:5453:Test 1: Test failed: UV [raw 380.796875] [snap lo 1.#7d, snap hi 1.#7d]: Expected value in range ([252.849854, 253.150146] / 256.0), got (251.996094 / 256.0)
+test_sampler_rounding:5453:Test 1: Test failed: UV [raw 380.812500] [snap lo 1.#7d, snap hi 1.#7d]: Expected value in range ([252.849854, 253.150146] / 256.0), got (251.996094 / 256.0)
+test_sampler_rounding:5453:Test 1: Test failed: UV [raw 380.828125] [snap lo 1.#7d, snap hi 1.#7d]: Expected value in range ([252.849854, 253.150146] / 256.0), got (251.996094 / 256.0)
+test_sampler_rounding:5453:Test 1: Test failed: UV [raw 380.843750] [snap lo 1.#7d, snap hi 1.#7d]: Expected value in range ([252.849854, 253.150146] / 256.0), got (251.996094 / 256.0)
+test_sampler_rounding:5453:Test 1: Test failed: UV [raw 380.859375] [snap lo 1.#7d, snap hi 1.#7d]: Expected value in range ([252.849854, 253.150146] / 256.0), got (251.996094 / 256.0)
+test_sampler_rounding:5453:Test 1: Test failed: UV [raw 380.875000] [snap lo 1.#7d, snap hi 1.#7d]: Expected value in range ([252.849854, 253.150146] / 256.0), got (251.996094 / 256.0)
+test_sampler_rounding:5453:Test 1: Test failed: UV [raw 380.890625] [snap lo 1.#7d, snap hi 1.#7d]: Expected value in range ([252.849854, 253.150146] / 256.0), got (251.996094 / 256.0)
+test_sampler_rounding:5453:Test 1: Test failed: UV [raw 380.906250] [snap lo 1.#7d, snap hi 1.#7d]: Expected value in range ([252.849854, 253.150146] / 256.0), got (251.996094 / 256.0)
+test_sampler_rounding:5453:Test 1: Test failed: UV [raw 380.921875] [snap lo 1.#7d, snap hi 1.#7d]: Expected value in range ([252.849854, 253.150146] / 256.0), got (251.996094 / 256.0)
+test_sampler_rounding:5453:Test 1: Test failed: UV [raw 380.937500] [snap lo 1.#7d, snap hi 1.#7d]: Expected value in range ([252.849854, 253.150146] / 256.0), got (251.996094 / 256.0)
+test_sampler_rounding:5453:Test 1: Test failed: UV [raw 380.953125] [snap lo 1.#7d, snap hi 1.#7d]: Expected value in range ([252.849854, 253.150146] / 256.0), got (251.996094 / 256.0)
+test_sampler_rounding:5453:Test 1: Test failed: UV [raw 380.968750] [snap lo 1.#7d, snap hi 1.#7d]: Expected value in range ([252.849854, 253.150146] / 256.0), got (251.996094 / 256.0)
+test_sampler_rounding:5453:Test 1: Test failed: UV [raw 380.984375] [snap lo 1.#7d, snap hi 1.#7d]: Expected value in range ([252.849854, 253.150146] / 256.0), got (251.996094 / 256.0)
+test_sampler_rounding:5453:Test 1: Test failed: UV [raw 381.609375] [snap lo 1.#7e, snap hi 1.#7e]: Expected value in range ([253.849854, 254.150146] / 256.0), got (252.997070 / 256.0)
+test_sampler_rounding:5453:Test 1: Test failed: UV [raw 381.625000] [snap lo 1.#7e, snap hi 1.#7e]: Expected value in range ([253.849854, 254.150146] / 256.0), got (252.997070 / 256.0)
+test_sampler_rounding:5453:Test 1: Test failed: UV [raw 381.640625] [snap lo 1.#7e, snap hi 1.#7e]: Expected value in range ([253.849854, 254.150146] / 256.0), got (252.997070 / 256.0)
+test_sampler_rounding:5453:Test 1: Test failed: UV [raw 381.656250] [snap lo 1.#7e, snap hi 1.#7e]: Expected value in range ([253.849854, 254.150146] / 256.0), got (252.997070 / 256.0)
+test_sampler_rounding:5453:Test 1: Test failed: UV [raw 381.671875] [snap lo 1.#7e, snap hi 1.#7e]: Expected value in range ([253.849854, 254.150146] / 256.0), got (252.997070 / 256.0)
+test_sampler_rounding:5453:Test 1: Test failed: UV [raw 381.687500] [snap lo 1.#7e, snap hi 1.#7e]: Expected value in range ([253.849854, 254.150146] / 256.0), got (252.997070 / 256.0)
+test_sampler_rounding:5453:Test 1: Test failed: UV [raw 381.703125] [snap lo 1.#7e, snap hi 1.#7e]: Expected value in range ([253.849854, 254.150146] / 256.0), got (252.997070 / 256.0)
+test_sampler_rounding:5453:Test 1: Test failed: UV [raw 381.718750] [snap lo 1.#7e, snap hi 1.#7e]: Expected value in range ([253.849854, 254.150146] / 256.0), got (252.997070 / 256.0)
+test_sampler_rounding:5453:Test 1: Test failed: UV [raw 381.734375] [snap lo 1.#7e, snap hi 1.#7e]: Expected value in range ([253.849854, 254.150146] / 256.0), got (252.997070 / 256.0)
+test_sampler_rounding:5453:Test 1: Test failed: UV [raw 381.750000] [snap lo 1.#7e, snap hi 1.#7e]: Expected value in range ([253.849854, 254.150146] / 256.0), got (252.997070 / 256.0)
+test_sampler_rounding:5453:Test 1: Test failed: UV [raw 381.765625] [snap lo 1.#7e, snap hi 1.#7e]: Expected value in range ([253.849854, 254.150146] / 256.0), got (252.997070 / 256.0)
+test_sampler_rounding:5453:Test 1: Test failed: UV [raw 381.781250] [snap lo 1.#7e, snap hi 1.#7e]: Expected value in range ([253.849854, 254.150146] / 256.0), got (252.997070 / 256.0)
+test_sampler_rounding:5453:Test 1: Test failed: UV [raw 381.796875] [snap lo 1.#7e, snap hi 1.#7e]: Expected value in range ([253.849854, 254.150146] / 256.0), got (252.997070 / 256.0)
+test_sampler_rounding:5453:Test 1: Test failed: UV [raw 381.812500] [snap lo 1.#7e, snap hi 1.#7e]: Expected value in range ([253.849854, 254.150146] / 256.0), got (252.997070 / 256.0)
+test_sampler_rounding:5453:Test 1: Test failed: UV [raw 381.828125] [snap lo 1.#7e, snap hi 1.#7e]: Expected value in range ([253.849854, 254.150146] / 256.0), got (252.997070 / 256.0)
+test_sampler_rounding:5453:Test 1: Test failed: UV [raw 381.843750] [snap lo 1.#7e, snap hi 1.#7e]: Expected value in range ([253.849854, 254.150146] / 256.0), got (252.997070 / 256.0)
+test_sampler_rounding:5453:Test 1: Test failed: UV [raw 381.859375] [snap lo 1.#7e, snap hi 1.#7e]: Expected value in range ([253.849854, 254.150146] / 256.0), got (252.997070 / 256.0)
+test_sampler_rounding:5453:Test 1: Test failed: UV [raw 381.875000] [snap lo 1.#7e, snap hi 1.#7e]: Expected value in range ([253.849854, 254.150146] / 256.0), got (252.997070 / 256.0)
+test_sampler_rounding:5453:Test 1: Test failed: UV [raw 381.890625] [snap lo 1.#7e, snap hi 1.#7e]: Expected value in range ([253.849854, 254.150146] / 256.0), got (252.997070 / 256.0)
+test_sampler_rounding:5453:Test 1: Test failed: UV [raw 381.906250] [snap lo 1.#7e, snap hi 1.#7e]: Expected value in range ([253.849854, 254.150146] / 256.0), got (252.997070 / 256.0)
+test_sampler_rounding:5453:Test 1: Test failed: UV [raw 381.921875] [snap lo 1.#7e, snap hi 1.#7e]: Expected value in range ([253.849854, 254.150146] / 256.0), got (252.997070 / 256.0)
+test_sampler_rounding:5453:Test 1: Test failed: UV [raw 381.937500] [snap lo 1.#7e, snap hi 1.#7e]: Expected value in range ([253.849854, 254.150146] / 256.0), got (252.997070 / 256.0)
+test_sampler_rounding:5453:Test 1: Test failed: UV [raw 381.953125] [snap lo 1.#7e, snap hi 1.#7e]: Expected value in range ([253.849854, 254.150146] / 256.0), got (252.997070 / 256.0)
+test_sampler_rounding:5453:Test 1: Test failed: UV [raw 381.968750] [snap lo 1.#7e, snap hi 1.#7e]: Expected value in range ([253.849854, 254.150146] / 256.0), got (252.997070 / 256.0)
+test_sampler_rounding:5453:Test 1: Test failed: UV [raw 381.984375] [snap lo 1.#7e, snap hi 1.#7e]: Expected value in range ([253.849854, 254.150146] / 256.0), got (252.997070 / 256.0)
+test_sampler_rounding:5453:Test 1: Test failed: UV [raw 382.609375] [snap lo 1.#7f, snap hi 1.#7f]: Expected value in range ([254.849854, 255.150146] / 256.0), got (253.998047 / 256.0)
+test_sampler_rounding:5453:Test 1: Test failed: UV [raw 382.625000] [snap lo 1.#7f, snap hi 1.#7f]: Expected value in range ([254.849854, 255.150146] / 256.0), got (253.998047 / 256.0)
+test_sampler_rounding:5453:Test 1: Test failed: UV [raw 382.640625] [snap lo 1.#7f, snap hi 1.#7f]: Expected value in range ([254.849854, 255.150146] / 256.0), got (253.998047 / 256.0)
+test_sampler_rounding:5453:Test 1: Test failed: UV [raw 382.656250] [snap lo 1.#7f, snap hi 1.#7f]: Expected value in range ([254.849854, 255.150146] / 256.0), got (253.998047 / 256.0)
+test_sampler_rounding:5453:Test 1: Test failed: UV [raw 382.671875] [snap lo 1.#7f, snap hi 1.#7f]: Expected value in range ([254.849854, 255.150146] / 256.0), got (253.998047 / 256.0)
+test_sampler_rounding:5453:Test 1: Test failed: UV [raw 382.687500] [snap lo 1.#7f, snap hi 1.#7f]: Expected value in range ([254.849854, 255.150146] / 256.0), got (253.998047 / 256.0)
+test_sampler_rounding:5453:Test 1: Test failed: UV [raw 382.703125] [snap lo 1.#7f, snap hi 1.#7f]: Expected value in range ([254.849854, 255.150146] / 256.0), got (253.998047 / 256.0)
+test_sampler_rounding:5453:Test 1: Test failed: UV [raw 382.718750] [snap lo 1.#7f, snap hi 1.#7f]: Expected value in range ([254.849854, 255.150146] / 256.0), got (253.998047 / 256.0)
+test_sampler_rounding:5453:Test 1: Test failed: UV [raw 382.734375] [snap lo 1.#7f, snap hi 1.#7f]: Expected value in range ([254.849854, 255.150146] / 256.0), got (253.998047 / 256.0)
+test_sampler_rounding:5453:Test 1: Test failed: UV [raw 382.750000] [snap lo 1.#7f, snap hi 1.#7f]: Expected value in range ([254.849854, 255.150146] / 256.0), got (253.998047 / 256.0)
+test_sampler_rounding:5453:Test 1: Test failed: UV [raw 382.765625] [snap lo 1.#7f, snap hi 1.#7f]: Expected value in range ([254.849854, 255.150146] / 256.0), got (253.998047 / 256.0)
+test_sampler_rounding:5453:Test 1: Test failed: UV [raw 382.781250] [snap lo 1.#7f, snap hi 1.#7f]: Expected value in range ([254.849854, 255.150146] / 256.0), got (253.998047 / 256.0)
+test_sampler_rounding:5453:Test 1: Test failed: UV [raw 382.796875] [snap lo 1.#7f, snap hi 1.#7f]: Expected value in range ([254.849854, 255.150146] / 256.0), got (253.998047 / 256.0)
+test_sampler_rounding:5453:Test 1: Test failed: UV [raw 382.812500] [snap lo 1.#7f, snap hi 1.#7f]: Expected value in range ([254.849854, 255.150146] / 256.0), got (253.998047 / 256.0)
+test_sampler_rounding:5453:Test 1: Test failed: UV [raw 382.828125] [snap lo 1.#7f, snap hi 1.#7f]: Expected value in range ([254.849854, 255.150146] / 256.0), got (253.998047 / 256.0)
+test_sampler_rounding:5453:Test 1: Test failed: UV [raw 382.843750] [snap lo 1.#7f, snap hi 1.#7f]: Expected value in range ([254.849854, 255.150146] / 256.0), got (253.998047 / 256.0)
+test_sampler_rounding:5453:Test 1: Test failed: UV [raw 382.859375] [snap lo 1.#7f, snap hi 1.#7f]: Expected value in range ([254.849854, 255.150146] / 256.0), got (253.998047 / 256.0)
+test_sampler_rounding:5453:Test 1: Test failed: UV [raw 382.875000] [snap lo 1.#7f, snap hi 1.#7f]: Expected value in range ([254.849854, 255.150146] / 256.0), got (253.998047 / 256.0)
+test_sampler_rounding:5453:Test 1: Test failed: UV [raw 382.890625] [snap lo 1.#7f, snap hi 1.#7f]: Expected value in range ([254.849854, 255.150146] / 256.0), got (253.998047 / 256.0)
+test_sampler_rounding:5453:Test 1: Test failed: UV [raw 382.906250] [snap lo 1.#7f, snap hi 1.#7f]: Expected value in range ([254.849854, 255.150146] / 256.0), got (253.998047 / 256.0)
+test_sampler_rounding:5453:Test 1: Test failed: UV [raw 382.921875] [snap lo 1.#7f, snap hi 1.#7f]: Expected value in range ([254.849854, 255.150146] / 256.0), got (253.998047 / 256.0)
+test_sampler_rounding:5453:Test 1: Test failed: UV [raw 382.937500] [snap lo 1.#7f, snap hi 1.#7f]: Expected value in range ([254.849854, 255.150146] / 256.0), got (253.998047 / 256.0)
+test_sampler_rounding:5453:Test 1: Test failed: UV [raw 382.953125] [snap lo 1.#7f, snap hi 1.#7f]: Expected value in range ([254.849854, 255.150146] / 256.0), got (253.998047 / 256.0)
+test_sampler_rounding:5453:Test 1: Test failed: UV [raw 382.968750] [snap lo 1.#7f, snap hi 1.#7f]: Expected value in range ([254.849854, 255.150146] / 256.0), got (253.998047 / 256.0)
+test_sampler_rounding:5453:Test 1: Test failed: UV [raw 382.984375] [snap lo 1.#7f, snap hi 1.#7f]: Expected value in range ([254.849854, 255.150146] / 256.0), got (253.998047 / 256.0)
+test_sampler_rounding:5453:Test 1: Test failed: UV [raw 383.609375] [snap lo 1.#80, snap hi 1.#80]: Expected value in range ([256.000000, 256.000000] / 256.0), got (254.999023 / 256.0)
+test_sampler_rounding:5453:Test 1: Test failed: UV [raw 383.625000] [snap lo 1.#80, snap hi 1.#80]: Expected value in range ([256.000000, 256.000000] / 256.0), got (254.999023 / 256.0)
+test_sampler_rounding:5453:Test 1: Test failed: UV [raw 383.640625] [snap lo 1.#80, snap hi 1.#80]: Expected value in range ([256.000000, 256.000000] / 256.0), got (254.999023 / 256.0)
+test_sampler_rounding:5453:Test 1: Test failed: UV [raw 383.656250] [snap lo 1.#80, snap hi 1.#80]: Expected value in range ([256.000000, 256.000000] / 256.0), got (254.999023 / 256.0)
+test_sampler_rounding:5453:Test 1: Test failed: UV [raw 383.671875] [snap lo 1.#80, snap hi 1.#80]: Expected value in range ([256.000000, 256.000000] / 256.0), got (254.999023 / 256.0)
+test_sampler_rounding:5453:Test 1: Test failed: UV [raw 383.687500] [snap lo 1.#80, snap hi 1.#80]: Expected value in range ([256.000000, 256.000000] / 256.0), got (254.999023 / 256.0)
+test_sampler_rounding:5453:Test 1: Test failed: UV [raw 383.703125] [snap lo 1.#80, snap hi 1.#80]: Expected value in range ([256.000000, 256.000000] / 256.0), got (254.999023 / 256.0)
+test_sampler_rounding:5453:Test 1: Test failed: UV [raw 383.718750] [snap lo 1.#80, snap hi 1.#80]: Expected value in range ([256.000000, 256.000000] / 256.0), got (254.999023 / 256.0)
+test_sampler_rounding:5453:Test 1: Test failed: UV [raw 383.734375] [snap lo 1.#80, snap hi 1.#80]: Expected value in range ([256.000000, 256.000000] / 256.0), got (254.999023 / 256.0)
+test_sampler_rounding:5453:Test 1: Test failed: UV [raw 383.750000] [snap lo 1.#80, snap hi 1.#80]: Expected value in range ([256.000000, 256.000000] / 256.0), got (254.999023 / 256.0)
+test_sampler_rounding:5453:Test 1: Test failed: UV [raw 383.765625] [snap lo 1.#80, snap hi 1.#80]: Expected value in range ([256.000000, 256.000000] / 256.0), got (254.999023 / 256.0)
+test_sampler_rounding:5453:Test 1: Test failed: UV [raw 383.781250] [snap lo 1.#80, snap hi 1.#80]: Expected value in range ([256.000000, 256.000000] / 256.0), got (254.999023 / 256.0)
+test_sampler_rounding:5453:Test 1: Test failed: UV [raw 383.796875] [snap lo 1.#80, snap hi 1.#80]: Expected value in range ([256.000000, 256.000000] / 256.0), got (254.999023 / 256.0)
+test_sampler_rounding:5453:Test 1: Test failed: UV [raw 383.812500] [snap lo 1.#80, snap hi 1.#80]: Expected value in range ([256.000000, 256.000000] / 256.0), got (254.999023 / 256.0)
+test_sampler_rounding:5453:Test 1: Test failed: UV [raw 383.828125] [snap lo 1.#80, snap hi 1.#80]: Expected value in range ([256.000000, 256.000000] / 256.0), got (254.999023 / 256.0)
+test_sampler_rounding:5453:Test 1: Test failed: UV [raw 383.843750] [snap lo 1.#80, snap hi 1.#80]: Expected value in range ([256.000000, 256.000000] / 256.0), got (254.999023 / 256.0)
+test_sampler_rounding:5453:Test 1: Test failed: UV [raw 383.859375] [snap lo 1.#80, snap hi 1.#80]: Expected value in range ([256.000000, 256.000000] / 256.0), got (254.999023 / 256.0)
+test_sampler_rounding:5453:Test 1: Test failed: UV [raw 383.875000] [snap lo 1.#80, snap hi 1.#80]: Expected value in range ([256.000000, 256.000000] / 256.0), got (254.999023 / 256.0)
+test_sampler_rounding:5453:Test 1: Test failed: UV [raw 383.890625] [snap lo 1.#80, snap hi 1.#80]: Expected value in range ([256.000000, 256.000000] / 256.0), got (254.999023 / 256.0)
+test_sampler_rounding:5453:Test 1: Test failed: UV [raw 383.906250] [snap lo 1.#80, snap hi 1.#80]: Expected value in range ([256.000000, 256.000000] / 256.0), got (254.999023 / 256.0)
+test_sampler_rounding:5453:Test 1: Test failed: UV [raw 383.921875] [snap lo 1.#80, snap hi 1.#80]: Expected value in range ([256.000000, 256.000000] / 256.0), got (254.999023 / 256.0)
+test_sampler_rounding:5453:Test 1: Test failed: UV [raw 383.937500] [snap lo 1.#80, snap hi 1.#80]: Expected value in range ([256.000000, 256.000000] / 256.0), got (254.999023 / 256.0)
+test_sampler_rounding:5453:Test 1: Test failed: UV [raw 383.953125] [snap lo 1.#80, snap hi 1.#80]: Expected value in range ([256.000000, 256.000000] / 256.0), got (254.999023 / 256.0)
+test_sampler_rounding:5453:Test 1: Test failed: UV [raw 383.968750] [snap lo 1.#80, snap hi 1.#80]: Expected value in range ([256.000000, 256.000000] / 256.0), got (254.999023 / 256.0)
+test_sampler_rounding:5453:Test 1: Test failed: UV [raw 383.984375] [snap lo 1.#80, snap hi 1.#80]: Expected value in range ([256.000000, 256.000000] / 256.0), got (254.999023 / 256.0)
+test_sampler_rounding:5453:Test 2: Test failed: UV [raw 383.609375] [snap lo 1.#80, snap hi 1.#80]: Expected value in range ([256.000000, 256.000000] / 256.0), got (0.000000 / 256.0)
+test_sampler_rounding:5453:Test 2: Test failed: UV [raw 383.625000] [snap lo 1.#80, snap hi 1.#80]: Expected value in range ([256.000000, 256.000000] / 256.0), got (0.000000 / 256.0)
+test_sampler_rounding:5453:Test 2: Test failed: UV [raw 383.640625] [snap lo 1.#80, snap hi 1.#80]: Expected value in range ([256.000000, 256.000000] / 256.0), got (0.000000 / 256.0)
+test_sampler_rounding:5453:Test 2: Test failed: UV [raw 383.656250] [snap lo 1.#80, snap hi 1.#80]: Expected value in range ([256.000000, 256.000000] / 256.0), got (0.000000 / 256.0)
+test_sampler_rounding:5453:Test 2: Test failed: UV [raw 383.671875] [snap lo 1.#80, snap hi 1.#80]: Expected value in range ([256.000000, 256.000000] / 256.0), got (0.000000 / 256.0)
+test_sampler_rounding:5453:Test 2: Test failed: UV [raw 383.687500] [snap lo 1.#80, snap hi 1.#80]: Expected value in range ([256.000000, 256.000000] / 256.0), got (0.000000 / 256.0)
+test_sampler_rounding:5453:Test 2: Test failed: UV [raw 383.703125] [snap lo 1.#80, snap hi 1.#80]: Expected value in range ([256.000000, 256.000000] / 256.0), got (0.000000 / 256.0)
+test_sampler_rounding:5453:Test 2: Test failed: UV [raw 383.718750] [snap lo 1.#80, snap hi 1.#80]: Expected value in range ([256.000000, 256.000000] / 256.0), got (0.000000 / 256.0)
+test_sampler_rounding:5453:Test 2: Test failed: UV [raw 383.734375] [snap lo 1.#80, snap hi 1.#80]: Expected value in range ([256.000000, 256.000000] / 256.0), got (0.000000 / 256.0)
+test_sampler_rounding:5453:Test 2: Test failed: UV [raw 383.750000] [snap lo 1.#80, snap hi 1.#80]: Expected value in range ([256.000000, 256.000000] / 256.0), got (0.000000 / 256.0)
+test_sampler_rounding:5453:Test 2: Test failed: UV [raw 383.765625] [snap lo 1.#80, snap hi 1.#80]: Expected value in range ([256.000000, 256.000000] / 256.0), got (0.000000 / 256.0)
+test_sampler_rounding:5453:Test 2: Test failed: UV [raw 383.781250] [snap lo 1.#80, snap hi 1.#80]: Expected value in range ([256.000000, 256.000000] / 256.0), got (0.000000 / 256.0)
+test_sampler_rounding:5453:Test 2: Test failed: UV [raw 383.796875] [snap lo 1.#80, snap hi 1.#80]: Expected value in range ([256.000000, 256.000000] / 256.0), got (0.000000 / 256.0)
+test_sampler_rounding:5453:Test 2: Test failed: UV [raw 383.812500] [snap lo 1.#80, snap hi 1.#80]: Expected value in range ([256.000000, 256.000000] / 256.0), got (0.000000 / 256.0)
+test_sampler_rounding:5453:Test 2: Test failed: UV [raw 383.828125] [snap lo 1.#80, snap hi 1.#80]: Expected value in range ([256.000000, 256.000000] / 256.0), got (0.000000 / 256.0)
+test_sampler_rounding:5453:Test 2: Test failed: UV [raw 383.843750] [snap lo 1.#80, snap hi 1.#80]: Expected value in range ([256.000000, 256.000000] / 256.0), got (0.000000 / 256.0)
+test_sampler_rounding:5453:Test 2: Test failed: UV [raw 383.859375] [snap lo 1.#80, snap hi 1.#80]: Expected value in range ([256.000000, 256.000000] / 256.0), got (0.000000 / 256.0)
+test_sampler_rounding:5453:Test 2: Test failed: UV [raw 383.875000] [snap lo 1.#80, snap hi 1.#80]: Expected value in range ([256.000000, 256.000000] / 256.0), got (0.000000 / 256.0)
+test_sampler_rounding:5453:Test 2: Test failed: UV [raw 383.890625] [snap lo 1.#80, snap hi 1.#80]: Expected value in range ([256.000000, 256.000000] / 256.0), got (0.000000 / 256.0)
+test_sampler_rounding:5453:Test 2: Test failed: UV [raw 383.906250] [snap lo 1.#80, snap hi 1.#80]: Expected value in range ([256.000000, 256.000000] / 256.0), got (0.000000 / 256.0)
+test_sampler_rounding:5453:Test 2: Test failed: UV [raw 383.921875] [snap lo 1.#80, snap hi 1.#80]: Expected value in range ([256.000000, 256.000000] / 256.0), got (0.000000 / 256.0)
+test_sampler_rounding:5453:Test 2: Test failed: UV [raw 383.937500] [snap lo 1.#80, snap hi 1.#80]: Expected value in range ([256.000000, 256.000000] / 256.0), got (0.000000 / 256.0)
+test_sampler_rounding:5453:Test 2: Test failed: UV [raw 383.953125] [snap lo 1.#80, snap hi 1.#80]: Expected value in range ([256.000000, 256.000000] / 256.0), got (0.000000 / 256.0)
+test_sampler_rounding:5453:Test 2: Test failed: UV [raw 383.968750] [snap lo 1.#80, snap hi 1.#80]: Expected value in range ([256.000000, 256.000000] / 256.0), got (0.000000 / 256.0)
+test_sampler_rounding:5453:Test 2: Test failed: UV [raw 383.984375] [snap lo 1.#80, snap hi 1.#80]: Expected value in range ([256.000000, 256.000000] / 256.0), got (0.000000 / 256.0)
+test_sampler_rounding:5453:Test 3: Test failed: UV [raw 383.609375] [snap lo 1.#80, snap hi 1.#80]: Expected value in range ([256.000000, 256.000000] / 256.0), got (0.000000 / 256.0)
+test_sampler_rounding:5453:Test 3: Test failed: UV [raw 383.625000] [snap lo 1.#80, snap hi 1.#80]: Expected value in range ([256.000000, 256.000000] / 256.0), got (0.000000 / 256.0)
+test_sampler_rounding:5453:Test 3: Test failed: UV [raw 383.640625] [snap lo 1.#80, snap hi 1.#80]: Expected value in range ([256.000000, 256.000000] / 256.0), got (0.000000 / 256.0)
+test_sampler_rounding:5453:Test 3: Test failed: UV [raw 383.656250] [snap lo 1.#80, snap hi 1.#80]: Expected value in range ([256.000000, 256.000000] / 256.0), got (0.000000 / 256.0)
+test_sampler_rounding:5453:Test 3: Test failed: UV [raw 383.671875] [snap lo 1.#80, snap hi 1.#80]: Expected value in range ([256.000000, 256.000000] / 256.0), got (0.000000 / 256.0)
+test_sampler_rounding:5453:Test 3: Test failed: UV [raw 383.687500] [snap lo 1.#80, snap hi 1.#80]: Expected value in range ([256.000000, 256.000000] / 256.0), got (0.000000 / 256.0)
+test_sampler_rounding:5453:Test 3: Test failed: UV [raw 383.703125] [snap lo 1.#80, snap hi 1.#80]: Expected value in range ([256.000000, 256.000000] / 256.0), got (0.000000 / 256.0)
+test_sampler_rounding:5453:Test 3: Test failed: UV [raw 383.718750] [snap lo 1.#80, snap hi 1.#80]: Expected value in range ([256.000000, 256.000000] / 256.0), got (0.000000 / 256.0)
+test_sampler_rounding:5453:Test 3: Test failed: UV [raw 383.734375] [snap lo 1.#80, snap hi 1.#80]: Expected value in range ([256.000000, 256.000000] / 256.0), got (0.000000 / 256.0)
+test_sampler_rounding:5453:Test 3: Test failed: UV [raw 383.750000] [snap lo 1.#80, snap hi 1.#80]: Expected value in range ([256.000000, 256.000000] / 256.0), got (0.000000 / 256.0)
+test_sampler_rounding:5453:Test 3: Test failed: UV [raw 383.765625] [snap lo 1.#80, snap hi 1.#80]: Expected value in range ([256.000000, 256.000000] / 256.0), got (0.000000 / 256.0)
+test_sampler_rounding:5453:Test 3: Test failed: UV [raw 383.781250] [snap lo 1.#80, snap hi 1.#80]: Expected value in range ([256.000000, 256.000000] / 256.0), got (0.000000 / 256.0)
+test_sampler_rounding:5453:Test 3: Test failed: UV [raw 383.796875] [snap lo 1.#80, snap hi 1.#80]: Expected value in range ([256.000000, 256.000000] / 256.0), got (0.000000 / 256.0)
+test_sampler_rounding:5453:Test 3: Test failed: UV [raw 383.812500] [snap lo 1.#80, snap hi 1.#80]: Expected value in range ([256.000000, 256.000000] / 256.0), got (0.000000 / 256.0)
+test_sampler_rounding:5453:Test 3: Test failed: UV [raw 383.828125] [snap lo 1.#80, snap hi 1.#80]: Expected value in range ([256.000000, 256.000000] / 256.0), got (0.000000 / 256.0)
+test_sampler_rounding:5453:Test 3: Test failed: UV [raw 383.843750] [snap lo 1.#80, snap hi 1.#80]: Expected value in range ([256.000000, 256.000000] / 256.0), got (0.000000 / 256.0)
+test_sampler_rounding:5453:Test 3: Test failed: UV [raw 383.859375] [snap lo 1.#80, snap hi 1.#80]: Expected value in range ([256.000000, 256.000000] / 256.0), got (0.000000 / 256.0)
+test_sampler_rounding:5453:Test 3: Test failed: UV [raw 383.875000] [snap lo 1.#80, snap hi 1.#80]: Expected value in range ([256.000000, 256.000000] / 256.0), got (0.000000 / 256.0)
+test_sampler_rounding:5453:Test 3: Test failed: UV [raw 383.890625] [snap lo 1.#80, snap hi 1.#80]: Expected value in range ([256.000000, 256.000000] / 256.0), got (0.000000 / 256.0)
+test_sampler_rounding:5453:Test 3: Test failed: UV [raw 383.906250] [snap lo 1.#80, snap hi 1.#80]: Expected value in range ([256.000000, 256.000000] / 256.0), got (0.000000 / 256.0)
+test_sampler_rounding:5453:Test 3: Test failed: UV [raw 383.921875] [snap lo 1.#80, snap hi 1.#80]: Expected value in range ([256.000000, 256.000000] / 256.0), got (0.000000 / 256.0)
+test_sampler_rounding:5453:Test 3: Test failed: UV [raw 383.937500] [snap lo 1.#80, snap hi 1.#80]: Expected value in range ([256.000000, 256.000000] / 256.0), got (0.000000 / 256.0)
+test_sampler_rounding:5453:Test 3: Test failed: UV [raw 383.953125] [snap lo 1.#80, snap hi 1.#80]: Expected value in range ([256.000000, 256.000000] / 256.0), got (0.000000 / 256.0)
+test_sampler_rounding:5453:Test 3: Test failed: UV [raw 383.968750] [snap lo 1.#80, snap hi 1.#80]: Expected value in range ([256.000000, 256.000000] / 256.0), got (0.000000 / 256.0)
+test_sampler_rounding:5453:Test 3: Test failed: UV [raw 383.984375] [snap lo 1.#80, snap hi 1.#80]: Expected value in range ([256.000000, 256.000000] / 256.0), got (0.000000 / 256.0)

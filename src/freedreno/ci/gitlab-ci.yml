@@ -348,3 +348,17 @@ a750_vk:
     B2C_TIMEOUT_OVERALL_MINUTES: 55
     DEQP_SUITE: freedreno-a750-vk
     HWCI_TEST_SCRIPT: ./install/deqp-runner.sh
+
+a750_vkd3d:
+  extends:
+    - .b2c-freedreno-vk-test
+    - .a750-mupuf
+    - .valve-freedreno-turnip-manual-rules
+  timeout: 15m  # base runtime 5min
+  variables:
+    B2C_TIMEOUT_OVERALL_MINUTES: 12
+    B2C_TIMEOUT_BOOT_MINUTES: 10
+    HWCI_TEST_SCRIPT: install/vkd3d-proton/run.sh
+    VKD3D_PROTON_RESULTS: freedreno-a750
+    # d3d12 gets `Aborted` when reaching this test
+    VKD3D_TEST_EXCLUDE: test_fence_wait_robustness

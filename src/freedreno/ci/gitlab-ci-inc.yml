@@ -11,6 +11,7 @@
         - src/freedreno/ci/$GPU_VERSION-flakes.txt
         - src/freedreno/ci/$GPU_VERSION-skips.txt
         - src/freedreno/ci/$PIGLIT_TRACES_FILE
+        - src/freedreno/ci/$VKD3D_PROTON_RESULTS-vkd3d.txt
         - src/freedreno/common/**/*
         - src/freedreno/drm/**/*
         - src/freedreno/fdl/**/*
