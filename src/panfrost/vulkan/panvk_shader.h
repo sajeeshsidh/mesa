@@ -16,6 +16,7 @@
 
 #include "panvk_descriptor_set.h"
 #include "panvk_macros.h"
+#include "panvk_priv_bo.h"
 #include "panvk_set_collection_layout.h"
 
 #define MAX_VS_ATTRIBS 16
@@ -68,7 +69,18 @@ struct panvk_shader {
 
    const void *bin_ptr;
    uint32_t bin_size;
+
+   struct panvk_priv_bo *upload_bo;
+
+   mali_ptr upload_addr;
+   uint32_t upload_size;
 };
+
+static inline mali_ptr
+panvk_shader_get_dev_addr(const struct panvk_shader *shader)
+{
+   return shader != NULL ? shader->upload_addr : 0;
+}
 
 struct panvk_shader *panvk_per_arch(shader_create)(
    struct panvk_device *dev, const VkPipelineShaderStageCreateInfo *stage_info,

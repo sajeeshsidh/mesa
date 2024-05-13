@@ -713,17 +713,18 @@ panvk_draw_prepare_fs_rsd(struct panvk_cmd_buffer *cmdbuf,
    struct mali_renderer_state_packed *rsd = ptr.cpu;
    struct mali_blend_packed *bds = ptr.cpu + pan_size(RENDERER_STATE);
 
+   mali_ptr fs_code = panvk_shader_get_dev_addr(pipeline->fs.base);
+
    panvk_per_arch(blend_emit_descs)(
       dev, cb, cmdbuf->state.gfx.fb.color_attachments.fmts,
-      cmdbuf->state.gfx.fb.color_attachments.samples, fs_info,
-      pipeline->fs.code, bds, &blend_reads_dest,
-      &blend_shader_loads_blend_const);
+      cmdbuf->state.gfx.fb.color_attachments.samples, fs_info, fs_code, bds,
+      &blend_reads_dest, &blend_shader_loads_blend_const);
 
    pan_pack(rsd, RENDERER_STATE, cfg) {
       bool alpha_to_coverage = dyns->ms.alpha_to_coverage_enable;
 
       if (needs_fs) {
-         pan_shader_prepare_rsd(fs_info, pipeline->fs.code, &cfg);
+         pan_shader_prepare_rsd(fs_info, fs_code, &cfg);
 
          if (blend_shader_loads_blend_const) {
             /* Preload the blend constant if the blend shader depends on it. */

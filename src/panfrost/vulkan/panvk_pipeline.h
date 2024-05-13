@@ -28,7 +28,6 @@
 
 struct panvk_pipeline_shader {
    struct panvk_shader *base;
-   mali_ptr code;
    mali_ptr rsd;
 
    struct {
@@ -51,7 +50,6 @@ struct panvk_pipeline {
 
    const struct vk_pipeline_layout *layout;
 
-   struct panvk_pool bin_pool;
    struct panvk_pool desc_pool;
 };
 

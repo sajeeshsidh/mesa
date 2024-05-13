@@ -69,13 +69,6 @@ init_pipeline_shader(struct panvk_pipeline *pipeline,
    if (!shader)
       return vk_error(dev, VK_ERROR_OUT_OF_HOST_MEMORY);
 
-   if (shader->bin_size) {
-      pshader->code = pan_pool_upload_aligned(
-         &pipeline->bin_pool.base, shader->bin_ptr, shader->bin_size, 128);
-   } else {
-      pshader->code = 0;
-   }
-
    pshader->base = shader;
    pshader->info = shader->info;
    pshader->has_img_access = shader->has_img_access;
@@ -92,7 +85,8 @@ init_pipeline_shader(struct panvk_pipeline *pipeline,
          pan_pool_alloc_desc(&pipeline->desc_pool.base, RENDERER_STATE);
 
       pan_pack(rsd.cpu, RENDERER_STATE, cfg) {
-         pan_shader_prepare_rsd(&pshader->info, pshader->code, &cfg);
+         pan_shader_prepare_rsd(&pshader->info, pshader->base->upload_addr,
+                                &cfg);
       }
 
       pshader->rsd = rsd.gpu;
@@ -339,9 +333,6 @@ panvk_graphics_pipeline_create(struct panvk_device *dev,
    vk_dynamic_graphics_state_fill(&gfx_pipeline->state.dynamic, &state);
    gfx_pipeline->state.rp = *state.rp;
 
-   panvk_pool_init(&gfx_pipeline->base.bin_pool, dev, NULL,
-                   PAN_KMOD_BO_FLAG_EXECUTABLE, 4096,
-                   "Pipeline shader binaries", false);
    panvk_pool_init(&gfx_pipeline->base.desc_pool, dev, NULL, 0, 4096,
                    "Pipeline static state", false);
 
@@ -424,9 +415,6 @@ panvk_compute_pipeline_create(struct panvk_device *dev,
    compute_pipeline->base.layout = layout;
    compute_pipeline->base.type = PANVK_PIPELINE_COMPUTE;
 
-   panvk_pool_init(&compute_pipeline->base.bin_pool, dev, NULL,
-                   PAN_KMOD_BO_FLAG_EXECUTABLE, 4096,
-                   "Pipeline shader binaries", false);
    panvk_pool_init(&compute_pipeline->base.desc_pool, dev, NULL, 0, 4096,
                    "Pipeline static state", false);
 
@@ -493,7 +481,6 @@ panvk_per_arch(DestroyPipeline)(VkDevice _device, VkPipeline _pipeline,
    }
    }
 
-   panvk_pool_cleanup(&pipeline->bin_pool);
    panvk_pool_cleanup(&pipeline->desc_pool);
    vk_object_free(&device->vk, pAllocator, pipeline);
 }
