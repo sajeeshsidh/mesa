@@ -1269,6 +1269,14 @@ schedule_program(Program* program)
    assert(ctx.num_waves > 0);
    ctx.mv.max_registers = {int16_t(get_addr_vgpr_from_waves(program, ctx.num_waves * wave_fac) - 2),
                            int16_t(get_addr_sgpr_from_waves(program, ctx.num_waves * wave_fac))};
+   /* If not all preserved SGPRs in callee shaders were spilled, don't try using them for
+    * scheduling.
+    */
+   if (program->is_callee) {
+      ctx.mv.max_registers.sgpr =
+         std::max(std::min(ctx.mv.max_registers.sgpr, program->cur_reg_demand.sgpr),
+                  (int16_t)program->callee_abi.clobberedRegs.sgpr.size);
+   }
 
    /* NGG culling shaders are very sensitive to position export scheduling.
     * Schedule less aggressively when early primitive export is used, and

@@ -332,7 +332,9 @@ insn("p_unit_test")
 insn("p_callee_stack_ptr")
 
 insn("p_spill_preserved_vgpr")
+insn("p_spill_preserved_sgpr")
 insn("p_reload_preserved_vgpr")
+insn("p_reload_preserved_sgpr")
 
 insn("p_create_vector")
 insn("p_extract_vector")

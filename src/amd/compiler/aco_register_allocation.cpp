@@ -2987,11 +2987,35 @@ register_allocation(Program* program, ra_test_policy policy)
    ra_ctx ctx(program, policy);
    get_affinities(ctx, live_out_per_block);
 
+   std::unordered_set<PhysReg> blocked_sgpr;
+   if (ctx.program->is_callee) {
+      PhysRegInterval preserved_sgpr_lo = PhysRegInterval{
+         .lo_ = PhysReg{ctx.program->arg_sgpr_count},
+         .size = ctx.program->callee_abi.clobberedRegs.sgpr.lo() - ctx.program->arg_sgpr_count,
+      };
+      PhysRegInterval preserved_sgpr_hi = PhysRegInterval{
+         .lo_ = ctx.program->callee_abi.clobberedRegs.sgpr.hi(),
+         .size = PhysReg{ctx.sgpr_limit} - ctx.program->callee_abi.clobberedRegs.sgpr.hi(),
+      };
+      for (auto reg : preserved_sgpr_lo) {
+         blocked_sgpr.insert(reg);
+         adjust_max_used_regs(ctx, RegClass::s1, reg);
+      }
+      for (auto reg : preserved_sgpr_hi) {
+         blocked_sgpr.insert(reg);
+         adjust_max_used_regs(ctx, RegClass::s1, reg);
+      }
+   }
+
    for (Block& block : program->blocks) {
       ctx.block = &block;
 
       /* initialize register file */
       RegisterFile register_file = init_reg_file(ctx, live_out_per_block, block);
+      for (auto& reg : blocked_sgpr) {
+         if (register_file.is_empty_or_blocked(reg))
+            register_file.block(reg, s1);
+      }
       ctx.war_hint.reset();
       ctx.rr_vgpr_it = {PhysReg{256}};
       ctx.rr_sgpr_it = {PhysReg{0}};
@@ -3071,7 +3095,27 @@ register_allocation(Program* program, ra_test_policy policy)
             instructions.emplace_back(std::move(instr));
             break;
          }
-         if (instr->opcode == aco_opcode::p_reload_preserved_vgpr && block.linear_succs.empty()) {
+         if (instr->opcode == aco_opcode::p_spill_preserved_sgpr) {
+            if (register_file.is_blocked(instr->operands[0].physReg()))
+               register_file.clear(instr->operands[0]);
+            blocked_sgpr.erase(instr->operands[0].physReg());
+            continue;
+         } else if (instr->opcode == aco_opcode::p_reload_preserved_sgpr) {
+            blocked_sgpr.insert(instr->operands[0].physReg());
+            std::vector<unsigned> vars = collect_vars(
+               ctx, register_file, {instr->operands[0].physReg(), instr->operands[0].size()});
+            register_file.block(instr->operands[0].physReg(), instr->operands[0].regClass());
+            ASSERTED bool success = false;
+            success = get_regs_for_copies(ctx, register_file, parallelcopy, vars, instr,
+                                          PhysRegInterval{});
+            assert(success);
+
+            update_renames(ctx, register_file, parallelcopy, instr, (UpdateRenames)0);
+            register_file.block(instr->operands[0].physReg(), instr->operands[0].regClass());
+            emit_parallel_copy(ctx, parallelcopy, instr, instructions, temp_in_scc, register_file);
+            continue;
+         } else if (instr->opcode == aco_opcode::p_reload_preserved_vgpr &&
+                    block.linear_succs.empty()) {
             PhysRegInterval preserved_vgpr_lo = PhysRegInterval{
                .lo_ = PhysReg{256u + ctx.program->arg_vgpr_count},
                .size = ctx.program->callee_abi.clobberedRegs.vgpr.lo() - 256u -
