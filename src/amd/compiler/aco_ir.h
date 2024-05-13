@@ -2321,6 +2321,7 @@ public:
    bool pending_lds_access = false;
 
    bool is_callee = false;
+   bool bypass_reg_preservation = false;
    ABI callee_abi = {};
    unsigned short arg_sgpr_count;
    unsigned short arg_vgpr_count;
