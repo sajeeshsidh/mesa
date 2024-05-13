@@ -19,15 +19,6 @@
 #include <unordered_set>
 #include <vector>
 
-namespace std {
-template <> struct hash<aco::PhysReg> {
-   size_t operator()(aco::PhysReg temp) const noexcept
-   {
-      return std::hash<uint32_t>{}(temp.reg_b);
-   }
-};
-} // namespace std
-
 namespace aco {
 namespace {
 
@@ -2464,6 +2455,23 @@ init_reg_file(ra_ctx& ctx, const std::vector<IDSet>& live_out_per_block, Block& 
    const IDSet& live_in = live_out_per_block[block.index];
    assert(block.index != 0 || live_in.empty());
 
+   /* Callee shaders only get a chance to spill preserved registers after p_startpgm.
+    * To make sure nothing uses these regs until we can spill them, block them here.
+    */
+   if (block.index == 0 && ctx.program->is_callee) {
+      PhysRegInterval preserved_vgpr_lo = PhysRegInterval{
+         .lo_ = PhysReg{256u + ctx.program->arg_vgpr_count},
+         .size =
+            ctx.program->callee_abi.clobberedRegs.vgpr.lo() - 256 - ctx.program->arg_vgpr_count,
+      };
+      PhysRegInterval preserved_vgpr_hi = PhysRegInterval{
+         .lo_ = ctx.program->callee_abi.clobberedRegs.vgpr.hi(),
+         .size = PhysReg{256u + ctx.vgpr_limit} - ctx.program->callee_abi.clobberedRegs.vgpr.hi(),
+      };
+      register_file.block(preserved_vgpr_hi);
+      register_file.block(preserved_vgpr_lo);
+   }
+
    if (block.kind & block_kind_loop_header) {
       ctx.loop_header.emplace_back(block.index);
       /* already rename phis incoming value */
@@ -3063,6 +3071,31 @@ register_allocation(Program* program, ra_test_policy policy)
             instructions.emplace_back(std::move(instr));
             break;
          }
+         if (instr->opcode == aco_opcode::p_reload_preserved_vgpr && block.linear_succs.empty()) {
+            PhysRegInterval preserved_vgpr_lo = PhysRegInterval{
+               .lo_ = PhysReg{256u + ctx.program->arg_vgpr_count},
+               .size = ctx.program->callee_abi.clobberedRegs.vgpr.lo() - 256u -
+                       ctx.program->arg_vgpr_count,
+            };
+            PhysRegInterval preserved_vgpr_hi = PhysRegInterval{
+               .lo_ = ctx.program->callee_abi.clobberedRegs.vgpr.hi(),
+               .size =
+                  PhysReg{256u + ctx.vgpr_limit} - ctx.program->callee_abi.clobberedRegs.vgpr.hi(),
+            };
+            std::vector<unsigned> vars = collect_vars(ctx, register_file, preserved_vgpr_lo);
+            std::vector<unsigned> vars2 = collect_vars(ctx, register_file, preserved_vgpr_hi);
+            vars.insert(vars.end(), vars2.begin(), vars2.end());
+
+            register_file.block(preserved_vgpr_lo);
+            register_file.block(preserved_vgpr_hi);
+
+            ASSERTED bool success = false;
+            success = get_regs_for_copies(ctx, register_file, parallelcopy, vars, instr,
+                                          PhysRegInterval{});
+            assert(success);
+
+            update_renames(ctx, register_file, parallelcopy, instr, (UpdateRenames)0);
+         }
 
          assert(!is_phi(instr));
 
@@ -3390,6 +3423,20 @@ register_allocation(Program* program, ra_test_policy policy)
             instr->format = asVOP3(instr->format);
          }
 
+         if (instr->opcode == aco_opcode::p_spill_preserved_vgpr) {
+            PhysRegInterval preserved_vgpr_lo = PhysRegInterval{
+               .lo_ = PhysReg{256u + ctx.program->arg_vgpr_count},
+               .size = ctx.program->callee_abi.clobberedRegs.vgpr.lo() - 256u -
+                       ctx.program->arg_vgpr_count,
+            };
+            PhysRegInterval preserved_vgpr_hi = PhysRegInterval{
+               .lo_ = ctx.program->callee_abi.clobberedRegs.vgpr.hi(),
+               .size =
+                  PhysReg{256u + ctx.vgpr_limit} - ctx.program->callee_abi.clobberedRegs.vgpr.hi(),
+            };
+            register_file.clear(preserved_vgpr_hi);
+            register_file.clear(preserved_vgpr_lo);
+         }
          instructions.emplace_back(std::move(*instr_it));
 
       } /* end for Instr */

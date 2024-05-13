@@ -108,9 +108,21 @@ append_logical_start(Block* b)
 }
 
 static void
-append_logical_end(Block* b)
+append_logical_end(isel_context* ctx)
 {
-   Builder(NULL, b).pseudo(aco_opcode::p_logical_end);
+   Builder bld(ctx->program, ctx->block);
+
+   Operand stack_ptr_op;
+   if (ctx->program->gfx_level >= GFX9)
+      stack_ptr_op = Operand(ctx->callee_info.stack_ptr.def.getTemp());
+   else
+      stack_ptr_op = Operand(load_scratch_resource(ctx->program, bld, true, true));
+   stack_ptr_op.setLateKill(true);
+   if (ctx->program->is_callee)
+      bld.pseudo(aco_opcode::p_reload_preserved_vgpr, bld.def(s1), bld.def(bld.lm),
+                 bld.def(s1, scc), stack_ptr_op);
+
+   bld.pseudo(aco_opcode::p_logical_end);
 }
 
 Temp
@@ -10179,7 +10191,7 @@ void
 begin_loop(isel_context* ctx, loop_context* lc)
 {
    // TODO: we might want to wrap the loop around a branch if exec_potentially_empty=true
-   append_logical_end(ctx->block);
+   append_logical_end(ctx);
    ctx->block->kind |= block_kind_loop_preheader | block_kind_uniform;
    Builder bld(ctx->program, ctx->block);
    bld.branch(aco_opcode::p_branch, bld.def(s2));
@@ -10211,7 +10223,7 @@ end_loop(isel_context* ctx, loop_context* lc)
    if (!ctx->cf_info.has_branch) {
       unsigned loop_header_idx = ctx->cf_info.parent_loop.header_idx;
       Builder bld(ctx->program, ctx->block);
-      append_logical_end(ctx->block);
+      append_logical_end(ctx);
 
       if (ctx->cf_info.exec_potentially_empty_discard ||
           ctx->cf_info.exec_potentially_empty_break) {
@@ -10273,7 +10285,7 @@ emit_loop_jump(isel_context* ctx, bool is_break)
 {
    Builder bld(ctx->program, ctx->block);
    Block* logical_target;
-   append_logical_end(ctx->block);
+   append_logical_end(ctx);
    unsigned idx = ctx->block->index;
 
    if (is_break) {
@@ -10698,7 +10710,7 @@ begin_divergent_if_then(isel_context* ctx, if_context* ic, Temp cond,
 {
    ic->cond = cond;
 
-   append_logical_end(ctx->block);
+   append_logical_end(ctx);
    ctx->block->kind |= block_kind_branch;
 
    /* branch to linear then block */
@@ -10745,7 +10757,7 @@ begin_divergent_if_else(isel_context* ctx, if_context* ic,
                         nir_selection_control sel_ctrl = nir_selection_control_none)
 {
    Block* BB_then_logical = ctx->block;
-   append_logical_end(BB_then_logical);
+   append_logical_end(ctx);
    /* branch from logical then block to invert block */
    aco_ptr<Instruction> branch;
    branch.reset(create_instruction(aco_opcode::p_branch, Format::PSEUDO_BRANCH, 0, 1));
@@ -10806,7 +10818,7 @@ static void
 end_divergent_if(isel_context* ctx, if_context* ic)
 {
    Block* BB_else_logical = ctx->block;
-   append_logical_end(BB_else_logical);
+   append_logical_end(ctx);
 
    /* branch from logical else block to endif block */
    aco_ptr<Instruction> branch;
@@ -10864,7 +10876,7 @@ begin_uniform_if_then(isel_context* ctx, if_context* ic, Temp cond)
 {
    assert(cond.regClass() == s1);
 
-   append_logical_end(ctx->block);
+   append_logical_end(ctx);
    ctx->block->kind |= block_kind_uniform;
 
    aco_ptr<Instruction> branch;
@@ -10899,7 +10911,7 @@ begin_uniform_if_else(isel_context* ctx, if_context* ic)
    Block* BB_then = ctx->block;
 
    if (!ctx->cf_info.has_branch) {
-      append_logical_end(BB_then);
+      append_logical_end(ctx);
       /* branch from then block to endif block */
       aco_ptr<Instruction> branch;
       branch.reset(create_instruction(aco_opcode::p_branch, Format::PSEUDO_BRANCH, 0, 1));
@@ -10933,7 +10945,7 @@ end_uniform_if(isel_context* ctx, if_context* ic)
    Block* BB_else = ctx->block;
 
    if (!ctx->cf_info.has_branch) {
-      append_logical_end(BB_else);
+      append_logical_end(ctx);
       /* branch from then block to endif block */
       aco_ptr<Instruction> branch;
       branch.reset(create_instruction(aco_opcode::p_branch, Format::PSEUDO_BRANCH, 0, 1));
@@ -11920,13 +11932,34 @@ select_program_rt(isel_context& ctx, unsigned shader_count, struct nir_shader* c
          ctx.program->is_callee = true;
 
          Instruction* startpgm = add_startpgm(&ctx, true);
+
+         Builder bld(ctx.program, ctx.block);
+
+         Operand stack_ptr_op;
+         if (ctx.program->gfx_level >= GFX9)
+            stack_ptr_op = Operand(ctx.callee_info.stack_ptr.def.getTemp());
+         else
+            stack_ptr_op = Operand(load_scratch_resource(ctx.program, bld, true, true));
+         stack_ptr_op.setLateKill(true);
+         bld.pseudo(aco_opcode::p_spill_preserved_vgpr, bld.def(s1), bld.def(bld.lm),
+                    bld.def(s1, scc), stack_ptr_op);
+
          append_logical_start(ctx.block);
          split_arguments(&ctx, startpgm);
          visit_cf_list(&ctx, &impl->body);
-         append_logical_end(ctx.block);
+         append_logical_end(&ctx);
          ctx.block->kind |= block_kind_uniform;
 
          if (ctx.next_pc != Temp()) {
+            bld = Builder(ctx.program, ctx.block);
+            if (ctx.program->gfx_level >= GFX9)
+               stack_ptr_op = Operand(ctx.callee_info.stack_ptr.def.getTemp());
+            else
+               stack_ptr_op = Operand(load_scratch_resource(ctx.program, bld, true, true));
+            stack_ptr_op.setLateKill(true);
+            bld.pseudo(aco_opcode::p_reload_preserved_vgpr, bld.def(s1), bld.def(bld.lm),
+                       bld.def(s1, scc), stack_ptr_op);
+
             insert_return(ctx);
 
             Builder(ctx.program, ctx.block).sop1(aco_opcode::s_setpc_b64, Operand(ctx.next_pc));
@@ -12205,7 +12238,7 @@ select_shader(isel_context& ctx, nir_shader* nir, const bool need_startpgm, cons
    if (need_endpgm) {
       program->config->float_mode = program->blocks[0].fp_mode.val;
 
-      append_logical_end(ctx.block);
+      append_logical_end(&ctx);
       ctx.block->kind |= block_kind_uniform;
 
       if ((!program->info.has_epilog && !is_first_stage_of_merged_shader) ||
@@ -12620,7 +12653,7 @@ select_trap_handler_shader(Program* program, struct nir_shader* shader, ac_shade
 
    program->config->float_mode = program->blocks[0].fp_mode.val;
 
-   append_logical_end(ctx.block);
+   append_logical_end(&ctx);
    ctx.block->kind |= block_kind_uniform;
    bld.sopp(aco_opcode::s_endpgm);
 
@@ -13539,7 +13572,7 @@ select_ps_epilog(Program* program, void* pinfo, ac_shader_config* config,
 
    program->config->float_mode = program->blocks[0].fp_mode.val;
 
-   append_logical_end(ctx.block);
+   append_logical_end(&ctx);
    ctx.block->kind |= block_kind_export_end;
    bld.reset(ctx.block);
    bld.sopp(aco_opcode::s_endpgm);
@@ -13575,7 +13608,7 @@ select_ps_prolog(Program* program, void* pinfo, ac_shader_config* config,
 
    program->config->float_mode = program->blocks[0].fp_mode.val;
 
-   append_logical_end(ctx.block);
+   append_logical_end(&ctx);
 
    build_end_with_regs(&ctx, regs);
 

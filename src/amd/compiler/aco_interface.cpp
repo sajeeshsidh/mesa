@@ -172,6 +172,8 @@ aco_postprocess_shader(const struct aco_compiler_options* options,
          validate(program.get());
       }
 
+      spill_preserved(program.get());
+
       ssa_elimination(program.get());
    }
 
