@@ -29,6 +29,8 @@ struct panvk_set_collection_set_info {
    unsigned dyn_ssbos_desc_offset;
 
    unsigned num_ubos;
+   bool is_partial;
+   bool is_missing;
 };
 
 struct panvk_set_collection_layout {
@@ -44,6 +46,7 @@ struct panvk_set_collection_layout {
    unsigned dyn_ssbos_desc_index;
    unsigned dyn_ubos_offset;
    unsigned total_ubo_count;
+   bool is_partial;
 
    struct panvk_set_collection_set_info sets[MAX_SETS];
 };

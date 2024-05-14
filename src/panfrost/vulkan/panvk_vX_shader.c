@@ -786,10 +786,18 @@ panvk_per_arch(set_collection_layout_fill)(
    unsigned dyn_ubo_idx = 0, dyn_ssbo_idx = 0, img_idx = 0;
    unsigned dyn_ssbos_desc_offset = 0;
 
+   bool is_partial = false;
+
    for (unsigned set = 0; set < layout->set_count; set++) {
-      /* TODO: Handle missing set layout */
-      if (set_layouts[set] == NULL)
+      /* If we are missing a desc set, mark as partial the set and every set
+       * after it */
+      if (set_layouts[set] == NULL) {
+         layout->sets[set].is_partial = true;
+         layout->sets[set].is_missing = true;
+         is_partial = true;
          continue;
+      }
+
 
       const struct panvk_descriptor_set_layout *set_layout =
          vk_to_panvk_descriptor_set_layout(set_layouts[set]);
@@ -802,6 +810,7 @@ panvk_per_arch(set_collection_layout_fill)(
       layout->sets[set].img_offset = img_idx;
       layout->sets[set].dyn_ssbos_desc_offset = dyn_ssbos_desc_offset;
       layout->sets[set].num_ubos = set_layout->num_ubos;
+      layout->sets[set].is_partial = is_partial;
 
       sampler_idx += set_layout->num_samplers;
       tex_idx += set_layout->num_textures;
@@ -824,6 +833,7 @@ panvk_per_arch(set_collection_layout_fill)(
    layout->dyn_ubos_offset = layout->num_ubos;
    layout->total_ubo_count =
       layout->num_ubos + layout->num_dyn_ubos + (layout->num_dyn_ssbos ? 1 : 0);
+   layout->is_partial = is_partial;
 
    /* Some NIR texture operations don't require a sampler, but Bifrost/Midgard
     * ones always expect one. Add a dummy sampler to deal with this limitation.

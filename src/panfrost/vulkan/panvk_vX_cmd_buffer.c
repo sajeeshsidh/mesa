@@ -423,6 +423,10 @@ panvk_fill_driver_ubo(struct panvk_driver_ubo *driver_ubo,
    for (unsigned i = 1; i < desc_state->collection_layout.set_count; i++) {
       const struct panvk_set_collection_set_info *set =
          &desc_state->collection_layout.sets[i];
+
+      if (set->is_missing)
+         continue;
+
       struct panvk_driver_ubo_set_info *driver_set_info =
          &driver_ubo->sets[i - 1];
 
@@ -479,6 +483,9 @@ panvk_cmd_prepare_ubos(struct panvk_cmd_buffer *cmdbuf,
    for (unsigned s = 0; s < layout->set_count; s++) {
       const struct panvk_set_collection_set_info *set_info = &layout->sets[s];
       const struct panvk_descriptor_set *set = desc_state->sets[s];
+
+      if (set_info->is_missing)
+         continue;
 
       unsigned ubo_start = set_info->ubo_offset;
 
