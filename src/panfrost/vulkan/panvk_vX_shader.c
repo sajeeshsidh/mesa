@@ -781,7 +781,8 @@ panvk_per_arch(set_collection_layout_fill)(
 {
    layout->set_count = set_layout_count;
 
-   unsigned sampler_idx = 0, tex_idx = 0, ubo_idx = 0;
+   /* We allocate one UBO for driver usage */
+   unsigned sampler_idx = 0, tex_idx = 0, ubo_idx = 1;
    unsigned dyn_ubo_idx = 0, dyn_ssbo_idx = 0, img_idx = 0;
    unsigned dyn_ssbos_desc_offset = 0;
 

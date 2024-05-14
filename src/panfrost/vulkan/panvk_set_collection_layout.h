@@ -52,4 +52,27 @@ void panvk_per_arch(set_collection_layout_fill)(
    struct panvk_set_collection_layout *layout, unsigned set_layout_count,
    struct vk_descriptor_set_layout *const *set_layouts);
 
+struct panvk_driver_ubo_set_info {
+   unsigned sampler_offset;
+   unsigned tex_offset;
+   unsigned ubo_offset;
+   unsigned img_offset;
+   unsigned dyn_ubo_offset;
+   unsigned dyn_ssbos_desc_offset;
+};
+
+/**
+ * Driver UBO.
+ *
+ * This is used to store any extra descriptor needed by panvk for Bifrost in
+ * case of indirection. (with GPL)
+ */
+struct panvk_driver_ubo {
+   unsigned dyn_ssbos_desc_index;
+   unsigned num_ubos;
+
+   /* Set 0 layout is always known at compile time */
+   struct panvk_driver_ubo_set_info sets[MAX_SETS - 1];
+};
+
 #endif

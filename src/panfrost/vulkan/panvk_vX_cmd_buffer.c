@@ -413,6 +413,48 @@ panvk_cmd_prepare_dyn_ssbos(struct panvk_cmd_buffer *cmdbuf,
 }
 
 static void
+panvk_fill_driver_ubo(struct panvk_driver_ubo *driver_ubo,
+                      struct panvk_descriptor_state *desc_state)
+{
+   driver_ubo->dyn_ssbos_desc_index =
+      desc_state->collection_layout.dyn_ssbos_desc_index;
+   driver_ubo->num_ubos = desc_state->collection_layout.num_ubos;
+
+   for (unsigned i = 1; i < desc_state->collection_layout.set_count; i++) {
+      const struct panvk_set_collection_set_info *set =
+         &desc_state->collection_layout.sets[i];
+      struct panvk_driver_ubo_set_info *driver_set_info =
+         &driver_ubo->sets[i - 1];
+
+      driver_set_info->sampler_offset = set->sampler_offset;
+      driver_set_info->tex_offset = set->tex_offset;
+      driver_set_info->ubo_offset = set->ubo_offset;
+      driver_set_info->img_offset = set->img_offset;
+      driver_set_info->dyn_ubo_offset = set->dyn_ubo_offset;
+      driver_set_info->dyn_ssbos_desc_offset = set->dyn_ssbos_desc_offset;
+   }
+}
+
+static void
+panvk_cmd_prepare_driver_ubo(struct panvk_cmd_buffer *cmdbuf,
+                             struct panvk_descriptor_state *desc_state,
+                             const struct panvk_set_collection_layout *layout)
+{
+   if (!desc_state->collection_layout.set_count || desc_state->driver_ubo)
+      return;
+
+   struct panfrost_ptr driver_ubo_desc = pan_pool_alloc_aligned(
+      &cmdbuf->desc_pool.base, sizeof(struct panvk_driver_ubo), 16);
+
+   struct panvk_driver_ubo driver_ubo;
+   panvk_fill_driver_ubo(&driver_ubo, desc_state);
+
+   memcpy(driver_ubo_desc.cpu, &driver_ubo, sizeof(driver_ubo));
+
+   desc_state->driver_ubo = driver_ubo_desc.gpu;
+}
+
+static void
 panvk_cmd_prepare_ubos(struct panvk_cmd_buffer *cmdbuf,
                        struct panvk_descriptor_state *desc_state,
                        const struct panvk_set_collection_layout *layout)
@@ -422,11 +464,17 @@ panvk_cmd_prepare_ubos(struct panvk_cmd_buffer *cmdbuf,
    if (!ubo_count || desc_state->ubos)
       return;
 
+   panvk_cmd_prepare_driver_ubo(cmdbuf, desc_state, layout);
    panvk_cmd_prepare_dyn_ssbos(cmdbuf, desc_state, layout);
 
    struct panfrost_ptr ubos = pan_pool_alloc_desc_array(
       &cmdbuf->desc_pool.base, ubo_count, UNIFORM_BUFFER);
    struct mali_uniform_buffer_packed *ubo_descs = ubos.cpu;
+
+   pan_pack(&ubo_descs[0], UNIFORM_BUFFER, cfg) {
+      cfg.pointer = desc_state->driver_ubo;
+      cfg.entries = sizeof(struct panvk_driver_ubo);
+   }
 
    for (unsigned s = 0; s < layout->set_count; s++) {
       const struct panvk_set_collection_set_info *set_info = &layout->sets[s];
@@ -2300,6 +2348,7 @@ panvk_cmd_update_set_collection_layout(struct panvk_descriptor_state *desc_state
       &desc_state->collection_layout, playout->set_count, playout->set_layouts);
 
    desc_state->pipeline_layout = playout;
+   desc_state->driver_ubo = 0;
 }
 
 VKAPI_ATTR void VKAPI_CALL
