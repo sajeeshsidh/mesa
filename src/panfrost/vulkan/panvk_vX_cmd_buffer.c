@@ -417,8 +417,7 @@ panvk_cmd_prepare_ubos(struct panvk_cmd_buffer *cmdbuf,
                        struct panvk_descriptor_state *desc_state,
                        const struct panvk_set_collection_layout *layout)
 {
-   unsigned ubo_count =
-      panvk_per_arch(set_collection_layout_total_ubo_count)(layout);
+   unsigned ubo_count = layout->total_ubo_count;
 
    if (!ubo_count || desc_state->ubos)
       return;
@@ -433,8 +432,7 @@ panvk_cmd_prepare_ubos(struct panvk_cmd_buffer *cmdbuf,
       const struct panvk_set_collection_set_info *set_info = &layout->sets[s];
       const struct panvk_descriptor_set *set = desc_state->sets[s];
 
-      unsigned ubo_start =
-         panvk_per_arch(set_collection_layout_ubo_start)(layout, s, false);
+      unsigned ubo_start = set_info->ubo_offset;
 
       if (!set) {
          memset(&ubo_descs[ubo_start], 0,
@@ -445,15 +443,12 @@ panvk_cmd_prepare_ubos(struct panvk_cmd_buffer *cmdbuf,
       }
    }
 
-   unsigned dyn_ubos_offset =
-      panvk_per_arch(set_collection_layout_dyn_ubos_offset)(layout);
-
+   unsigned dyn_ubos_offset = layout->dyn_ubos_offset;
    memcpy(&ubo_descs[dyn_ubos_offset], desc_state->dyn.ubos,
           layout->num_dyn_ubos * sizeof(*ubo_descs));
 
    if (layout->num_dyn_ssbos) {
-      unsigned dyn_desc_ubo =
-         panvk_per_arch(set_collection_layout_dyn_desc_ubo_index)(layout);
+      unsigned dyn_desc_ubo = layout->dyn_desc_ubo_index;
 
       pan_pack(&ubo_descs[dyn_desc_ubo], UNIFORM_BUFFER, cfg) {
          cfg.pointer = desc_state->dyn_desc_ubo;

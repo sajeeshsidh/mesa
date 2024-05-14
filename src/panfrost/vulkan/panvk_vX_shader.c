@@ -401,8 +401,7 @@ panvk_compile_nir(struct panvk_device *dev, nir_shader *nir,
    }
 
    /* Patch the descriptor count */
-   shader->info.ubo_count = panvk_per_arch(
-      set_collection_layout_total_ubo_count)(&shader->sets_layout);
+   shader->info.ubo_count = shader->sets_layout.total_ubo_count;
    shader->info.sampler_count = shader->sets_layout.num_samplers;
    shader->info.texture_count = shader->sets_layout.num_textures;
 
@@ -801,9 +800,7 @@ panvk_per_arch(set_collection_layout_fill)(
       layout->sets[set].dyn_ssbo_offset = dyn_ssbo_idx;
       layout->sets[set].img_offset = img_idx;
       layout->sets[set].dyn_desc_ubo_offset = dyn_desc_ubo_offset;
-
       layout->sets[set].num_ubos = set_layout->num_ubos;
-      layout->sets[set].num_dyn_ubos = set_layout->num_dyn_ubos;
 
       sampler_idx += set_layout->num_samplers;
       tex_idx += set_layout->num_textures;
@@ -822,6 +819,11 @@ panvk_per_arch(set_collection_layout_fill)(
    layout->num_dyn_ssbos = dyn_ssbo_idx;
    layout->num_imgs = img_idx;
 
+   layout->dyn_desc_ubo_index = layout->num_ubos + layout->num_dyn_ubos;
+   layout->dyn_ubos_offset = layout->num_ubos;
+   layout->total_ubo_count =
+      layout->num_ubos + layout->num_dyn_ubos + (layout->num_dyn_ssbos ? 1 : 0);
+
    /* Some NIR texture operations don't require a sampler, but Bifrost/Midgard
     * ones always expect one. Add a dummy sampler to deal with this limitation.
     */
@@ -830,60 +832,6 @@ panvk_per_arch(set_collection_layout_fill)(
       for (unsigned set = 0; set < layout->set_count; set++)
          layout->sets[set].sampler_offset++;
    }
-}
-
-unsigned
-panvk_per_arch(set_collection_layout_ubo_start)(
-   const struct panvk_set_collection_layout *layout, unsigned set,
-   bool is_dynamic)
-{
-   if (is_dynamic)
-      return layout->num_ubos + layout->sets[set].dyn_ubo_offset;
-
-   return layout->sets[set].ubo_offset;
-}
-
-unsigned
-panvk_per_arch(set_collection_layout_ubo_index)(
-   const struct panvk_set_collection_layout *layout,
-   struct vk_descriptor_set_layout *const *set_layouts, unsigned set,
-   unsigned binding, unsigned array_index)
-{
-   const struct panvk_descriptor_set_layout *set_layout =
-      vk_to_panvk_descriptor_set_layout(set_layouts[set]);
-   const struct panvk_descriptor_set_binding_layout *binding_layout =
-      &set_layout->bindings[binding];
-
-   const bool is_dynamic =
-      binding_layout->type == VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC;
-   const uint32_t ubo_idx =
-      is_dynamic ? binding_layout->dyn_ubo_idx : binding_layout->ubo_idx;
-
-   return panvk_per_arch(set_collection_layout_ubo_start)(layout, set,
-                                                          is_dynamic) +
-          ubo_idx + array_index;
-}
-
-unsigned
-panvk_per_arch(set_collection_layout_dyn_desc_ubo_index)(
-   const struct panvk_set_collection_layout *layout)
-{
-   return layout->num_ubos + layout->num_dyn_ubos;
-}
-
-unsigned
-panvk_per_arch(set_collection_layout_dyn_ubos_offset)(
-   const struct panvk_set_collection_layout *layout)
-{
-   return layout->num_ubos;
-}
-
-unsigned
-panvk_per_arch(set_collection_layout_total_ubo_count)(
-   const struct panvk_set_collection_layout *layout)
-{
-   return layout->num_ubos + layout->num_dyn_ubos +
-          (layout->num_dyn_ssbos ? 1 : 0);
 }
 
 static inline enum panvk_varying_buf_id

@@ -111,11 +111,18 @@ build_res_index(nir_builder *b, uint32_t set, uint32_t binding,
    case VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER:
    case VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC: {
       assert(addr_format == nir_address_format_32bit_index_offset);
+      const bool is_dynamic =
+         bind_layout->type == VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC;
+      const unsigned ubo_idx =
+         is_dynamic ? bind_layout->dyn_ubo_idx : bind_layout->ubo_idx;
+      const unsigned ubo_start_offset =
+         is_dynamic
+            ? ctx->layout->num_ubos + ctx->layout->sets[set].dyn_ubo_offset
+            : ctx->layout->sets[set].ubo_offset;
 
-      const unsigned ubo_idx = panvk_per_arch(set_collection_layout_ubo_index)(
-         ctx->layout, ctx->set_layouts, set, binding, 0);
+      const unsigned ubo_offset = ubo_start_offset + ubo_idx;
 
-      const uint32_t packed = (array_size - 1) << 16 | ubo_idx;
+      const uint32_t packed = (array_size - 1) << 16 | ubo_offset;
 
       return nir_vec2(b, nir_imm_int(b, packed), array_index);
    }
@@ -128,11 +135,9 @@ build_res_index(nir_builder *b, uint32_t set, uint32_t binding,
       const bool is_dynamic =
          bind_layout->type == VK_DESCRIPTOR_TYPE_STORAGE_BUFFER_DYNAMIC;
       const unsigned desc_ubo_idx =
-         is_dynamic ? panvk_per_arch(set_collection_layout_dyn_desc_ubo_index)(
-                         ctx->layout)
-                    : panvk_per_arch(set_collection_layout_ubo_start)(
-                         ctx->layout, set, false) +
-                         set_layout->desc_ubo_index;
+         is_dynamic
+            ? ctx->layout->dyn_desc_ubo_index
+            : ctx->layout->sets[set].ubo_offset + set_layout->desc_ubo_index;
       const unsigned desc_ubo_offset =
          bind_layout->desc_ubo_offset +
          (is_dynamic ? ctx->layout->sets[set].dyn_desc_ubo_offset : 0);
@@ -319,8 +324,7 @@ load_resource_deref_desc(nir_builder *b, nir_deref_instr *deref,
       index_ssa = nir_imm_int(b, index_imm);
 
    const unsigned set_ubo_idx =
-      panvk_per_arch(set_collection_layout_ubo_start)(ctx->layout, set, false) +
-      set_layout->desc_ubo_index;
+      ctx->layout->sets[set].ubo_offset + set_layout->desc_ubo_index;
 
    nir_def *desc_ubo_offset =
       nir_iadd_imm(b, nir_imul_imm(b, index_ssa, bind_layout->desc_ubo_stride),

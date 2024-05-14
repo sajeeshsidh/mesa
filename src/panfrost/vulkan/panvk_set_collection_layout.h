@@ -29,7 +29,6 @@ struct panvk_set_collection_set_info {
    unsigned dyn_desc_ubo_offset;
 
    unsigned num_ubos;
-   unsigned num_dyn_ubos;
 };
 
 struct panvk_set_collection_layout {
@@ -42,29 +41,15 @@ struct panvk_set_collection_layout {
    unsigned num_dyn_ssbos;
    unsigned num_imgs;
 
+   unsigned dyn_desc_ubo_index;
+   unsigned dyn_ubos_offset;
+   unsigned total_ubo_count;
+
    struct panvk_set_collection_set_info sets[MAX_SETS];
 };
 
 void panvk_per_arch(set_collection_layout_fill)(
    struct panvk_set_collection_layout *layout, unsigned set_layout_count,
    struct vk_descriptor_set_layout *const *set_layouts);
-
-unsigned panvk_per_arch(set_collection_layout_ubo_start)(
-   const struct panvk_set_collection_layout *layout, unsigned set,
-   bool is_dynamic);
-
-unsigned panvk_per_arch(set_collection_layout_ubo_index)(
-   const struct panvk_set_collection_layout *layout,
-   struct vk_descriptor_set_layout *const *set_layouts, unsigned set,
-   unsigned binding, unsigned array_index);
-
-unsigned panvk_per_arch(set_collection_layout_dyn_desc_ubo_index)(
-   const struct panvk_set_collection_layout *layout);
-
-unsigned panvk_per_arch(set_collection_layout_dyn_ubos_offset)(
-   const struct panvk_set_collection_layout *layout);
-
-unsigned panvk_per_arch(set_collection_layout_total_ubo_count)(
-   const struct panvk_set_collection_layout *layout);
 
 #endif
