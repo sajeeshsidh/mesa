@@ -26,7 +26,7 @@ struct panvk_set_collection_set_info {
    unsigned dyn_ubo_offset;
    unsigned dyn_ssbo_offset;
    unsigned img_offset;
-   unsigned dyn_desc_ubo_offset;
+   unsigned dyn_ssbos_desc_offset;
 
    unsigned num_ubos;
 };
@@ -41,7 +41,7 @@ struct panvk_set_collection_layout {
    unsigned num_dyn_ssbos;
    unsigned num_imgs;
 
-   unsigned dyn_desc_ubo_index;
+   unsigned dyn_ssbos_desc_index;
    unsigned dyn_ubos_offset;
    unsigned total_ubo_count;
 

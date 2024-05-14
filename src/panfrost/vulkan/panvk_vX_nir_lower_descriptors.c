@@ -136,11 +136,11 @@ build_res_index(nir_builder *b, uint32_t set, uint32_t binding,
          bind_layout->type == VK_DESCRIPTOR_TYPE_STORAGE_BUFFER_DYNAMIC;
       const unsigned desc_ubo_idx =
          is_dynamic
-            ? ctx->layout->dyn_desc_ubo_index
+            ? ctx->layout->dyn_ssbos_desc_index
             : ctx->layout->sets[set].ubo_offset + set_layout->desc_ubo_index;
       const unsigned desc_ubo_offset =
          bind_layout->desc_ubo_offset +
-         (is_dynamic ? ctx->layout->sets[set].dyn_desc_ubo_offset : 0);
+         (is_dynamic ? ctx->layout->sets[set].dyn_ssbos_desc_offset : 0);
 
       const uint32_t packed =
          (bind_layout->desc_ubo_stride << 16) | desc_ubo_idx;

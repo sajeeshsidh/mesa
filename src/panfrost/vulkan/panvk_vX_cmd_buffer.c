@@ -401,7 +401,7 @@ panvk_cmd_prepare_dyn_ssbos(struct panvk_cmd_buffer *cmdbuf,
                             struct panvk_descriptor_state *desc_state,
                             const struct panvk_set_collection_layout *set_layout)
 {
-   if (!set_layout->num_dyn_ssbos || desc_state->dyn_desc_ubo)
+   if (!set_layout->num_dyn_ssbos || desc_state->ssbos)
       return;
 
    struct panfrost_ptr ssbo_descs = pan_pool_alloc_aligned(
@@ -409,7 +409,7 @@ panvk_cmd_prepare_dyn_ssbos(struct panvk_cmd_buffer *cmdbuf,
 
    memcpy(ssbo_descs.cpu, desc_state->dyn.ssbos, sizeof(desc_state->dyn.ssbos));
 
-   desc_state->dyn_desc_ubo = ssbo_descs.gpu;
+   desc_state->ssbos = ssbo_descs.gpu;
 }
 
 static void
@@ -448,10 +448,10 @@ panvk_cmd_prepare_ubos(struct panvk_cmd_buffer *cmdbuf,
           layout->num_dyn_ubos * sizeof(*ubo_descs));
 
    if (layout->num_dyn_ssbos) {
-      unsigned dyn_desc_ubo = layout->dyn_desc_ubo_index;
+      unsigned dyn_ssbos_desc_index = layout->dyn_ssbos_desc_index;
 
-      pan_pack(&ubo_descs[dyn_desc_ubo], UNIFORM_BUFFER, cfg) {
-         cfg.pointer = desc_state->dyn_desc_ubo;
+      pan_pack(&ubo_descs[dyn_ssbos_desc_index], UNIFORM_BUFFER, cfg) {
+         cfg.pointer = desc_state->ssbos;
          cfg.entries = layout->num_dyn_ssbos * sizeof(struct panvk_ssbo_addr);
       }
    }
@@ -2358,7 +2358,7 @@ panvk_per_arch(CmdBindDescriptorSets)(
    descriptors_state->ubos = 0;
    descriptors_state->textures = 0;
    descriptors_state->samplers = 0;
-   descriptors_state->dyn_desc_ubo = 0;
+   descriptors_state->ssbos = 0;
    descriptors_state->img.attrib_bufs = 0;
    descriptors_state->img.attribs = 0;
 

@@ -783,7 +783,7 @@ panvk_per_arch(set_collection_layout_fill)(
 
    unsigned sampler_idx = 0, tex_idx = 0, ubo_idx = 0;
    unsigned dyn_ubo_idx = 0, dyn_ssbo_idx = 0, img_idx = 0;
-   unsigned dyn_desc_ubo_offset = 0;
+   unsigned dyn_ssbos_desc_offset = 0;
 
    for (unsigned set = 0; set < layout->set_count; set++) {
       /* TODO: Handle missing set layout */
@@ -799,7 +799,7 @@ panvk_per_arch(set_collection_layout_fill)(
       layout->sets[set].dyn_ubo_offset = dyn_ubo_idx;
       layout->sets[set].dyn_ssbo_offset = dyn_ssbo_idx;
       layout->sets[set].img_offset = img_idx;
-      layout->sets[set].dyn_desc_ubo_offset = dyn_desc_ubo_offset;
+      layout->sets[set].dyn_ssbos_desc_offset = dyn_ssbos_desc_offset;
       layout->sets[set].num_ubos = set_layout->num_ubos;
 
       sampler_idx += set_layout->num_samplers;
@@ -808,7 +808,7 @@ panvk_per_arch(set_collection_layout_fill)(
       dyn_ubo_idx += set_layout->num_dyn_ubos;
       dyn_ssbo_idx += set_layout->num_dyn_ssbos;
       img_idx += set_layout->num_imgs;
-      dyn_desc_ubo_offset +=
+      dyn_ssbos_desc_offset +=
          set_layout->num_dyn_ssbos * sizeof(struct panvk_ssbo_addr);
    }
 
@@ -819,7 +819,7 @@ panvk_per_arch(set_collection_layout_fill)(
    layout->num_dyn_ssbos = dyn_ssbo_idx;
    layout->num_imgs = img_idx;
 
-   layout->dyn_desc_ubo_index = layout->num_ubos + layout->num_dyn_ubos;
+   layout->dyn_ssbos_desc_index = layout->num_ubos + layout->num_dyn_ubos;
    layout->dyn_ubos_offset = layout->num_ubos;
    layout->total_ubo_count =
       layout->num_ubos + layout->num_dyn_ubos + (layout->num_dyn_ssbos ? 1 : 0);
