@@ -75,6 +75,28 @@ get_binding_layout(uint32_t set, uint32_t binding,
    return &get_set_layout(set, ctx)->bindings[binding];
 }
 
+static nir_def *
+load_from_driver_ubo(nir_builder *b, unsigned desc_offset,
+                     unsigned num_components, unsigned bit_size)
+{
+   const unsigned driver_set_ubo_idx = 0;
+
+   return nir_load_ubo(b, num_components, bit_size,
+                       nir_imm_int(b, driver_set_ubo_idx),
+                       nir_imm_int(b, desc_offset), .align_mul = 16,
+                       .align_offset = (desc_offset % 16), .range = ~0);
+}
+
+static bool
+is_set_partial(const struct apply_descriptors_ctx *ctx, unsigned set)
+{
+   /* Set 0 layout is always known */
+   if (set == 0)
+      return false;
+
+   return ctx->layout->sets[set].is_partial;
+}
+
 /** Build a Vulkan resource index
  *
  * A "resource index" is the term used by our SPIR-V parser and the relevant
@@ -108,45 +130,99 @@ build_res_index(nir_builder *b, uint32_t set, uint32_t binding,
    uint32_t array_size = bind_layout->array_size;
 
    switch (bind_layout->type) {
-   case VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER:
-   case VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC: {
+   case VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER: {
       assert(addr_format == nir_address_format_32bit_index_offset);
-      const bool is_dynamic =
-         bind_layout->type == VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC;
-      const unsigned ubo_idx =
-         is_dynamic ? bind_layout->dyn_ubo_idx : bind_layout->ubo_idx;
-      const unsigned ubo_start_offset =
-         is_dynamic
-            ? ctx->layout->num_ubos + ctx->layout->sets[set].dyn_ubo_offset
-            : ctx->layout->sets[set].ubo_offset;
+      nir_def *packed = nir_imm_int(b, (array_size - 1) << 16);
 
-      const unsigned ubo_offset = ubo_start_offset + ubo_idx;
+      nir_def *ubo_offset;
+      if (is_set_partial(ctx, set)) {
+         ubo_offset = load_from_driver_ubo(
+            b, panvk_driver_ubo_set_offset(set - 1, ubo_offset), 1, 32);
+      } else {
+         ubo_offset = nir_imm_int(b, ctx->layout->sets[set].ubo_offset);
+      }
 
-      const uint32_t packed = (array_size - 1) << 16 | ubo_offset;
+      packed =
+         nir_ior(b, packed, nir_iadd_imm(b, ubo_offset, bind_layout->ubo_idx));
 
-      return nir_vec2(b, nir_imm_int(b, packed), array_index);
+      return nir_vec2(b, packed, array_index);
    }
 
-   case VK_DESCRIPTOR_TYPE_STORAGE_BUFFER:
+   case VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC: {
+      assert(addr_format == nir_address_format_32bit_index_offset);
+      nir_def *packed = nir_imm_int(b, (array_size - 1) << 16);
+
+      /* As the layout can have holes after that we are unaware, we
+       * unconditionally load the UBO count indirectly */
+      nir_def *ubo_start_offset =
+         load_from_driver_ubo(b, panvk_driver_ubo_offset(num_ubos), 1, 32);
+
+      nir_def *dyn_ubo_offset;
+      if (is_set_partial(ctx, set)) {
+         dyn_ubo_offset = load_from_driver_ubo(
+            b, panvk_driver_ubo_set_offset(set - 1, dyn_ubo_offset), 1, 32);
+      } else {
+         dyn_ubo_offset = nir_imm_int(b, ctx->layout->sets[set].dyn_ubo_offset);
+      }
+
+      ubo_start_offset = nir_iadd(b, ubo_start_offset, dyn_ubo_offset);
+      packed =
+         nir_ior(b, packed,
+                 nir_iadd_imm(b, ubo_start_offset, bind_layout->dyn_ubo_idx));
+
+      return nir_vec2(b, packed, array_index);
+   }
+
+   case VK_DESCRIPTOR_TYPE_STORAGE_BUFFER: {
+      assert(addr_format == nir_address_format_64bit_bounded_global ||
+             addr_format == nir_address_format_64bit_global_32bit_offset);
+
+      nir_def *packed = nir_imm_int(b, bind_layout->desc_ubo_stride << 16);
+
+      nir_def *ubo_offset;
+      if (is_set_partial(ctx, set)) {
+         ubo_offset = load_from_driver_ubo(
+            b, panvk_driver_ubo_set_offset(set - 1, ubo_offset), 1, 32);
+      } else {
+         ubo_offset = nir_imm_int(b, ctx->layout->sets[set].ubo_offset);
+      }
+
+      nir_def *desc_ubo_offset = nir_imm_int(b, bind_layout->desc_ubo_offset);
+
+      packed = nir_ior(b, packed,
+                       nir_iadd_imm(b, ubo_offset, set_layout->desc_ubo_index));
+
+      return nir_vec4(b, packed, desc_ubo_offset,
+                      nir_imm_int(b, array_size - 1), array_index);
+   }
+
    case VK_DESCRIPTOR_TYPE_STORAGE_BUFFER_DYNAMIC: {
       assert(addr_format == nir_address_format_64bit_bounded_global ||
              addr_format == nir_address_format_64bit_global_32bit_offset);
 
-      const bool is_dynamic =
-         bind_layout->type == VK_DESCRIPTOR_TYPE_STORAGE_BUFFER_DYNAMIC;
-      const unsigned desc_ubo_idx =
-         is_dynamic
-            ? ctx->layout->dyn_ssbos_desc_index
-            : ctx->layout->sets[set].ubo_offset + set_layout->desc_ubo_index;
-      const unsigned desc_ubo_offset =
-         bind_layout->desc_ubo_offset +
-         (is_dynamic ? ctx->layout->sets[set].dyn_ssbos_desc_offset : 0);
+      nir_def *packed = nir_imm_int(b, bind_layout->desc_ubo_stride << 16);
 
-      const uint32_t packed =
-         (bind_layout->desc_ubo_stride << 16) | desc_ubo_idx;
+      /* As the layout can have holes after that we are unaware, we
+       * unconditionally load the SSBO descriptor index indirectly */
+      nir_def *dyn_ssbos_desc_index = load_from_driver_ubo(
+         b, panvk_driver_ubo_offset(dyn_ssbos_desc_index), 1, 32);
 
-      return nir_vec4(b, nir_imm_int(b, packed),
-                      nir_imm_int(b, desc_ubo_offset),
+      nir_def *dyn_ssbos_desc_offset;
+
+      if (is_set_partial(ctx, set)) {
+         dyn_ssbos_desc_offset = load_from_driver_ubo(
+            b, panvk_driver_ubo_set_offset(set - 1, dyn_ssbos_desc_offset), 1,
+            32);
+      } else {
+         dyn_ssbos_desc_offset =
+            nir_imm_int(b, ctx->layout->sets[set].dyn_ssbos_desc_offset);
+      }
+
+      nir_def *desc_ubo_offset =
+         nir_iadd_imm(b, dyn_ssbos_desc_offset, bind_layout->desc_ubo_offset);
+      packed = nir_ior(b, packed, dyn_ssbos_desc_index);
+
+      return nir_vec4(b, packed, desc_ubo_offset,
                       nir_imm_int(b, array_size - 1), array_index);
    }
 
@@ -428,12 +504,26 @@ lower_tex(nir_builder *b, nir_tex_instr *tex,
       const struct panvk_descriptor_set_binding_layout *bind_layout =
          get_binding_layout(set, binding, ctx);
 
-      tex->sampler_index = ctx->layout->sets[set].sampler_offset +
-                           bind_layout->sampler_idx + index_imm;
-
-      if (index_ssa != NULL) {
-         nir_tex_instr_add_src(tex, nir_tex_src_sampler_offset, index_ssa);
+      if (index_ssa == NULL) {
+         index_ssa = nir_imm_int(b, index_imm);
       }
+
+      nir_def *sampler_offset =
+         nir_iadd_imm(b, index_ssa, bind_layout->sampler_idx);
+
+      nir_def *sampler_set_offset;
+
+      if (is_set_partial(ctx, set)) {
+         const unsigned desc_offset =
+            panvk_driver_ubo_set_offset(set - 1, sampler_offset);
+         sampler_set_offset = load_from_driver_ubo(b, desc_offset, 1, 32);
+      } else {
+         sampler_set_offset =
+            nir_imm_int(b, ctx->layout->sets[set].sampler_offset);
+      }
+
+      sampler_offset = nir_iadd(b, sampler_offset, sampler_set_offset);
+      nir_tex_instr_add_src(tex, nir_tex_src_sampler_offset, sampler_offset);
       progress = true;
    }
 
@@ -449,12 +539,25 @@ lower_tex(nir_builder *b, nir_tex_instr *tex,
       const struct panvk_descriptor_set_binding_layout *bind_layout =
          get_binding_layout(set, binding, ctx);
 
-      tex->texture_index =
-         ctx->layout->sets[set].tex_offset + bind_layout->tex_idx + index_imm;
-
-      if (index_ssa != NULL) {
-         nir_tex_instr_add_src(tex, nir_tex_src_texture_offset, index_ssa);
+      if (index_ssa == NULL) {
+         index_ssa = nir_imm_int(b, index_imm);
       }
+
+      nir_def *texture_offset =
+         nir_iadd_imm(b, index_ssa, bind_layout->tex_idx);
+
+      nir_def *texture_set_offset;
+
+      if (is_set_partial(ctx, set)) {
+         const unsigned desc_offset =
+            panvk_driver_ubo_set_offset(set - 1, tex_offset);
+         texture_set_offset = load_from_driver_ubo(b, desc_offset, 1, 32);
+      } else {
+         texture_set_offset = nir_imm_int(b, ctx->layout->sets[set].tex_offset);
+      }
+
+      texture_offset = nir_iadd(b, texture_offset, texture_set_offset);
+      nir_tex_instr_add_src(tex, nir_tex_src_texture_offset, texture_offset);
       progress = true;
    }
 
@@ -475,15 +578,24 @@ get_img_index(nir_builder *b, nir_deref_instr *deref,
           bind_layout->type == VK_DESCRIPTOR_TYPE_UNIFORM_TEXEL_BUFFER ||
           bind_layout->type == VK_DESCRIPTOR_TYPE_STORAGE_TEXEL_BUFFER);
 
-   unsigned img_offset =
-      ctx->layout->sets[set].img_offset + bind_layout->img_idx;
+   nir_def *img_offset;
+
+   if (is_set_partial(ctx, set)) {
+      const unsigned desc_offset =
+         panvk_driver_ubo_set_offset(set - 1, img_offset);
+      img_offset = load_from_driver_ubo(b, desc_offset, 1, 32);
+   } else {
+      img_offset = nir_imm_int(b, ctx->layout->sets[set].img_offset);
+   }
 
    if (index_ssa == NULL) {
-      return nir_imm_int(b, img_offset + index_imm);
-   } else {
-      assert(index_imm == 0);
-      return nir_iadd_imm(b, index_ssa, img_offset);
+      index_ssa = nir_imm_int(b, index_imm);
    }
+
+   img_offset = nir_iadd_imm(b, img_offset, bind_layout->img_idx);
+   img_offset = nir_iadd(b, index_ssa, img_offset);
+
+   return img_offset;
 }
 
 static bool

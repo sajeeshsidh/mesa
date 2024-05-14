@@ -78,4 +78,10 @@ struct panvk_driver_ubo {
    struct panvk_driver_ubo_set_info sets[MAX_SETS - 1];
 };
 
+#define panvk_driver_ubo_offset(member)                            \
+   offsetof(struct panvk_driver_ubo, member)
+
+#define panvk_driver_ubo_set_offset(set_idx, member)                           \
+   (panvk_driver_ubo_offset(sets[0].member) +                                  \
+    (set_idx) * sizeof(struct panvk_driver_ubo_set_info))
 #endif
