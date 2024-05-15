@@ -200,12 +200,9 @@ build_res_index(nir_builder *b, uint32_t set, uint32_t binding,
       assert(addr_format == nir_address_format_64bit_bounded_global ||
              addr_format == nir_address_format_64bit_global_32bit_offset);
 
-      nir_def *packed = nir_imm_int(b, bind_layout->desc_ubo_stride << 16);
-
-      /* As the layout can have holes after that we are unaware, we
-       * unconditionally load the SSBO descriptor index indirectly */
-      nir_def *dyn_ssbos_desc_index = load_from_driver_ubo(
-         b, panvk_driver_ubo_offset(dyn_ssbos_desc_index), 1, 32);
+      const unsigned driver_desc_ubo_udx = 0;
+      nir_def *packed = nir_imm_int(
+         b, driver_desc_ubo_udx | bind_layout->desc_ubo_stride << 16);
 
       nir_def *dyn_ssbos_desc_offset;
 
@@ -218,9 +215,9 @@ build_res_index(nir_builder *b, uint32_t set, uint32_t binding,
             nir_imm_int(b, ctx->layout->sets[set].dyn_ssbos_desc_offset);
       }
 
-      nir_def *desc_ubo_offset =
-         nir_iadd_imm(b, dyn_ssbos_desc_offset, bind_layout->desc_ubo_offset);
-      packed = nir_ior(b, packed, dyn_ssbos_desc_index);
+      nir_def *desc_ubo_offset = nir_iadd_imm(
+         b, dyn_ssbos_desc_offset,
+         bind_layout->desc_ubo_offset + panvk_driver_ubo_offset(ssbos[0]));
 
       return nir_vec4(b, packed, desc_ubo_offset,
                       nir_imm_int(b, array_size - 1), array_index);

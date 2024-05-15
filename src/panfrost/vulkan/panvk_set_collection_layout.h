@@ -15,9 +15,11 @@
 #include <vulkan/vulkan_core.h>
 #include "vk_descriptor_set_layout.h"
 
+#include "panvk_descriptor_set.h"
 #include "panvk_macros.h"
 
-#define MAX_SETS 4
+#define MAX_SETS                    4
+#define MAX_DYNAMIC_STORAGE_BUFFERS 8
 
 struct panvk_set_collection_set_info {
    unsigned sampler_offset;
@@ -43,7 +45,6 @@ struct panvk_set_collection_layout {
    unsigned num_dyn_ssbos;
    unsigned num_imgs;
 
-   unsigned dyn_ssbos_desc_index;
    unsigned dyn_ubos_offset;
    unsigned total_ubo_count;
    bool is_partial;
@@ -71,14 +72,14 @@ struct panvk_driver_ubo_set_info {
  * case of indirection. (with GPL)
  */
 struct panvk_driver_ubo {
-   unsigned dyn_ssbos_desc_index;
    unsigned num_ubos;
 
    /* Set 0 layout is always known at compile time */
    struct panvk_driver_ubo_set_info sets[MAX_SETS - 1];
+   struct panvk_ssbo_addr ssbos[MAX_DYNAMIC_STORAGE_BUFFERS];
 };
 
-#define panvk_driver_ubo_offset(member)                            \
+#define panvk_driver_ubo_offset(member)                                        \
    offsetof(struct panvk_driver_ubo, member)
 
 #define panvk_driver_ubo_set_offset(set_idx, member)                           \

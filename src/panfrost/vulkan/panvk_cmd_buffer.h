@@ -34,7 +34,6 @@
 #define MAX_PUSH_CONSTANTS_SIZE     128
 #define MAX_SETS                    4
 #define MAX_DYNAMIC_UNIFORM_BUFFERS 16
-#define MAX_DYNAMIC_STORAGE_BUFFERS 8
 #define MAX_RTS                     8
 
 struct panvk_batch {
@@ -92,7 +91,6 @@ struct panvk_descriptor_state {
    mali_ptr ubos;
    mali_ptr textures;
    mali_ptr samplers;
-   mali_ptr ssbos;
    mali_ptr push_uniforms;
    mali_ptr driver_ubo;
 

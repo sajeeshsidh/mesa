@@ -798,7 +798,6 @@ panvk_per_arch(set_collection_layout_fill)(
          continue;
       }
 
-
       const struct panvk_descriptor_set_layout *set_layout =
          vk_to_panvk_descriptor_set_layout(set_layouts[set]);
 
@@ -829,10 +828,8 @@ panvk_per_arch(set_collection_layout_fill)(
    layout->num_dyn_ssbos = dyn_ssbo_idx;
    layout->num_imgs = img_idx;
 
-   layout->dyn_ssbos_desc_index = layout->num_ubos + layout->num_dyn_ubos;
    layout->dyn_ubos_offset = layout->num_ubos;
-   layout->total_ubo_count =
-      layout->num_ubos + layout->num_dyn_ubos + (layout->num_dyn_ssbos ? 1 : 0);
+   layout->total_ubo_count = layout->num_ubos + layout->num_dyn_ubos;
    layout->is_partial = is_partial;
 
    /* Some NIR texture operations don't require a sampler, but Bifrost/Midgard

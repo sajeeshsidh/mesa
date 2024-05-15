@@ -397,27 +397,9 @@ panvk_cmd_unprepare_push_sets(struct panvk_cmd_buffer *cmdbuf,
 }
 
 static void
-panvk_cmd_prepare_dyn_ssbos(struct panvk_cmd_buffer *cmdbuf,
-                            struct panvk_descriptor_state *desc_state,
-                            const struct panvk_set_collection_layout *set_layout)
-{
-   if (!set_layout->num_dyn_ssbos || desc_state->ssbos)
-      return;
-
-   struct panfrost_ptr ssbo_descs = pan_pool_alloc_aligned(
-      &cmdbuf->desc_pool.base, sizeof(desc_state->dyn.ssbos), 16);
-
-   memcpy(ssbo_descs.cpu, desc_state->dyn.ssbos, sizeof(desc_state->dyn.ssbos));
-
-   desc_state->ssbos = ssbo_descs.gpu;
-}
-
-static void
 panvk_fill_driver_ubo(struct panvk_driver_ubo *driver_ubo,
                       struct panvk_descriptor_state *desc_state)
 {
-   driver_ubo->dyn_ssbos_desc_index =
-      desc_state->collection_layout.dyn_ssbos_desc_index;
    driver_ubo->num_ubos = desc_state->collection_layout.num_ubos;
 
    for (unsigned i = 1; i < desc_state->collection_layout.set_count; i++) {
@@ -437,6 +419,9 @@ panvk_fill_driver_ubo(struct panvk_driver_ubo *driver_ubo,
       driver_set_info->dyn_ubo_offset = set->dyn_ubo_offset;
       driver_set_info->dyn_ssbos_desc_offset = set->dyn_ssbos_desc_offset;
    }
+
+   memcpy(driver_ubo->ssbos, desc_state->dyn.ssbos,
+          sizeof(desc_state->dyn.ssbos));
 }
 
 static void
@@ -450,11 +435,9 @@ panvk_cmd_prepare_driver_ubo(struct panvk_cmd_buffer *cmdbuf,
    struct panfrost_ptr driver_ubo_desc = pan_pool_alloc_aligned(
       &cmdbuf->desc_pool.base, sizeof(struct panvk_driver_ubo), 16);
 
-   struct panvk_driver_ubo driver_ubo;
-   panvk_fill_driver_ubo(&driver_ubo, desc_state);
-
-   memcpy(driver_ubo_desc.cpu, &driver_ubo, sizeof(driver_ubo));
-
+   struct panvk_driver_ubo *driver_ubo =
+      (struct panvk_driver_ubo *)driver_ubo_desc.cpu;
+   panvk_fill_driver_ubo(driver_ubo, desc_state);
    desc_state->driver_ubo = driver_ubo_desc.gpu;
 }
 
@@ -469,7 +452,6 @@ panvk_cmd_prepare_ubos(struct panvk_cmd_buffer *cmdbuf,
       return;
 
    panvk_cmd_prepare_driver_ubo(cmdbuf, desc_state, layout);
-   panvk_cmd_prepare_dyn_ssbos(cmdbuf, desc_state, layout);
 
    struct panfrost_ptr ubos = pan_pool_alloc_desc_array(
       &cmdbuf->desc_pool.base, ubo_count, UNIFORM_BUFFER);
@@ -501,15 +483,6 @@ panvk_cmd_prepare_ubos(struct panvk_cmd_buffer *cmdbuf,
    unsigned dyn_ubos_offset = layout->dyn_ubos_offset;
    memcpy(&ubo_descs[dyn_ubos_offset], desc_state->dyn.ubos,
           layout->num_dyn_ubos * sizeof(*ubo_descs));
-
-   if (layout->num_dyn_ssbos) {
-      unsigned dyn_ssbos_desc_index = layout->dyn_ssbos_desc_index;
-
-      pan_pack(&ubo_descs[dyn_ssbos_desc_index], UNIFORM_BUFFER, cfg) {
-         cfg.pointer = desc_state->ssbos;
-         cfg.entries = layout->num_dyn_ssbos * sizeof(struct panvk_ssbo_addr);
-      }
-   }
 
    desc_state->ubos = ubos.gpu;
 }
@@ -2435,6 +2408,7 @@ panvk_per_arch(CmdBindDescriptorSets)(
    struct panvk_descriptor_state *descriptors_state =
       panvk_cmd_get_desc_state(cmdbuf, pipelineBindPoint);
 
+   bool invalidate_dyn_ssbos = false;
    unsigned dynoffset_idx = 0;
    for (unsigned i = 0; i < descriptorSetCount; ++i) {
       unsigned idx = i + firstSet;
@@ -2463,6 +2437,7 @@ panvk_per_arch(CmdBindDescriptorSets)(
                   panvk_emit_dyn_ssbo(descriptors_state, set, b, e,
                                       pDynamicOffsets[dynoffset_idx++],
                                       dyn_ssbo_slot++);
+                  invalidate_dyn_ssbos = true;
                }
             }
          }
@@ -2476,9 +2451,12 @@ panvk_per_arch(CmdBindDescriptorSets)(
    descriptors_state->ubos = 0;
    descriptors_state->textures = 0;
    descriptors_state->samplers = 0;
-   descriptors_state->ssbos = 0;
    descriptors_state->img.attrib_bufs = 0;
    descriptors_state->img.attribs = 0;
+
+   /* If a dynamic SSBO got updated, invalidate driver UBO */
+   if (invalidate_dyn_ssbos)
+      descriptors_state->driver_ubo = 0;
 
    assert(dynoffset_idx == dynamicOffsetCount);
 }
