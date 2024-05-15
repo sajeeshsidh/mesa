@@ -704,6 +704,48 @@ fs_required(const struct vk_color_blend_state *cb,
 }
 
 static void
+panvk_cmd_patch_shader_info(struct pan_shader_info *info, bool has_img_access,
+                            const struct panvk_set_collection_layout *layout)
+{
+   /* Because of possible partial layout, shader info needs to be updated */
+
+   /* Patch the descriptor count */
+   info->ubo_count = layout->total_ubo_count;
+   info->sampler_count = layout->num_samplers;
+   info->texture_count = layout->num_textures;
+
+   /* Image attributes start at MAX_VS_ATTRIBS in the VS attribute table,
+    * and zero in other stages.
+    */
+   if (has_img_access)
+      info->attribute_count =
+         layout->num_imgs +
+         (info->stage == MESA_SHADER_VERTEX ? MAX_VS_ATTRIBS : 0);
+}
+
+static void
+panvk_cmd_prepare_shader_rsd(struct panvk_cmd_buffer *cmd,
+                             struct panvk_cmd_shader_state *shader_state,
+                             const struct panvk_set_collection_layout *layout)
+{
+   if (shader_state->rsd || !shader_state->shader ||
+       shader_state->info.stage == MESA_SHADER_FRAGMENT)
+      return;
+
+   struct panfrost_ptr rsd =
+      pan_pool_alloc_desc(&cmd->desc_pool.base, RENDERER_STATE);
+
+   pan_pack(rsd.cpu, RENDERER_STATE, cfg) {
+      panvk_cmd_patch_shader_info(&shader_state->info,
+                                  shader_state->has_img_access, layout);
+      pan_shader_prepare_rsd(&shader_state->info,
+                             shader_state->shader->upload_addr, &cfg);
+   };
+
+   shader_state->rsd = rsd.gpu;
+}
+
+static void
 panvk_draw_prepare_fs_rsd(struct panvk_cmd_buffer *cmdbuf,
                           struct panvk_draw_info *draw)
 {
@@ -744,7 +786,10 @@ panvk_draw_prepare_fs_rsd(struct panvk_cmd_buffer *cmdbuf,
    const struct vk_rasterization_state *rs = &dyns->rs;
    const struct vk_color_blend_state *cb = &dyns->cb;
    const struct vk_depth_stencil_state *ds = &dyns->ds;
-   const struct panvk_cmd_shader_state *fs = &cmdbuf->state.gfx.shaders.fs;
+   struct panvk_cmd_shader_state *fs = &cmdbuf->state.gfx.shaders.fs;
+   panvk_cmd_patch_shader_info(&fs->info, fs->has_img_access,
+                               &cmdbuf->state.gfx.desc_state.collection_layout);
+
    unsigned bd_count = MAX2(cb->attachment_count, 1);
    bool test_s = has_stencil_att(cmdbuf) && ds->stencil.test_enable;
    bool test_z = has_depth_att(cmdbuf) && ds->depth.test_enable;
@@ -1559,6 +1604,9 @@ panvk_cmd_draw(struct panvk_cmd_buffer *cmdbuf, struct panvk_draw_info *draw)
       batch = panvk_per_arch(cmd_open_batch)(cmdbuf);
    }
 
+   panvk_cmd_prepare_shader_rsd(cmdbuf, &cmdbuf->state.gfx.shaders.vs,
+                                &desc_state->collection_layout);
+
    if (!rs->rasterizer_discard_enable)
       panvk_per_arch(cmd_alloc_fb_desc)(cmdbuf);
 
@@ -1990,8 +2038,7 @@ panvk_per_arch(CmdDispatch)(VkCommandBuffer commandBuffer, uint32_t x,
 
    struct panvk_descriptor_state *desc_state =
       &cmdbuf->state.compute.desc_state;
-   const struct panvk_cmd_shader_state *shader_state =
-      &cmdbuf->state.compute.shader;
+   struct panvk_cmd_shader_state *shader_state = &cmdbuf->state.compute.shader;
    const struct panvk_shader *shader = shader_state->shader;
    struct panfrost_ptr job =
       pan_pool_alloc_desc(&cmdbuf->desc_pool.base, COMPUTE_JOB);
@@ -2004,6 +2051,9 @@ panvk_per_arch(CmdDispatch)(VkCommandBuffer commandBuffer, uint32_t x,
    sysvals->local_group_size.y = shader->local_size.y;
    sysvals->local_group_size.z = shader->local_size.z;
    desc_state->push_uniforms = 0;
+
+   panvk_cmd_prepare_shader_rsd(cmdbuf, shader_state,
+                                &desc_state->collection_layout);
 
    panvk_per_arch(cmd_alloc_tls_desc)(cmdbuf, false);
    dispatch.tsd = batch->tls.gpu;
@@ -2345,9 +2395,13 @@ panvk_emit_dyn_ssbo(struct panvk_descriptor_state *desc_state,
 }
 
 static void
-panvk_cmd_update_set_collection_layout(struct panvk_descriptor_state *desc_state,
+panvk_cmd_update_set_collection_layout(struct panvk_cmd_buffer *cmd,
+                                       VkPipelineBindPoint bindpoint,
                                        struct vk_pipeline_layout *playout)
 {
+   struct panvk_descriptor_state *desc_state =
+      panvk_cmd_get_desc_state(cmd, bindpoint);
+
    if (desc_state->pipeline_layout == playout)
       return;
 
@@ -2356,6 +2410,14 @@ panvk_cmd_update_set_collection_layout(struct panvk_descriptor_state *desc_state
 
    desc_state->pipeline_layout = playout;
    desc_state->driver_ubo = 0;
+
+   /* Invalidate render state as the layout changed */
+   if (bindpoint == VK_PIPELINE_BIND_POINT_GRAPHICS) {
+      cmd->state.gfx.shaders.vs.rsd = 0;
+      cmd->state.gfx.fs.rsd = 0;
+   } else {
+      cmd->state.compute.shader.rsd = 0;
+   }
 }
 
 VKAPI_ATTR void VKAPI_CALL
@@ -2368,10 +2430,10 @@ panvk_per_arch(CmdBindDescriptorSets)(
    VK_FROM_HANDLE(panvk_cmd_buffer, cmdbuf, commandBuffer);
    VK_FROM_HANDLE(vk_pipeline_layout, playout, layout);
 
+   panvk_cmd_update_set_collection_layout(cmdbuf, pipelineBindPoint, playout);
+
    struct panvk_descriptor_state *descriptors_state =
       panvk_cmd_get_desc_state(cmdbuf, pipelineBindPoint);
-
-   panvk_cmd_update_set_collection_layout(descriptors_state, playout);
 
    unsigned dynoffset_idx = 0;
    for (unsigned i = 0; i < descriptorSetCount; ++i) {
@@ -2433,14 +2495,12 @@ panvk_per_arch(CmdPushConstants)(VkCommandBuffer commandBuffer,
 
    if (stageFlags & VK_SHADER_STAGE_ALL_GRAPHICS) {
       struct panvk_descriptor_state *desc_state = &cmdbuf->state.gfx.desc_state;
-
       desc_state->push_uniforms = 0;
    }
 
    if (stageFlags & VK_SHADER_STAGE_COMPUTE_BIT) {
       struct panvk_descriptor_state *desc_state =
          &cmdbuf->state.compute.desc_state;
-
       desc_state->push_uniforms = 0;
    }
 }
@@ -2457,18 +2517,7 @@ panvk_cmd_bind_shader(struct panvk_cmd_buffer *cmd, const gl_shader_stage stage,
    if (shader != NULL) {
       shader_state->info = shader->info;
       shader_state->has_img_access = shader->has_img_access;
-
-      if (stage != MESA_SHADER_FRAGMENT) {
-         struct panfrost_ptr rsd =
-            pan_pool_alloc_desc(&cmd->desc_pool.base, RENDERER_STATE);
-
-         pan_pack(rsd.cpu, RENDERER_STATE, cfg) {
-            pan_shader_prepare_rsd(&shader_state->info,
-                                   shader_state->shader->upload_addr, &cfg);
-         }
-
-         shader_state->rsd = rsd.gpu;
-      }
+      shader_state->rsd = 0;
    }
 }
 
@@ -2589,10 +2638,7 @@ panvk_per_arch(CmdPushDescriptorSetKHR)(
    VK_FROM_HANDLE(panvk_cmd_buffer, cmdbuf, commandBuffer);
    VK_FROM_HANDLE(vk_pipeline_layout, playout, layout);
 
-   struct panvk_descriptor_state *descriptors_state =
-      panvk_cmd_get_desc_state(cmdbuf, pipelineBindPoint);
-
-   panvk_cmd_update_set_collection_layout(descriptors_state, playout);
+   panvk_cmd_update_set_collection_layout(cmdbuf, pipelineBindPoint, playout);
 
    const struct panvk_descriptor_set_layout *set_layout =
       vk_to_panvk_descriptor_set_layout(playout->set_layouts[set]);
@@ -2616,10 +2662,8 @@ panvk_per_arch(CmdPushDescriptorSetWithTemplateKHR)(
    VK_FROM_HANDLE(panvk_cmd_buffer, cmdbuf, commandBuffer);
    VK_FROM_HANDLE(vk_pipeline_layout, playout, layout);
 
-   struct panvk_descriptor_state *descriptors_state =
-      panvk_cmd_get_desc_state(cmdbuf, template->bind_point);
-
-   panvk_cmd_update_set_collection_layout(descriptors_state, playout);
+   panvk_cmd_update_set_collection_layout(cmdbuf, template->bind_point,
+                                          playout);
 
    const struct panvk_descriptor_set_layout *set_layout =
       vk_to_panvk_descriptor_set_layout(playout->set_layouts[set]);
