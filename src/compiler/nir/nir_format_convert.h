@@ -129,6 +129,11 @@ nir_def *nir_format_unpack_rgba(nir_builder *b, nir_def *packed,
 nir_def *nir_format_pack_rgba(nir_builder *b, enum pipe_format format,
                               nir_def *rgba);
 
+nir_def *nir_format_unpack_depth_stencil(nir_builder *b, nir_def *packed,
+                                         enum pipe_format format);
+nir_def *nir_format_pack_depth_stencil(nir_builder *b, enum pipe_format format,
+                                       nir_def *depth, nir_def *stencil);
+
 #ifdef __cplusplus
 } /* extern "C" */
 #endif

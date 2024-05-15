@@ -744,3 +744,133 @@ nir_format_pack_rgba(nir_builder *b, enum pipe_format format, nir_def *rgba)
       return nir_format_bitcast_uvec_unmasked(b, encoded, bits, 32);
    }
 }
+
+nir_def *
+nir_format_unpack_depth_stencil(nir_builder *b, nir_def *packed,
+                                enum pipe_format format)
+{
+   nir_def *depth = nir_undef(b, 1, 32);
+   nir_def *stencil = nir_undef(b, 1, 32);
+   unsigned bits;
+
+   switch (format) {
+   case PIPE_FORMAT_Z16_UNORM:
+      bits = 16;
+      depth = nir_iand_imm(b, nir_channel(b, packed, 0), BITFIELD_MASK(16));
+      depth = nir_format_unorm_to_float(b, depth, &bits);
+      break;
+
+   case PIPE_FORMAT_Z16_UNORM_S8_UINT:
+      bits = 16;
+      depth = nir_iand_imm(b, nir_channel(b, packed, 0), BITFIELD_MASK(16));
+      depth = nir_format_unorm_to_float(b, depth, &bits);
+      stencil = nir_iand_imm(b, nir_ushr_imm(b, nir_channel(b, packed, 0), 16),
+                             BITFIELD_MASK(8));
+      break;
+
+   case PIPE_FORMAT_Z24X8_UNORM:
+   case PIPE_FORMAT_Z24_UNORM_S8_UINT:
+      bits = 24;
+      depth = nir_iand_imm(b, nir_channel(b, packed, 0), BITFIELD_MASK(24));
+      depth = nir_format_unorm_to_float(b, depth, &bits);
+      if (format == PIPE_FORMAT_Z24_UNORM_S8_UINT)
+         stencil = nir_ushr_imm(b, nir_channel(b, packed, 0), 24);
+      break;
+
+   case PIPE_FORMAT_X8Z24_UNORM:
+   case PIPE_FORMAT_S8_UINT_Z24_UNORM:
+      bits = 24;
+      depth = nir_ushr_imm(b, nir_channel(b, packed, 0), 8);
+      depth = nir_format_unorm_to_float(b, depth, &bits);
+      if (format == PIPE_FORMAT_S8_UINT_Z24_UNORM)
+         stencil = nir_iand_imm(b, nir_channel(b, packed, 0), BITFIELD_MASK(8));
+      break;
+
+   case PIPE_FORMAT_Z32_FLOAT_S8X24_UINT:
+   case PIPE_FORMAT_X32_S8X24_UINT:
+      stencil = nir_iand_imm(b, nir_channel(b, packed, 1), BITFIELD_MASK(8));
+      if (format == PIPE_FORMAT_Z32_FLOAT_S8X24_UINT)
+         depth = nir_channel(b, packed, 0);
+      break;
+
+   case PIPE_FORMAT_Z32_UNORM:
+      bits = 32;
+      depth = nir_format_unorm_to_float(b, nir_channel(b, packed, 0), &bits);
+      break;
+
+   case PIPE_FORMAT_Z32_FLOAT:
+      depth = nir_channel(b, packed, 0);
+      break;
+
+   case PIPE_FORMAT_S8_UINT:
+      stencil = nir_u2u32(b, nir_u2u8(b, nir_channel(b, packed, 0)));
+      break;
+
+   default:
+      assert("!Unsuported depth/stencil format");
+      break;
+   }
+
+   return nir_vec2(b, depth, stencil);
+}
+
+nir_def *
+nir_format_pack_depth_stencil(nir_builder *b, enum pipe_format format,
+                              nir_def *depth, nir_def *stencil)
+{
+   if (format == PIPE_FORMAT_Z24X8_UNORM ||
+       format == PIPE_FORMAT_X8Z24_UNORM)
+      stencil = nir_imm_int(b, 0);
+
+   if (format == PIPE_FORMAT_X24S8_UINT ||
+       format == PIPE_FORMAT_S8X24_UINT ||
+       format == PIPE_FORMAT_X32_S8X24_UINT)
+      depth = nir_imm_float(b, 0);
+
+   depth = nir_f2f32(b, depth);
+   stencil = nir_u2u32(b, nir_u2u8(b, stencil));
+
+   unsigned bits;
+
+   switch (format) {
+   case PIPE_FORMAT_Z16_UNORM:
+      bits = 16;
+      depth = nir_format_float_to_unorm(b, depth, &bits);
+      return nir_u2u16(b, depth);
+
+   case PIPE_FORMAT_Z16_UNORM_S8_UINT:
+      bits = 16;
+      depth = nir_format_float_to_unorm(b, depth, &bits);
+      return nir_ior(b, depth, nir_ishl_imm(b, stencil, 16));
+
+   case PIPE_FORMAT_Z24X8_UNORM:
+   case PIPE_FORMAT_Z24_UNORM_S8_UINT:
+      bits = 24;
+      depth = nir_format_float_to_unorm(b, depth, &bits);
+      return nir_ior(b, depth, nir_ishl_imm(b, stencil, 24));
+
+   case PIPE_FORMAT_X8Z24_UNORM:
+   case PIPE_FORMAT_S8_UINT_Z24_UNORM:
+      bits = 24;
+      depth = nir_format_float_to_unorm(b, depth, &bits);
+      return nir_ior(b, stencil, nir_ishl_imm(b, depth, 8));
+
+   case PIPE_FORMAT_Z32_FLOAT_S8X24_UINT:
+   case PIPE_FORMAT_X32_S8X24_UINT:
+      return nir_vec2(b, depth, stencil);
+
+   case PIPE_FORMAT_Z32_UNORM:
+      bits = 32;
+      return nir_format_float_to_unorm(b, depth, &bits);
+
+   case PIPE_FORMAT_Z32_FLOAT:
+      return depth;
+
+   case PIPE_FORMAT_S8_UINT:
+      return stencil;
+
+   default:
+      assert("!Unsuported depth/stencil format");
+      return nir_undef(b, 1, 32);
+   }
+}
