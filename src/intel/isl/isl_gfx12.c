@@ -25,6 +25,8 @@
 #include "isl_gfx12.h"
 #include "isl_priv.h"
 
+#include "dev/intel_debug.h"
+
 /**
  * @brief Filter out tiling flags that are incompatible with the surface.
  *
@@ -136,6 +138,24 @@ isl_gfx125_filter_tiling(const struct isl_device *dev,
     */
    if (info->usage & ISL_SURF_USAGE_CPB_BIT)
       *flags &= ISL_TILING_STD_64_MASK;
+
+   /* We choose TILE64 in order to benefit from compression.
+    * If VK_EXT_image_compression_control disables compression,
+    * downgrade to TILE4 to save memory.
+    *
+    * Exclude the following resources:
+    *    - MSAA surfaces
+    *    - CPS surfaces
+    *    - Sparse resources
+    */
+   if ((*flags & ISL_TILING_STD_64_MASK) &&
+       ((info->usage & ISL_SURF_USAGE_DISABLE_AUX_BIT) ||
+        INTEL_DEBUG(DEBUG_NO_CCS)) &&
+       !(info->usage & ISL_SURF_USAGE_SPARSE_BIT) &&
+       !isl_surf_usage_is_cpb(info->usage) &&
+       info->samples == 1) {
+         *flags &= ~ISL_TILING_STD_64_MASK;
+   }
 }
 
 void
