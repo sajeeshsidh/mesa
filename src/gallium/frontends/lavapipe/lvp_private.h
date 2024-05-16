@@ -763,6 +763,14 @@ bool
 lvp_nir_lower_ray_queries(struct nir_shader *shader);
 enum vk_cmd_type
 lvp_nv_dgc_token_to_cmd_type(const VkIndirectCommandsLayoutTokenNV *token);
+
+#if DETECT_OS_ANDROID
+VkResult
+lvp_gralloc_info(struct lvp_device *device,
+                 const VkNativeBufferANDROID *gralloc_info,
+                 int *dma_buf);
+#endif
+
 #ifdef __cplusplus
 }
 #endif
