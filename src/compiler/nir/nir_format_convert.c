@@ -543,7 +543,7 @@ nir_format_unpack_rgba(nir_builder *b, nir_def *packed,
          if (chan->normalized) {
             comps[c] = nir_format_unorm_to_float(b, raw, bits);
          } else if (chan->pure_integer) {
-            comps[c] = raw;
+            comps[c] = nir_u2u32(b, raw);
          } else {
             comps[c] = nir_u2f32(b, raw);
          }
@@ -554,7 +554,7 @@ nir_format_unpack_rgba(nir_builder *b, nir_def *packed,
          if (chan->normalized) {
             comps[c] = nir_format_snorm_to_float(b, raw, bits);
          } else if (chan->pure_integer) {
-            comps[c] = raw;
+            comps[c] = nir_i2i32(b, raw);
          } else {
             comps[c] = nir_i2f32(b, raw);
          }
