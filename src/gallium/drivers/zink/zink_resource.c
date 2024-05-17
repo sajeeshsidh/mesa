@@ -2339,7 +2339,6 @@ zink_buffer_map(struct pipe_context *pctx,
       if (!res->obj->host_visible || force_discard_range ||
           !zink_resource_usage_check_completion(screen, res, ZINK_RESOURCE_ACCESS_RW)) {
          /* Do a wait-free write-only transfer using a temporary buffer. */
-         unsigned offset;
 
          /* If we are not called from the driver thread, we have
           * to use the uploader from u_threaded_context, which is
@@ -2351,10 +2350,9 @@ zink_buffer_map(struct pipe_context *pctx,
          else
             mgr = ctx->base.stream_uploader;
          u_upload_alloc(mgr, 0, box->width,
-                     screen->info.props.limits.minMemoryMapAlignment, &offset,
-                     (struct pipe_resource **)&trans->staging_res, (void **)&ptr);
+                        screen->info.props.limits.minMemoryMapAlignment, &trans->offset,
+                        &trans->staging_res, &ptr);
          res = zink_resource(trans->staging_res);
-         trans->offset = offset;
       }
       /* At this point, the buffer is always idle (we made sure above). */
       usage |= PIPE_MAP_UNSYNCHRONIZED;
