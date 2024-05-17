@@ -2308,6 +2308,29 @@ tune_usage_flags(struct zink_context *ctx, struct zink_resource *res, const stru
 
    return force_discard_range;
 }
+static struct zink_resource *
+use_new_staging_resource(struct zink_context **ctx, struct zink_screen *screen,
+                          struct zink_resource *res, const struct pipe_box *box,
+                          struct zink_transfer *trans, unsigned *usage, unsigned *map_offset)
+{
+   trans->offset = box->x % MAX2(screen->info.props.limits.minMemoryMapAlignment, 1 << MIN_SLAB_ORDER);
+   trans->staging_res = pipe_buffer_create(&screen->base, PIPE_BIND_LINEAR, PIPE_USAGE_STAGING, box->width + trans->offset);
+   if (!trans->staging_res)
+      return NULL;
+   struct zink_resource *staging_res = zink_resource(trans->staging_res);
+   if (*usage & (PIPE_MAP_THREAD_SAFE | PIPE_MAP_UNSYNCHRONIZED | TC_TRANSFER_MAP_THREADED_UNSYNC)) {
+      assert(*ctx != screen->copy_context);
+      /* this map can't access the passed context: use the copy context */
+      zink_screen_lock_context(screen);
+      *ctx = screen->copy_context;
+   }
+   if (*usage & PIPE_MAP_READ)
+      zink_copy_buffer(*ctx, staging_res, res, trans->offset, box->x, box->width);
+
+   *usage &= ~PIPE_MAP_UNSYNCHRONIZED;
+   *map_offset = trans->offset;
+   return staging_res;
+}
 
 static void *
 zink_buffer_map(struct pipe_context *pctx,
@@ -2368,23 +2391,10 @@ zink_buffer_map(struct pipe_context *pctx,
               !res->obj->host_visible) {
       /* any read, non-HV write, or unmappable that reaches this point needs staging */
       if ((usage & PIPE_MAP_READ) || !res->obj->host_visible || res->base.b.flags & PIPE_RESOURCE_FLAG_DONT_MAP_DIRECTLY) {
-overwrite:
-         trans->offset = box->x % MAX2(screen->info.props.limits.minMemoryMapAlignment, 1 << MIN_SLAB_ORDER);
-         trans->staging_res = pipe_buffer_create(&screen->base, PIPE_BIND_LINEAR, PIPE_USAGE_STAGING, box->width + trans->offset);
-         if (!trans->staging_res)
+         res = use_new_staging_resource(&ctx, screen, res, box, trans, &usage, &map_offset);
+         if (!res)
             goto fail;
-         struct zink_resource *staging_res = zink_resource(trans->staging_res);
-         if (usage & (PIPE_MAP_THREAD_SAFE | PIPE_MAP_UNSYNCHRONIZED | TC_TRANSFER_MAP_THREADED_UNSYNC)) {
-            assert(ctx != screen->copy_context);
-            /* this map can't access the passed context: use the copy context */
-            zink_screen_lock_context(screen);
-            ctx = screen->copy_context;
-         }
-         if (usage & PIPE_MAP_READ)
-            zink_copy_buffer(ctx, staging_res, res, trans->offset, box->x, box->width);
-         res = staging_res;
-         usage &= ~PIPE_MAP_UNSYNCHRONIZED;
-         map_offset = trans->offset;
+         assert(!(usage & PIPE_MAP_UNSYNCHRONIZED));
       }
    }
 
@@ -2392,8 +2402,13 @@ overwrite:
       if (usage & PIPE_MAP_WRITE) {
          if (!(usage & PIPE_MAP_READ)) {
             zink_resource_usage_try_wait(ctx, res, ZINK_RESOURCE_ACCESS_RW);
-            if (zink_resource_has_unflushed_usage(res))
-               goto overwrite;
+            if (zink_resource_has_unflushed_usage(res)) {
+               res = use_new_staging_resource(&ctx, screen, res, box, trans, &usage, &map_offset);
+               if (res)
+                  goto nowait;
+               else
+                  goto fail;
+            }
          }
          zink_resource_usage_wait(ctx, res, ZINK_RESOURCE_ACCESS_RW);
       } else
@@ -2403,6 +2418,7 @@ overwrite:
       res->obj->last_write = 0;
       zink_resource_copies_reset(res);
    }
+nowait:
 
    if (!ptr) {
       /* if writing to a streamout buffer, ensure synchronization next time it's used */
