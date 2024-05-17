@@ -2346,12 +2346,9 @@ zink_buffer_map(struct pipe_context *pctx,
                      (struct pipe_resource **)&trans->staging_res, (void **)&ptr);
          res = zink_resource(trans->staging_res);
          trans->offset = offset;
-         usage |= PIPE_MAP_UNSYNCHRONIZED;
-         ptr = ((uint8_t *)ptr);
-      } else {
-         /* At this point, the buffer is always idle (we checked it above). */
-         usage |= PIPE_MAP_UNSYNCHRONIZED;
       }
+      /* At this point, the buffer is always idle (we made sure above). */
+      usage |= PIPE_MAP_UNSYNCHRONIZED;
    } else if (usage & PIPE_MAP_DONTBLOCK) {
       /* sparse/device-local will always need to wait since it has to copy */
       if (!res->obj->host_visible)
