@@ -2260,6 +2260,55 @@ destroy_transfer(struct zink_context *ctx, struct zink_transfer *trans)
    }
 }
 
+static bool
+tune_usage_flags(struct zink_context *ctx, struct zink_resource *res, const struct pipe_box *box, unsigned *usage)
+{
+   bool force_discard_range= false;
+
+   if (res->base.is_user_ptr)
+      *usage |= PIPE_MAP_PERSISTENT;
+
+   /* See if the buffer range being mapped has never been initialized,
+    * in which case it can be mapped unsynchronized. */
+   if (!(*usage & (PIPE_MAP_UNSYNCHRONIZED | TC_TRANSFER_MAP_NO_INFER_UNSYNCHRONIZED)) &&
+       *usage & PIPE_MAP_WRITE && !res->base.is_shared &&
+       !util_ranges_intersect(&res->valid_buffer_range, box->x, box->x + box->width) &&
+       !zink_resource_copy_box_intersects(res, 0, box)) {
+      *usage |= PIPE_MAP_UNSYNCHRONIZED;
+   }
+
+   /* If discarding the entire range, discard the whole resource instead. */
+   if (*usage & PIPE_MAP_DISCARD_RANGE && box->x == 0 && box->width == res->base.b.width0) {
+      *usage |= PIPE_MAP_DISCARD_WHOLE_RESOURCE;
+   }
+
+   /* If a buffer in VRAM is too large and the range is discarded, don't
+    * map it directly. This makes sure that the buffer stays in VRAM.
+    */
+   if (*usage & (PIPE_MAP_DISCARD_WHOLE_RESOURCE | PIPE_MAP_DISCARD_RANGE) &&
+       !(*usage & PIPE_MAP_PERSISTENT) &&
+       res->base.b.flags & PIPE_RESOURCE_FLAG_DONT_MAP_DIRECTLY) {
+      *usage &= ~(PIPE_MAP_DISCARD_WHOLE_RESOURCE | PIPE_MAP_UNSYNCHRONIZED);
+      *usage |= PIPE_MAP_DISCARD_RANGE;
+      force_discard_range = true;
+   }
+
+   if (*usage & PIPE_MAP_DISCARD_WHOLE_RESOURCE &&
+       !(*usage & (PIPE_MAP_UNSYNCHRONIZED | TC_TRANSFER_MAP_NO_INVALIDATE))) {
+      assert(*usage & PIPE_MAP_WRITE);
+
+      if (invalidate_buffer(ctx, res)) {
+         /* At this point, the buffer is always idle. */
+         *usage |= PIPE_MAP_UNSYNCHRONIZED;
+      } else {
+         /* Fall back to a temporary buffer. */
+         *usage |= PIPE_MAP_DISCARD_RANGE;
+      }
+   }
+
+   return force_discard_range;
+}
+
 static void *
 zink_buffer_map(struct pipe_context *pctx,
                     struct pipe_resource *pres,
@@ -2277,47 +2326,7 @@ zink_buffer_map(struct pipe_context *pctx,
 
    void *ptr = NULL;
 
-   if (res->base.is_user_ptr)
-      usage |= PIPE_MAP_PERSISTENT;
-
-   /* See if the buffer range being mapped has never been initialized,
-    * in which case it can be mapped unsynchronized. */
-   if (!(usage & (PIPE_MAP_UNSYNCHRONIZED | TC_TRANSFER_MAP_NO_INFER_UNSYNCHRONIZED)) &&
-       usage & PIPE_MAP_WRITE && !res->base.is_shared &&
-       !util_ranges_intersect(&res->valid_buffer_range, box->x, box->x + box->width) &&
-       !zink_resource_copy_box_intersects(res, 0, box)) {
-      usage |= PIPE_MAP_UNSYNCHRONIZED;
-   }
-
-   /* If discarding the entire range, discard the whole resource instead. */
-   if (usage & PIPE_MAP_DISCARD_RANGE && box->x == 0 && box->width == res->base.b.width0) {
-      usage |= PIPE_MAP_DISCARD_WHOLE_RESOURCE;
-   }
-
-   /* If a buffer in VRAM is too large and the range is discarded, don't
-    * map it directly. This makes sure that the buffer stays in VRAM.
-    */
-   bool force_discard_range = false;
-   if (usage & (PIPE_MAP_DISCARD_WHOLE_RESOURCE | PIPE_MAP_DISCARD_RANGE) &&
-       !(usage & PIPE_MAP_PERSISTENT) &&
-       res->base.b.flags & PIPE_RESOURCE_FLAG_DONT_MAP_DIRECTLY) {
-      usage &= ~(PIPE_MAP_DISCARD_WHOLE_RESOURCE | PIPE_MAP_UNSYNCHRONIZED);
-      usage |= PIPE_MAP_DISCARD_RANGE;
-      force_discard_range = true;
-   }
-
-   if (usage & PIPE_MAP_DISCARD_WHOLE_RESOURCE &&
-       !(usage & (PIPE_MAP_UNSYNCHRONIZED | TC_TRANSFER_MAP_NO_INVALIDATE))) {
-      assert(usage & PIPE_MAP_WRITE);
-
-      if (invalidate_buffer(ctx, res)) {
-         /* At this point, the buffer is always idle. */
-         usage |= PIPE_MAP_UNSYNCHRONIZED;
-      } else {
-         /* Fall back to a temporary buffer. */
-         usage |= PIPE_MAP_DISCARD_RANGE;
-      }
-   }
+   bool force_discard_range = tune_usage_flags(ctx, res, box, &usage);
 
    unsigned map_offset = box->x;
    if (usage & PIPE_MAP_DISCARD_RANGE &&
