@@ -1966,6 +1966,24 @@ print_parallel_copy_instr(nir_parallel_copy_instr *instr, print_state *state)
 }
 
 static void
+print_debug_info_instr(nir_debug_info_instr *instr, print_state *state)
+{
+   FILE *fp = state->fp;
+
+   switch (instr->type) {
+   case nir_debug_info_src_loc:
+      fprintf(fp, "// 0x%x", instr->src_loc.spirv_offset);
+      if (instr->src_loc.has_line)
+         fprintf(fp, " %s:%u:%u", nir_src_as_string(instr->src_loc.filename), instr->src_loc.line, instr->src_loc.column);
+      return;
+   case nir_debug_info_string:
+      return; /* Strings are printed for their uses. */
+   }
+
+   unreachable("Unimplemented nir_debug_info_type");
+}
+
+static void
 print_instr(const nir_instr *instr, print_state *state, unsigned tabs)
 {
    FILE *fp = state->fp;
@@ -2012,6 +2030,10 @@ print_instr(const nir_instr *instr, print_state *state, unsigned tabs)
       print_parallel_copy_instr(nir_instr_as_parallel_copy(instr), state);
       break;
 
+   case nir_instr_type_debug_info:
+      print_debug_info_instr(nir_instr_as_debug_info(instr), state);
+      break;
+
    default:
       unreachable("Invalid instruction type");
       break;
@@ -2047,6 +2069,7 @@ block_has_instruction_with_dest(nir_block *block)
 
       case nir_instr_type_jump:
       case nir_instr_type_call:
+      case nir_instr_type_debug_info:
          /* Doesn't define a new value. */
          break;
       }

@@ -959,6 +959,7 @@ typedef enum ENUM_PACKED {
    nir_instr_type_undef,
    nir_instr_type_phi,
    nir_instr_type_parallel_copy,
+   nir_instr_type_debug_info,
 } nir_instr_type;
 
 typedef struct nir_instr {
@@ -2729,6 +2730,31 @@ typedef struct {
    struct exec_list entries;
 } nir_parallel_copy_instr;
 
+typedef enum nir_debug_info_type {
+   nir_debug_info_src_loc,
+   nir_debug_info_string,
+} nir_debug_info_type;
+
+typedef struct nir_debug_info_instr {
+   nir_instr instr;
+
+   nir_debug_info_type type;
+
+   union {
+      struct {
+         nir_src filename;
+         uint32_t line;
+         uint32_t column;
+         uint32_t spirv_offset;
+         bool has_line;
+      } src_loc;
+
+      char *string;
+   };
+
+   nir_def def;
+} nir_debug_info_instr;
+
 NIR_DEFINE_CAST(nir_instr_as_alu, nir_instr, nir_alu_instr, instr,
                 type, nir_instr_type_alu)
 NIR_DEFINE_CAST(nir_instr_as_deref, nir_instr, nir_deref_instr, instr,
@@ -2750,6 +2776,9 @@ NIR_DEFINE_CAST(nir_instr_as_phi, nir_instr, nir_phi_instr, instr,
 NIR_DEFINE_CAST(nir_instr_as_parallel_copy, nir_instr,
                 nir_parallel_copy_instr, instr,
                 type, nir_instr_type_parallel_copy)
+NIR_DEFINE_CAST(nir_instr_as_debug_info, nir_instr,
+                nir_debug_info_instr, instr,
+                type, nir_instr_type_debug_info)
 
 #define NIR_DEFINE_SRC_AS_CONST(type, suffix)                 \
    static inline type                                         \
@@ -4469,6 +4498,8 @@ nir_phi_src *nir_phi_instr_add_src(nir_phi_instr *instr,
 
 nir_parallel_copy_instr *nir_parallel_copy_instr_create(nir_shader *shader);
 
+nir_debug_info_instr *nir_debug_info_instr_create(nir_shader *shader);
+
 nir_undef_instr *nir_undef_instr_create(nir_shader *shader,
                                         unsigned num_components,
                                         unsigned bit_size);
@@ -4778,6 +4809,9 @@ NIR_SRC_AS_(alu_instr, nir_alu_instr, nir_instr_type_alu, nir_instr_as_alu)
 NIR_SRC_AS_(intrinsic, nir_intrinsic_instr,
             nir_instr_type_intrinsic, nir_instr_as_intrinsic)
 NIR_SRC_AS_(deref, nir_deref_instr, nir_instr_type_deref, nir_instr_as_deref)
+NIR_SRC_AS_(debug_info, nir_debug_info_instr, nir_instr_type_debug_info, nir_instr_as_debug_info)
+
+char *nir_src_as_string(nir_src src);
 
 bool nir_src_is_always_uniform(nir_src src);
 bool nir_srcs_equal(nir_src src1, nir_src src2);

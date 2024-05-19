@@ -57,6 +57,7 @@ is_live(BITSET_WORD *defs_live, nir_instr *instr)
    switch (instr->type) {
    case nir_instr_type_call:
    case nir_instr_type_jump:
+   case nir_instr_type_debug_info:
       return true;
    case nir_instr_type_alu: {
       nir_alu_instr *alu = nir_instr_as_alu(instr);

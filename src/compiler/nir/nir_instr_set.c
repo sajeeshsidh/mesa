@@ -46,6 +46,7 @@ instr_can_rewrite(const nir_instr *instr)
    case nir_instr_type_call:
    case nir_instr_type_jump:
    case nir_instr_type_undef:
+   case nir_instr_type_debug_info:
       return false;
    case nir_instr_type_parallel_copy:
    default:

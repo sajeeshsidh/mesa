@@ -424,6 +424,28 @@ clone_call(clone_state *state, const nir_call_instr *call)
    return ncall;
 }
 
+static nir_debug_info_instr *
+clone_debug_info(clone_state *state, nir_debug_info_instr *di)
+{
+   nir_debug_info_instr *instr = nir_debug_info_instr_create(state->ns);
+
+   instr->type = di->type;
+
+   switch (di->type) {
+   case nir_debug_info_src_loc:
+      __clone_src(state, instr, &instr->src_loc.filename, &di->src_loc.filename);
+      instr->src_loc.line = di->src_loc.line;
+      instr->src_loc.column = di->src_loc.column;
+      instr->src_loc.spirv_offset = di->src_loc.spirv_offset;
+      return instr;
+   case nir_debug_info_string:
+      instr->string = ralloc_strdup(state->ns, di->string);
+      return instr;
+   }
+
+   unreachable("Unimplemented nir_debug_info_type");
+}
+
 static nir_instr *
 clone_instr(clone_state *state, const nir_instr *instr)
 {
@@ -446,6 +468,8 @@ clone_instr(clone_state *state, const nir_instr *instr)
       return &clone_jump(state, nir_instr_as_jump(instr))->instr;
    case nir_instr_type_call:
       return &clone_call(state, nir_instr_as_call(instr))->instr;
+   case nir_instr_type_debug_info:
+      return &clone_debug_info(state, nir_instr_as_debug_info(instr))->instr;
    case nir_instr_type_parallel_copy:
       unreachable("Cannot clone parallel copies");
    default:
