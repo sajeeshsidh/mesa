@@ -744,10 +744,6 @@ const uint32_t *
 vtn_foreach_instruction(struct vtn_builder *b, const uint32_t *start,
                         const uint32_t *end, vtn_instruction_handler handler)
 {
-   b->file = NULL;
-   b->line = -1;
-   b->col = -1;
-
    const uint32_t *w = start;
    while (w < end) {
       SpvOp opcode = w[0] & SpvOpCodeMask;
@@ -780,11 +776,6 @@ vtn_foreach_instruction(struct vtn_builder *b, const uint32_t *start,
 
       w += count;
    }
-
-   b->spirv_offset = 0;
-   b->file = NULL;
-   b->line = -1;
-   b->col = -1;
 
    assert(w == end);
    return w;
@@ -6030,6 +6021,31 @@ static bool
 vtn_handle_body_instruction(struct vtn_builder *b, SpvOp opcode,
                             const uint32_t *w, unsigned count)
 {
+   if (b->options->debug_info) {
+      nir_debug_info_instr *instr = nir_debug_info_instr_create(b->shader);
+      instr->type = nir_debug_info_src_loc;
+      instr->src_loc.spirv_offset = b->spirv_offset;
+
+      if (b->file) {
+         nir_def *filename;
+         struct hash_entry *he = _mesa_hash_table_search(b->strings, b->file);
+         if (he) {
+            filename = he->data;
+         } else {
+            nir_builder _b = nir_builder_at(nir_before_cf_list(&b->nb.impl->body));
+            filename = nir_build_string(&_b, b->file);
+            _mesa_hash_table_insert(b->strings, b->file, filename);
+         }
+
+         instr->src_loc.filename = nir_src_for_ssa(filename);
+         instr->src_loc.line = b->line;
+         instr->src_loc.column = b->col;
+         instr->src_loc.has_line = true;
+      }
+
+      nir_builder_instr_insert(&b->nb, &instr->instr);
+   }
+
    switch (opcode) {
    case SpvOpLabel:
       break;
@@ -6648,6 +6664,9 @@ vtn_create_builder(const uint32_t *words, size_t word_count,
 
    if (b->options->environment == NIR_SPIRV_VULKAN && b->version < 0x10400)
       b->vars_used_indirectly = _mesa_pointer_set_create(b);
+
+   if (b->options->debug_info)
+      b->strings = _mesa_pointer_hash_table_create(b);
 
    return b;
  fail:
