@@ -590,3 +590,14 @@ vk_meta_create_image_view(struct vk_command_buffer *cmd,
                                   (uint64_t)*image_view_out);
    return VK_SUCCESS;
 }
+
+VkDeviceAddress
+vk_meta_buffer_address(struct vk_device *device, VkBuffer buffer)
+{
+   return device->dispatch_table.GetBufferDeviceAddress(
+      vk_device_to_handle(device),
+      &(VkBufferDeviceAddressInfo) {
+         .sType = VK_STRUCTURE_TYPE_BUFFER_DEVICE_ADDRESS_INFO,
+         .buffer = buffer,
+      });
+}
