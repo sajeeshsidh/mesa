@@ -21,8 +21,10 @@
  * SOFTWARE.
  */
 
-#ifndef __PAN_AFBC_CSO_H__
-#define __PAN_AFBC_CSO_H__
+#ifndef __PAN_AFBC_CSO_GENX_H__
+#define __PAN_AFBC_CSO_GENX_H__
+
+#include "gen_macros.h"
 
 #include "util/hash_table.h"
 
@@ -70,11 +72,17 @@ struct panfrost_afbc_pack_info {
    uint32_t padding[3]; // FIXME
 } PACKED;
 
-void panfrost_afbc_context_init(struct panfrost_context *ctx);
-void panfrost_afbc_context_destroy(struct panfrost_context *ctx);
+#ifdef PAN_ARCH
+
+void
+GENX(panfrost_afbc_context_init)(struct panfrost_context *ctx);
+
+void
+GENX(panfrost_afbc_context_destroy)(struct panfrost_context *ctx);
 
 struct pan_afbc_shader_data *
-panfrost_afbc_get_shaders(struct panfrost_context *ctx,
-                          struct panfrost_resource *rsrc, unsigned align);
+GENX(panfrost_afbc_get_shaders)(struct panfrost_context *ctx,
+                                struct panfrost_resource *rsrc, unsigned align);
 
+#endif
 #endif

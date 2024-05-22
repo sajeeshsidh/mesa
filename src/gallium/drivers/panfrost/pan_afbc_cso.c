@@ -27,6 +27,8 @@
 #include "pan_context.h"
 #include "pan_resource.h"
 #include "pan_screen.h"
+#include "gen_macros.h"
+#include "gen_shaders.h"
 
 #define panfrost_afbc_add_info_ubo(name, b)                                    \
    nir_variable *info_ubo = nir_variable_create(                               \
@@ -261,7 +263,7 @@ panfrost_afbc_create_pack_shader(struct panfrost_screen *screen, unsigned align,
 }
 
 struct pan_afbc_shader_data *
-panfrost_afbc_get_shaders(struct panfrost_context *ctx,
+GENX(panfrost_afbc_get_shaders)(struct panfrost_context *ctx,
                           struct panfrost_resource *rsrc, unsigned align)
 {
    struct pipe_context *pctx = &ctx->base;
@@ -309,14 +311,14 @@ panfrost_afbc_get_shaders(struct panfrost_context *ctx,
 DERIVE_HASH_TABLE(pan_afbc_shader_key);
 
 void
-panfrost_afbc_context_init(struct panfrost_context *ctx)
+GENX(panfrost_afbc_context_init)(struct panfrost_context *ctx)
 {
    ctx->afbc_shaders.shaders = pan_afbc_shader_key_table_create(NULL);
    pthread_mutex_init(&ctx->afbc_shaders.lock, NULL);
 }
 
 void
-panfrost_afbc_context_destroy(struct panfrost_context *ctx)
+GENX(panfrost_afbc_context_destroy)(struct panfrost_context *ctx)
 {
    _mesa_hash_table_destroy(ctx->afbc_shaders.shaders, NULL);
    pthread_mutex_destroy(&ctx->afbc_shaders.lock);
