@@ -36,10 +36,6 @@ struct panvk_pipeline_layout {
    uint32_t num_imgs;
 
    struct {
-      uint32_t size;
-   } push_constants;
-
-   struct {
       unsigned sampler_offset;
       unsigned tex_offset;
       unsigned ubo_offset;
