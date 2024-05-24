@@ -69,10 +69,6 @@ struct panvk_shader {
    bool has_img_access;
 };
 
-bool panvk_per_arch(blend_needs_lowering)(const struct panvk_device *dev,
-                                          const struct pan_blend_state *state,
-                                          unsigned rt);
-
 struct panvk_shader *panvk_per_arch(shader_create)(
    struct panvk_device *dev, const VkPipelineShaderStageCreateInfo *stage_info,
    const struct panvk_pipeline_layout *layout,
