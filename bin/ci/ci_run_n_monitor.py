@@ -61,7 +61,10 @@ STATUS_COLORS = {
 COMPLETED_STATUSES = ["success", "failed"]
 
 
-def print_job_status(job, new_status=False) -> None:
+def print_job_status(
+    job: gitlab.v4.objects.ProjectPipelineJob,
+    new_status: bool = False,
+) -> None:
     """It prints a nice, colored job status with a link to the job."""
     if job.status == "canceled":
         return
@@ -73,7 +76,7 @@ def print_job_status(job, new_status=False) -> None:
 
     print(
         STATUS_COLORS[job.status]
-        + "🞋 job "
+        + "🞋 job "  # U+1F78B Round target
         + link2print(job.web_url, job.name)
         + (f" has new status: {job.status}" if new_status else f" :: {job.status}")
         + (f" ({pretty_duration(duration)})" if job.started_at else "")
@@ -97,24 +100,24 @@ def job_duration(job: gitlab.v4.objects.ProjectPipelineJob) -> float:
 def pretty_wait(sec: int) -> None:
     """shows progressbar in dots"""
     for val in range(sec, 0, -1):
-        print(f"⏲  {val} seconds", end="\r")
+        print(f"⏲  {val} seconds", end="\r")  # U+23F2 Timer clock
         time.sleep(1)
 
 
 def monitor_pipeline(
-    project,
-    pipeline,
+    project: gitlab.v4.objects.Project,
+    pipeline: gitlab.v4.objects.ProjectPipeline,
     target_jobs_regex: re.Pattern,
-    dependencies,
+    dependencies: set[str],
     force_manual: bool,
     stress: int,
 ) -> tuple[Optional[int], Optional[int], Dict[str, Dict[int, Tuple[float, str, str]]]]:
     """Monitors pipeline and delegate canceling jobs"""
     statuses: dict[str, str] = defaultdict(str)
     target_statuses: dict[str, str] = defaultdict(str)
-    stress_status_counter = defaultdict(lambda: defaultdict(int))
+    stress_status_counter: dict[str, dict[str, int]] = defaultdict(lambda: defaultdict(int))
     execution_times = defaultdict(lambda: defaultdict(tuple))
-    target_id = None
+    target_id: int = -1
 
     # Pre-populate the stress status counter for already completed target jobs.
     if stress:
@@ -213,10 +216,10 @@ def monitor_pipeline(
 
 def get_pipeline_job(
     pipeline: gitlab.v4.objects.ProjectPipeline,
-    id: int,
+    job_id: int,
 ) -> gitlab.v4.objects.ProjectPipelineJob:
     pipeline_jobs = pipeline.jobs.list(all=True)
-    return [j for j in pipeline_jobs if j.id == id][0]
+    return [j for j in pipeline_jobs if j.id == job_id][0]
 
 
 def enable_job(
@@ -244,18 +247,21 @@ def enable_job(
         job = get_pipeline_job(pipeline, pjob.id)
 
     if action_type == "target":
-        jtype = "🞋 "
+        jtype = "🞋"  # U+1F78B Round target
     elif action_type == "retry":
-        jtype = "↻"
+        jtype = "↻"  # U+21BB Clockwise open circle arrow
     else:
-        jtype = "(dependency)"
+        jtype = "↪"  # U+21AA Left Arrow Curving Right
 
     print(Fore.MAGENTA + f"{jtype} job {job.name} manually enabled" + Style.RESET_ALL)
 
     return job
 
 
-def cancel_job(project, job) -> None:
+def cancel_job(
+    project: gitlab.v4.objects.Project,
+    job: gitlab.v4.objects.ProjectPipelineJob
+) -> None:
     """Cancel GitLab job"""
     if job.status in [
         "canceled",
@@ -266,10 +272,13 @@ def cancel_job(project, job) -> None:
         return
     pjob = project.jobs.get(job.id, lazy=True)
     pjob.cancel()
-    print(f"♲ {job.name}", end=" ")
+    print(f"♲ {job.name}", end=" ")  # U+2672 Universal Recycling symbol
 
 
-def cancel_jobs(project, to_cancel) -> None:
+def cancel_jobs(
+    project: gitlab.v4.objects.Project,
+    to_cancel: list
+) -> None:
     """Cancel unwanted GitLab jobs"""
     if not to_cancel:
         return
@@ -280,7 +289,10 @@ def cancel_jobs(project, to_cancel) -> None:
     print()
 
 
-def print_log(project, job_id) -> None:
+def print_log(
+    project: gitlab.v4.objects.Project,
+    job_id: int
+) -> None:
     """Print job log into output"""
     printed_lines = 0
     while True:
@@ -298,7 +310,7 @@ def print_log(project, job_id) -> None:
         pretty_wait(REFRESH_WAIT_LOG)
 
 
-def parse_args() -> None:
+def parse_args() -> argparse.Namespace:
     """Parse args"""
     parser = argparse.ArgumentParser(
         description="Tool to trigger a subset of container jobs "
@@ -366,7 +378,9 @@ def parse_args() -> None:
 
 
 def print_detected_jobs(
-    target_dep_dag: "Dag", dependency_jobs: Iterable[str], target_jobs: Iterable[str]
+    target_dep_dag: "Dag",
+    dependency_jobs: Iterable[str],
+    target_jobs: Iterable[str],
 ) -> None:
     def print_job_set(color: str, kind: str, job_set: Iterable[str]):
         print(
@@ -383,10 +397,12 @@ def print_detected_jobs(
     print_job_set(Fore.BLUE, "target", target_jobs)
 
 
-def find_dependencies(token: str | None,
-                      target_jobs_regex: re.Pattern,
-                      project_path: str,
-                      iid: int) -> set[str]:
+def find_dependencies(
+    token: str | None,
+    target_jobs_regex: re.Pattern,
+    project_path: str,
+    iid: int
+) -> set[str]:
     """
     Find the dependencies of the target jobs in a GitLab pipeline.
 
@@ -430,10 +446,10 @@ def print_monitor_summary(
     """Summary of the test execution"""
     t_end = time.perf_counter()
     spend_minutes = (t_end - t_start) / 60
-    print(f"⏲ Duration of script execution: {spend_minutes:0.1f} minutes")
+    print(f"⏲ Duration of script execution: {spend_minutes:0.1f} minutes")  # U+23F2 Timer clock
     if len(execution_collection) == 0:
         return
-    print(f"⏲ Jobs execution times:")
+    print(f"⏲ Jobs execution times:")  # U+23F2 Timer clock
     job_names = list(execution_collection.keys())
     job_names.sort()
     name_field_pad = len(max(job_names, key=len)) + 2
@@ -460,7 +476,7 @@ def link2print(url: str, text: str) -> str:
     return f"{URL_START}{url}\a{text}{URL_END}"
 
 
-if __name__ == "__main__":
+def main() -> None:
     try:
         t_start = time.perf_counter()
 
@@ -522,8 +538,7 @@ if __name__ == "__main__":
         target = '|'.join(args.target)
         target = target.strip()
 
-        deps = set()
-        print("🞋 job: " + Fore.BLUE + target + Style.RESET_ALL)
+        print("🞋 job: " + Fore.BLUE + target + Style.RESET_ALL)  # U+1F78B Round target
 
         # Implicitly include `parallel:` jobs
         target = f'({target})' + r'( \d+/\d+)?'
@@ -548,3 +563,7 @@ if __name__ == "__main__":
         sys.exit(ret)
     except KeyboardInterrupt:
         sys.exit(1)
+
+
+if __name__ == "__main__":
+    main()
