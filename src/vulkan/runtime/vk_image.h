@@ -224,6 +224,25 @@ struct vk_image_buffer_layout {
    uint64_t image_stride_B;
 };
 
+static inline VkDeviceSize
+vk_image_buffer_range(const struct vk_image *image,
+                      const struct vk_image_buffer_layout *buf_layout,
+                      const VkExtent3D *elem_extent,
+                      const VkImageSubresourceLayers *subres)
+{
+   uint32_t depth_or_layer_count =
+      MAX2(elem_extent->depth, vk_image_subresource_layer_count(image, subres));
+
+   /* Depth, layer_count and height must be at least one, and we rely on that
+    * for the rest of the buffer range calculation. */
+   assert(depth_or_layer_count > 0);
+   assert(elem_extent->height > 0);
+
+   return (VkDeviceSize)buf_layout->image_stride_B * (depth_or_layer_count - 1) +
+          (VkDeviceSize)buf_layout->row_stride_B * (elem_extent->height - 1) +
+          (VkDeviceSize)buf_layout->element_size_B * elem_extent->width;
+}
+
 struct vk_image_buffer_layout
 vk_image_buffer_copy_layout(const struct vk_image *image,
                             const VkBufferImageCopy2* region);
@@ -360,6 +379,79 @@ void vk_image_view_destroy(struct vk_device *device,
                            const VkAllocationCallbacks *alloc,
                            struct vk_image_view *image_view);
 
+static inline VkOffset3D
+vk_image_view_base_layer_as_offset(VkImageViewType view_type, VkOffset3D offset,
+                                   uint32_t base_layer)
+{
+   switch (view_type) {
+   case VK_IMAGE_VIEW_TYPE_1D:
+      return (VkOffset3D){
+         .x = offset.x,
+      };
+
+   case VK_IMAGE_VIEW_TYPE_1D_ARRAY:
+      return (VkOffset3D){
+         .x = offset.x,
+         .y = base_layer,
+      };
+
+   case VK_IMAGE_VIEW_TYPE_2D_ARRAY:
+   case VK_IMAGE_VIEW_TYPE_CUBE:
+   case VK_IMAGE_VIEW_TYPE_CUBE_ARRAY:
+      return (VkOffset3D){
+         .x = offset.x,
+         .y = offset.y,
+         .z = base_layer,
+      };
+
+   case VK_IMAGE_VIEW_TYPE_2D:
+   case VK_IMAGE_VIEW_TYPE_3D:
+      return offset;
+
+   default:
+      assert(!"Invalid view type");
+      return (VkOffset3D){0};
+   }
+}
+
+static inline VkExtent3D
+vk_image_view_layer_count_as_extent(VkImageViewType view_type,
+                                    VkExtent3D extent, uint32_t layer_count)
+{
+   switch (view_type) {
+   case VK_IMAGE_VIEW_TYPE_1D:
+      return (VkExtent3D){
+         .width = extent.width,
+         .height = 1,
+         .depth = 1,
+      };
+
+   case VK_IMAGE_VIEW_TYPE_1D_ARRAY:
+      return (VkExtent3D){
+         .width = extent.width,
+         .height = layer_count,
+         .depth = 1,
+      };
+
+   case VK_IMAGE_VIEW_TYPE_2D_ARRAY:
+   case VK_IMAGE_VIEW_TYPE_CUBE:
+   case VK_IMAGE_VIEW_TYPE_CUBE_ARRAY:
+      return (VkExtent3D){
+         .width = extent.width,
+         .height = extent.height,
+         .depth = layer_count,
+      };
+
+   case VK_IMAGE_VIEW_TYPE_2D:
+   case VK_IMAGE_VIEW_TYPE_3D:
+      return extent;
+
+   default:
+      assert(!"Invalid view type");
+      return (VkExtent3D){0};
+   }
+}
+
 static inline VkImageSubresourceRange
 vk_image_view_subresource_range(const struct vk_image_view *view)
 {
@@ -373,6 +465,9 @@ vk_image_view_subresource_range(const struct vk_image_view *view)
 
    return range;
 }
+
+VkExtent3D vk_image_view_mip_level_extent(const struct vk_image_view *view,
+                                          uint32_t mip_level);
 
 bool vk_image_layout_is_read_only(VkImageLayout layout,
                                   VkImageAspectFlagBits aspect);
