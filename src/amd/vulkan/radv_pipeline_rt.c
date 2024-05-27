@@ -414,7 +414,7 @@ radv_rt_nir_to_asm(struct radv_device *device, struct vk_pipeline_cache *cache,
       nir_shader_gather_info(temp_stage.nir, nir_shader_get_entrypoint(temp_stage.nir));
 
       radv_optimize_nir(temp_stage.nir, stage->key.optimisations_disabled);
-      radv_postprocess_nir(device, NULL, &temp_stage);
+      radv_postprocess_nir(device, NULL, &temp_stage, false);
 
       if (stage_info)
          radv_gather_unused_args(stage_info, shaders[i]);

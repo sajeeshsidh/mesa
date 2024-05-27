@@ -92,7 +92,7 @@ void radv_shader_layout_init(const struct radv_pipeline_layout *pipeline_layout,
                              struct radv_shader_layout *layout);
 
 void radv_postprocess_nir(struct radv_device *device, const struct radv_graphics_state_key *gfx_state,
-                          struct radv_shader_stage *stage);
+                          struct radv_shader_stage *stage, bool line_smooth_enabled);
 
 bool radv_shader_should_clear_lds(const struct radv_device *device, const nir_shader *shader);
 

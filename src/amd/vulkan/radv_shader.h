@@ -142,6 +142,8 @@ struct radv_graphics_state_key {
    struct {
       uint32_t provoking_vtx_last : 1;
       uint32_t line_smooth_enabled : 1;
+      /* VkPolygonMode used for enabling line smoothing. */
+      uint32_t line_smooth_polygon_mode : 2;
    } rs;
 
    struct {

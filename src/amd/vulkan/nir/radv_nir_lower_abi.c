@@ -23,6 +23,7 @@ typedef struct {
    const struct radv_shader_info *info;
    const struct radv_graphics_state_key *gfx_state;
    uint32_t address32_hi;
+   bool line_smooth_enabled;
    nir_def *gsvs_ring[4];
 } lower_abi_state;
 
@@ -491,7 +492,7 @@ lower_abi_instr(nir_builder *b, nir_intrinsic_instr *intrin, void *state)
          nir_def *line_rast_mode = GET_SGPR_FIELD_NIR(s->args->ps_state, PS_STATE_LINE_RAST_MODE);
          replacement = nir_ieq_imm(b, line_rast_mode, VK_LINE_RASTERIZATION_MODE_RECTANGULAR_SMOOTH_KHR);
       } else {
-         replacement = nir_imm_bool(b, s->gfx_state->rs.line_smooth_enabled);
+         replacement = nir_imm_bool(b, s->line_smooth_enabled);
       }
       break;
    case nir_intrinsic_load_initial_edgeflags_amd:
@@ -550,7 +551,7 @@ load_gsvs_ring(nir_builder *b, lower_abi_state *s, unsigned stream_id)
 
 void
 radv_nir_lower_abi(nir_shader *shader, enum amd_gfx_level gfx_level, const struct radv_shader_stage *stage,
-                   const struct radv_graphics_state_key *gfx_state, uint32_t address32_hi)
+                   const struct radv_graphics_state_key *gfx_state, uint32_t address32_hi, bool line_smooth_enabled)
 {
    lower_abi_state state = {
       .gfx_level = gfx_level,
@@ -558,6 +559,7 @@ radv_nir_lower_abi(nir_shader *shader, enum amd_gfx_level gfx_level, const struc
       .args = &stage->args,
       .gfx_state = gfx_state,
       .address32_hi = address32_hi,
+      .line_smooth_enabled = line_smooth_enabled,
    };
 
    if (shader->info.stage == MESA_SHADER_GEOMETRY && !stage->info.is_ngg) {
