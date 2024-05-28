@@ -14,17 +14,11 @@
 
 #include "util/timespec.h"
 
-enum tu_mem_sync_op {
-   TU_MEM_SYNC_CACHE_TO_GPU,
-   TU_MEM_SYNC_CACHE_FROM_GPU,
-};
-
 void
-tu_sync_cache_bo(struct tu_device *dev,
-                 struct tu_bo *bo,
-                 VkDeviceSize offset,
-                 VkDeviceSize size,
-                 enum tu_mem_sync_op op);
+msm_sync_cache_bos(struct tu_device *dev,
+                   enum tu_mem_sync_op op,
+                   uint32_t range_count,
+                   const struct tu_mapped_memory_range *ranges);
 
 VkResult tu_allocate_userspace_iova(struct tu_device *dev,
                                     uint64_t size,

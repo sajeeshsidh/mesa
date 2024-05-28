@@ -26,6 +26,7 @@ struct virgl_renderer_capset_drm {
          uint64_t gmem_base;
          uint64_t chip_id;
          uint32_t max_freq;
+         uint32_t highest_bank_bit;
       } msm;  /* context_type == VIRTGPU_DRM_CONTEXT_MSM */
    } u;
 };

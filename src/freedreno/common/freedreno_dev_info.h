@@ -53,6 +53,12 @@ struct fd_dev_info {
 
    int wave_granularity;
 
+   /* This is a fallback value that should match what drm/msm programs, for
+    * kernels that don't support returning it. Newer devices should not set it
+    * and just use the value from the kernel.
+    */
+   uint32_t highest_bank_bit;
+
    /* Information for private memory calculations */
    uint32_t fibers_per_sp;
 

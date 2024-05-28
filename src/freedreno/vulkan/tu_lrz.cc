@@ -449,6 +449,28 @@ tu_disable_lrz(struct tu_cmd_buffer *cmd, struct tu_cs *cs,
 }
 TU_GENX(tu_disable_lrz);
 
+/* Disable LRZ from the CPU, for host image copy */
+void
+tu_disable_lrz_cpu(struct tu_device *device, struct tu_image *image)
+{
+   if (!device->physical_device->info->a6xx.has_lrz_dir_tracking)
+      return;
+
+   if (!image->lrz_height)
+      return;
+
+   uint8_t *lrz_dir_tracking =
+      ((uint8_t *)image->map + image->lrz_fc_offset + 512 /* fast clear size */);
+
+   *lrz_dir_tracking = LRZ_DIR_INVALID;
+
+   if (image->bo->cached_non_coherent) {
+      tu_sync_cache_bo(device, image->bo,
+                       image->bo_offset + image->lrz_offset + 512, 1,
+                       TU_MEM_SYNC_CACHE_TO_GPU);
+   }
+}
+
 /* Clear LRZ, used for out of renderpass depth clears. */
 template <chip CHIP>
 void

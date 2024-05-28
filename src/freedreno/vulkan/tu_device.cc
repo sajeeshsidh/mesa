@@ -241,6 +241,7 @@ get_device_extensions(const struct tu_physical_device *device,
       .EXT_global_priority = true,
       .EXT_global_priority_query = true,
       .EXT_graphics_pipeline_library = true,
+      .EXT_host_image_copy = true,
       .EXT_host_query_reset = true,
       .EXT_image_2d_view_of_3d = true,
       .EXT_image_drm_format_modifier = true,
@@ -559,6 +560,9 @@ tu_get_features(struct tu_physical_device *pdevice,
 
    /* VK_EXT_graphics_pipeline_library */
    features->graphicsPipelineLibrary = true;
+
+   /* VK_EXT_host_image_copy */
+   features->hostImageCopy = true;
 
    /* VK_EXT_image_2d_view_of_3d  */
    features->image2DViewOf3D = true;
@@ -1105,6 +1109,40 @@ tu_get_properties(struct tu_physical_device *pdevice,
    props->polygonModePointSize = true;
    props->nonStrictWideLinesUseParallelogram = false;
    props->nonStrictSinglePixelWideLinesUseParallelogram = false;
+
+   /* VK_EXT_host_image_copy */
+
+   /* We don't use the layouts ATM so just report all layouts from
+    * extensions that we support as compatible.
+    */
+   static const VkImageLayout supported_layouts[] = {
+      VK_IMAGE_LAYOUT_GENERAL, /* required by spec */
+      VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
+      VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL,
+      VK_IMAGE_LAYOUT_DEPTH_STENCIL_READ_ONLY_OPTIMAL,
+      VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
+      VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
+      VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+      VK_IMAGE_LAYOUT_PREINITIALIZED,
+      VK_IMAGE_LAYOUT_DEPTH_READ_ONLY_STENCIL_ATTACHMENT_OPTIMAL,
+      VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_STENCIL_READ_ONLY_OPTIMAL,
+      VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL,
+      VK_IMAGE_LAYOUT_DEPTH_READ_ONLY_OPTIMAL,
+      VK_IMAGE_LAYOUT_STENCIL_ATTACHMENT_OPTIMAL,
+      VK_IMAGE_LAYOUT_STENCIL_READ_ONLY_OPTIMAL,
+      VK_IMAGE_LAYOUT_READ_ONLY_OPTIMAL,
+      VK_IMAGE_LAYOUT_ATTACHMENT_OPTIMAL,
+      VK_IMAGE_LAYOUT_FRAGMENT_DENSITY_MAP_OPTIMAL_EXT,
+      VK_IMAGE_LAYOUT_ATTACHMENT_FEEDBACK_LOOP_OPTIMAL_EXT,
+   };
+
+   props->pCopySrcLayouts = (VkImageLayout *)supported_layouts;
+   props->copySrcLayoutCount = ARRAY_SIZE(supported_layouts);
+   props->pCopyDstLayouts = (VkImageLayout *)supported_layouts;
+   props->copyDstLayoutCount = ARRAY_SIZE(supported_layouts);
+
+   /* We're a UMR so we can always map every kind of memory */
+   props->identicalMemoryTypeRequirements = true;
 }
 
 static const struct vk_pipeline_cache_object_ops *const cache_import_ops[] = {
@@ -1226,6 +1264,13 @@ tu_physical_device_init(struct tu_physical_device *device,
          VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT |
          VK_MEMORY_PROPERTY_HOST_CACHED_BIT;
       device->memory.type_count++;
+   }
+
+   /* Provide a fallback highest_bank_bit if the kernel doesn't support
+    * providing it. This should match what the kernel programs.
+    */
+   if (!device->highest_bank_bit) {
+      device->highest_bank_bit = info.highest_bank_bit;
    }
 
    fd_get_driver_uuid(device->driver_uuid);

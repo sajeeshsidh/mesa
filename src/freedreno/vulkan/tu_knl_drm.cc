@@ -46,8 +46,8 @@ tu_sync_cacheline_from_gpu(void const *p __attribute__((unused)))
 #endif
 }
 
-void
-tu_sync_cache_bo(struct tu_device *dev,
+static void
+msm_sync_cache_bo(struct tu_device *dev,
                  struct tu_bo *bo,
                  VkDeviceSize offset,
                  VkDeviceSize size,
@@ -55,7 +55,7 @@ tu_sync_cache_bo(struct tu_device *dev,
 {
    uintptr_t level1_dcache_size = dev->physical_device->level1_dcache_size;
    char *start = (char *) bo->map + offset;
-   char *end = start + (size == VK_WHOLE_SIZE ? (bo->size - offset) : size);
+   char *end = start + size;
 
    start = (char *) ((uintptr_t) start & ~(level1_dcache_size - 1));
 
@@ -68,44 +68,20 @@ tu_sync_cache_bo(struct tu_device *dev,
    }
 }
 
-static VkResult
-sync_cache(VkDevice _device,
-           enum tu_mem_sync_op op,
-           uint32_t count,
-           const VkMappedMemoryRange *ranges)
+void
+msm_sync_cache_bos(struct tu_device *dev,
+                   enum tu_mem_sync_op op,
+                   uint32_t range_count,
+                   const struct tu_mapped_memory_range *ranges)
 {
-   VK_FROM_HANDLE(tu_device, device, _device);
-
-   if (!device->physical_device->has_cached_non_coherent_memory) {
+   if (!dev->physical_device->has_cached_non_coherent_memory) {
       tu_finishme(
          "data cache clean and invalidation are unsupported on this arch!");
-      return VK_SUCCESS;
+      return;
    }
 
-   for (uint32_t i = 0; i < count; i++) {
-      VK_FROM_HANDLE(tu_device_memory, mem, ranges[i].memory);
-      tu_sync_cache_bo(device, mem->bo, ranges[i].offset, ranges[i].size, op);
-   }
-
-   return VK_SUCCESS;
-}
-
-VkResult
-tu_FlushMappedMemoryRanges(VkDevice _device,
-                           uint32_t memoryRangeCount,
-                           const VkMappedMemoryRange *pMemoryRanges)
-{
-   return sync_cache(_device, TU_MEM_SYNC_CACHE_TO_GPU, memoryRangeCount,
-                     pMemoryRanges);
-}
-
-VkResult
-tu_InvalidateMappedMemoryRanges(VkDevice _device,
-                                uint32_t memoryRangeCount,
-                                const VkMappedMemoryRange *pMemoryRanges)
-{
-   return sync_cache(_device, TU_MEM_SYNC_CACHE_FROM_GPU, memoryRangeCount,
-                     pMemoryRanges);
+   for (uint32_t i = 0; i < range_count; i++)
+      msm_sync_cache_bo(dev, ranges[i].bo, ranges[i].offset, ranges[i].size, op);
 }
 
 VkResult

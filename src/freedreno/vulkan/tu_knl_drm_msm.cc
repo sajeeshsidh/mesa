@@ -131,6 +131,17 @@ tu_drm_get_priorities(const struct tu_physical_device *dev)
    return val;
 }
 
+static uint32_t
+tu_drm_get_highest_bank_bit(const struct tu_physical_device *dev)
+{
+   uint64_t value;
+   int ret = tu_drm_get_param(dev->local_fd, MSM_PARAM_HIGHEST_BANK_BIT, &value);
+   if (ret)
+      return 0;
+
+   return value;
+}
+
 static bool
 tu_drm_is_memory_type_supported(int fd, uint32_t flags)
 {
@@ -615,7 +626,8 @@ msm_bo_init(struct tu_device *dev,
        *
        * MSM already does this automatically for uncached (MSM_BO_WC) memory.
        */
-      tu_sync_cache_bo(dev, bo, 0, VK_WHOLE_SIZE, TU_MEM_SYNC_CACHE_TO_GPU);
+      tu_sync_cache_bo(dev, bo, 0, bo->size, TU_MEM_SYNC_CACHE_TO_GPU);
+      bo->cached_non_coherent = true;
    }
 
    return result;
@@ -1176,6 +1188,7 @@ static const struct tu_knl msm_knl_funcs = {
       .bo_get_metadata = msm_bo_get_metadata,
       .device_wait_u_trace = msm_device_wait_u_trace,
       .queue_submit = msm_queue_submit,
+      .sync_cache_bos = msm_sync_cache_bos,
 };
 
 VkResult
@@ -1248,6 +1261,8 @@ tu_knl_drm_msm_load(struct tu_instance *instance,
       tu_drm_is_memory_type_supported(fd, MSM_BO_CACHED_COHERENT);
 
    device->submitqueue_priority_count = tu_drm_get_priorities(device);
+
+   device->highest_bank_bit = tu_drm_get_highest_bank_bit(device);
 
    device->syncobj_type = vk_drm_syncobj_get_type(fd);
    /* we don't support DRM_CAP_SYNCOBJ_TIMELINE, but drm-shim does */

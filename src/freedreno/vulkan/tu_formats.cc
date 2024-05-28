@@ -259,6 +259,15 @@ tu_physical_device_get_format_properties(
    if (supported_tex)
       buffer |= VK_FORMAT_FEATURE_UNIFORM_TEXEL_BUFFER_BIT;
 
+   /* We don't support copying formats with a swap on the host. Because tiled
+    * images are stored without the swap, we would have to apply the swap when
+    * copying on the CPU, which for some formats is tricky.
+    *
+    * TODO: should we add a fast path for BGRA8?
+    */
+   if (fd6_color_swap(format, TILE6_LINEAR) == WZYX)
+      optimal |= VK_FORMAT_FEATURE_2_HOST_IMAGE_TRANSFER_BIT_EXT;
+
    /* Don't support anything but texel buffers for non-power-of-two formats
     * with 3 components. We'd need several workarounds for copying and
     * clearing them because they're not renderable.
@@ -513,6 +522,12 @@ tu_get_image_format_properties(
              !tiling_possible(info->format))
             return VK_ERROR_FORMAT_NOT_SUPPORTED;
 
+         /* We don't support properly flushing/invalidating imported ranges on
+          * 32-bit.
+          */
+         if (info->usage & VK_IMAGE_USAGE_HOST_TRANSFER_BIT_EXT)
+            return VK_ERROR_FORMAT_NOT_SUPPORTED;
+
          if (info->flags & VK_IMAGE_CREATE_MUTABLE_FORMAT_BIT) {
             const VkImageFormatListCreateInfo *format_list =
                vk_find_struct_const(info->pNext,
@@ -733,6 +748,7 @@ tu_GetPhysicalDeviceImageFormatProperties2(
    VkFilterCubicImageViewImageFormatPropertiesEXT *cubic_props = NULL;
    VkFormatFeatureFlags format_feature_flags;
    VkSamplerYcbcrConversionImageFormatProperties *ycbcr_props = NULL;
+   VkHostImageCopyDevicePerformanceQueryEXT *hic_props = NULL;
    VkResult result;
 
    result = tu_get_image_format_properties(physical_device,
@@ -770,6 +786,9 @@ tu_GetPhysicalDeviceImageFormatProperties2(
          break;
       case VK_STRUCTURE_TYPE_SAMPLER_YCBCR_CONVERSION_IMAGE_FORMAT_PROPERTIES:
          ycbcr_props = (VkSamplerYcbcrConversionImageFormatProperties *) s;
+         break;
+      case VK_STRUCTURE_TYPE_HOST_IMAGE_COPY_DEVICE_PERFORMANCE_QUERY_EXT:
+         hic_props = (VkHostImageCopyDevicePerformanceQueryEXT *) s;
          break;
       default:
          break;
@@ -844,6 +863,33 @@ tu_GetPhysicalDeviceImageFormatProperties2(
 
    if (ycbcr_props)
       ycbcr_props->combinedImageSamplerDescriptorCount = 1;
+
+   if (hic_props) {
+      /* This should match tu_image_init() as much as possible given the
+       * information we have here. We are conservative and only return true if
+       * we know that UBWC would never be enabled. There are no cases where we
+       * modify the layout for HIC but still have optimal access, so we return
+       * the same value for both.
+       *
+       * ubwc_possible() returns false for block-compressed formats, which
+       * satisfies the spec requirement that:
+       *
+       *    If VkPhysicalDeviceImageFormatInfo2::format is a block-compressed
+       *    format and vkGetPhysicalDeviceImageFormatProperties2 returns
+       *    VK_SUCCESS, the implementation must return VK_TRUE in
+       *    optimalDeviceAccess.
+       */
+      hic_props->optimalDeviceAccess = hic_props->identicalMemoryLayout =
+         base_info->tiling == VK_IMAGE_TILING_LINEAR ||
+         base_info->type == VK_IMAGE_TYPE_1D ||
+         !tiling_possible(base_info->format) ||
+         (base_info->usage & VK_IMAGE_USAGE_FRAGMENT_DENSITY_MAP_BIT_EXT) ||
+         !ubwc_possible(NULL, base_info->format, base_info->type,
+                        (base_info->usage & ~VK_IMAGE_USAGE_HOST_TRANSFER_BIT_EXT),
+                        (base_info->usage & ~VK_IMAGE_USAGE_HOST_TRANSFER_BIT_EXT),
+                        physical_device->info, VK_SAMPLE_COUNT_1_BIT,
+                        physical_device->info->a6xx.has_z24uint_s8uint);
+   }
 
    return VK_SUCCESS;
 

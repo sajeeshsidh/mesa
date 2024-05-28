@@ -115,6 +115,70 @@ tu_bo_get_metadata(struct tu_device *dev, struct tu_bo *bo,
    return dev->instance->knl->bo_get_metadata(dev, bo, metadata, metadata_size);
 }
 
+void
+tu_sync_cache_bo(struct tu_device *dev,
+                 struct tu_bo *bo,
+                 VkDeviceSize offset,
+                 VkDeviceSize size,
+                 enum tu_mem_sync_op op)
+{
+   struct tu_mapped_memory_range range = {
+      .bo = bo,
+      .offset = offset,
+      .size = size,
+   };
+
+   dev->instance->knl->sync_cache_bos(dev, op, 1, &range);
+}
+
+static VkResult
+tu_sync_memory_ranges(VkDevice _device,
+                      uint32_t count,
+                      const VkMappedMemoryRange *ranges,
+                      enum tu_mem_sync_op op)
+{
+   VK_FROM_HANDLE(tu_device, device, _device);
+
+   struct tu_mapped_memory_range *tu_ranges =
+      (struct tu_mapped_memory_range *) vk_zalloc(
+         &device->vk.alloc, sizeof(*tu_ranges) * count, 8,
+         VK_SYSTEM_ALLOCATION_SCOPE_INSTANCE);
+
+   if (!tu_ranges)
+      return VK_ERROR_OUT_OF_HOST_MEMORY;
+
+   for (uint32_t i = 0; i < count; i++) {
+      VK_FROM_HANDLE(tu_device_memory, mem, ranges[i].memory);
+      tu_ranges[i].bo = mem->bo;
+      tu_ranges[i].offset = ranges[i].offset;
+      tu_ranges[i].size = (ranges[i].size == VK_WHOLE_SIZE) ?
+         mem->bo->size - ranges[i].offset : ranges[i].size;
+   }
+
+   device->instance->knl->sync_cache_bos(device, op, count, tu_ranges);
+
+   vk_free(&device->vk.alloc, tu_ranges);
+   return VK_SUCCESS;
+}
+
+VKAPI_ATTR VkResult VKAPI_CALL
+tu_FlushMappedMemoryRanges(VkDevice _device,
+                           uint32_t count,
+                           const VkMappedMemoryRange *ranges)
+{
+   return tu_sync_memory_ranges(_device, count, ranges,
+                                TU_MEM_SYNC_CACHE_TO_GPU);
+}
+
+VKAPI_ATTR VkResult VKAPI_CALL
+tu_InvalidateMappedMemoryRanges(VkDevice _device,
+                                uint32_t count,
+                                const VkMappedMemoryRange *ranges)
+{
+   return tu_sync_memory_ranges(_device, count, ranges,
+                                TU_MEM_SYNC_CACHE_FROM_GPU);
+}
+
 VkResult
 tu_drm_device_init(struct tu_device *dev)
 {

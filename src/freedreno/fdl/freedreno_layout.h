@@ -351,6 +351,25 @@ void
 fdl6_format_swiz(enum pipe_format format, bool has_z24uint_s8uint,
                  unsigned char *format_swiz);
 
+void
+fdl6_memcpy_linear_to_tiled(uint32_t x_start, uint32_t y_start,
+                            uint32_t width, uint32_t height,
+                            char *dst, const char *src,
+                            const struct fdl_layout *dst_layout,
+                            unsigned dst_miplevel,
+                            uint32_t src_pitch,
+                            unsigned highest_bank_bit);
+
+void
+fdl6_memcpy_tiled_to_linear(uint32_t x_start, uint32_t y_start,
+                            uint32_t width, uint32_t height,
+                            char *dst, const char *src,
+                            const struct fdl_layout *src_layout,
+                            unsigned src_miplevel,
+                            uint32_t dst_pitch,
+                            unsigned highest_bank_bit);
+
+
 ENDC;
 
 #endif /* FREEDRENO_LAYOUT_H_ */

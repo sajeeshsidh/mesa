@@ -29,6 +29,7 @@ struct tu_image
 
    /* Set when bound */
    struct tu_bo *bo;
+   uint64_t bo_offset;
    uint64_t iova;
 
    /* For fragment density map */

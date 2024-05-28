@@ -230,34 +230,29 @@ kgsl_bo_finish(struct tu_device *dev, struct tu_bo *bo)
    safe_ioctl(dev->physical_device->local_fd, IOCTL_KGSL_GPUMEM_FREE_ID, &req);
 }
 
-static VkResult
-kgsl_sync_cache(VkDevice _device,
-                uint32_t op,
-                uint32_t count,
-                const VkMappedMemoryRange *ranges)
+static void
+kgsl_sync_cache_bos(struct tu_device *dev,
+                    enum tu_mem_sync_op op,
+                    uint32_t range_count,
+                    const struct tu_mapped_memory_range *ranges)
 {
-   VK_FROM_HANDLE(tu_device, device, _device);
-
    struct kgsl_gpuobj_sync_obj *sync_list =
       (struct kgsl_gpuobj_sync_obj *) vk_zalloc(
-         &device->vk.alloc, sizeof(*sync_list)*count, 8,
+         &dev->vk.alloc, sizeof(*sync_list)*range_count, 8,
          VK_SYSTEM_ALLOCATION_SCOPE_INSTANCE);
 
    struct kgsl_gpuobj_sync gpuobj_sync = {
       .objs = (uintptr_t) sync_list,
       .obj_len = sizeof(*sync_list),
-      .count = count,
+      .count = range_count,
    };
 
-   for (uint32_t i = 0; i < count; i++) {
-      VK_FROM_HANDLE(tu_device_memory, mem, ranges[i].memory);
-
-      sync_list[i].op = op;
-      sync_list[i].id = mem->bo->gem_handle;
+   for (uint32_t i = 0; i < range_count; i++) {
+      sync_list[i].op = op == TU_MEM_SYNC_CACHE_TO_GPU ?
+         KGSL_GPUMEM_CACHE_TO_GPU : KGSL_GPUMEM_CACHE_FROM_GPU;
+      sync_list[i].id = ranges[i].bo->gem_handle;
       sync_list[i].offset = ranges[i].offset;
-      sync_list[i].length = ranges[i].size == VK_WHOLE_SIZE
-                               ? (mem->bo->size - ranges[i].offset)
-                               : ranges[i].size;
+      sync_list[i].length = ranges[i].size;
    }
 
    /* There are two other KGSL ioctls for flushing/invalidation:
@@ -267,27 +262,9 @@ kgsl_sync_cache(VkDevice _device,
     *
     * While IOCTL_KGSL_GPUOBJ_SYNC exactly maps to VK function.
     */
-   safe_ioctl(device->fd, IOCTL_KGSL_GPUOBJ_SYNC, &gpuobj_sync);
+   safe_ioctl(dev->fd, IOCTL_KGSL_GPUOBJ_SYNC, &gpuobj_sync);
 
-   vk_free(&device->vk.alloc, sync_list);
-
-   return VK_SUCCESS;
-}
-
-VkResult
-tu_FlushMappedMemoryRanges(VkDevice device,
-                           uint32_t count,
-                           const VkMappedMemoryRange *ranges)
-{
-   return kgsl_sync_cache(device, KGSL_GPUMEM_CACHE_TO_GPU, count, ranges);
-}
-
-VkResult
-tu_InvalidateMappedMemoryRanges(VkDevice device,
-                                uint32_t count,
-                                const VkMappedMemoryRange *ranges)
-{
-   return kgsl_sync_cache(device, KGSL_GPUMEM_CACHE_FROM_GPU, count, ranges);
+   vk_free(&dev->vk.alloc, sync_list);
 }
 
 static VkResult
@@ -1403,6 +1380,7 @@ static const struct tu_knl kgsl_knl_funcs = {
       .bo_finish = kgsl_bo_finish,
       .device_wait_u_trace = kgsl_device_wait_u_trace,
       .queue_submit = kgsl_queue_submit,
+      .sync_cache_bos = kgsl_sync_cache_bos,
 };
 
 VkResult
@@ -1429,6 +1407,11 @@ tu_knl_kgsl_load(struct tu_instance *instance, int fd)
 
    uint64_t gmem_iova;
    if (get_kgsl_prop(fd, KGSL_PROP_UCHE_GMEM_VADDR, &gmem_iova, sizeof(gmem_iova)))
+      goto fail;
+
+   uint32_t highest_bank_bit;
+   if (get_kgsl_prop(fd, KGSL_PROP_HIGHEST_BANK_BIT, &highest_bank_bit,
+                     sizeof(highest_bank_bit)))
       goto fail;
 
    /* kgsl version check? */
@@ -1462,6 +1445,8 @@ tu_knl_kgsl_load(struct tu_instance *instance, int fd)
       fd, KGSL_MEMFLAGS_IOCOHERENT |
              (KGSL_CACHEMODE_WRITEBACK << KGSL_CACHEMODE_SHIFT));
    device->has_cached_non_coherent_memory = true;
+
+   device->highest_bank_bit = highest_bank_bit;
 
    instance->knl = &kgsl_knl_funcs;
 
