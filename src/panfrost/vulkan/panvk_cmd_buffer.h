@@ -13,13 +13,14 @@
 #include <stdint.h>
 
 #include "vulkan/runtime/vk_command_buffer.h"
+#include "vk_pipeline_layout.h"
 
 #include "panvk_descriptor_set.h"
 #include "panvk_descriptor_set_layout.h"
 #include "panvk_device.h"
 #include "panvk_macros.h"
 #include "panvk_mempool.h"
-#include "panvk_pipeline.h"
+#include "panvk_set_collection_layout.h"
 #include "panvk_shader.h"
 
 #include "pan_jc.h"
@@ -28,9 +29,12 @@
 
 #include "genxml/gen_macros.h"
 
-#define MAX_BIND_POINTS         2 /* compute + graphics */
-#define MAX_VBS                 16
-#define MAX_PUSH_CONSTANTS_SIZE 128
+#define MAX_BIND_POINTS             2 /* compute + graphics */
+#define MAX_VBS                     16
+#define MAX_PUSH_CONSTANTS_SIZE     128
+#define MAX_SETS                    4
+#define MAX_DYNAMIC_UNIFORM_BUFFERS 16
+#define MAX_RTS                     8
 
 struct panvk_batch {
    struct list_head node;
@@ -73,6 +77,10 @@ struct panvk_cmd_event_op {
 };
 
 struct panvk_descriptor_state {
+   struct panvk_set_collection_layout collection_layout;
+   /* Used for collection_layout caching */
+   struct vk_pipeline_layout *pipeline_layout;
+
    const struct panvk_descriptor_set *sets[MAX_SETS];
    struct panvk_push_descriptor_set *push_sets[MAX_SETS];
 
@@ -83,8 +91,8 @@ struct panvk_descriptor_state {
    mali_ptr ubos;
    mali_ptr textures;
    mali_ptr samplers;
-   mali_ptr dyn_desc_ubo;
    mali_ptr push_uniforms;
+   mali_ptr driver_ubo;
 
    struct {
       mali_ptr attribs;
@@ -97,9 +105,26 @@ struct panvk_attrib_buf {
    unsigned size;
 };
 
+struct panvk_cmd_shader_state {
+   const struct panvk_shader *shader;
+   mali_ptr rsd;
+
+   struct {
+      mali_ptr attribs;
+      unsigned buf_strides[PANVK_VARY_BUF_MAX];
+   } varyings;
+
+   struct pan_shader_info info;
+   bool has_img_access;
+};
+
 struct panvk_cmd_graphics_state {
    struct panvk_descriptor_state desc_state;
-   const struct panvk_graphics_pipeline *pipeline;
+
+   struct {
+      struct panvk_cmd_shader_state vs;
+      struct panvk_cmd_shader_state fs;
+   } shaders;
 
    struct {
       struct vk_vertex_input_state vi;
@@ -149,7 +174,7 @@ struct panvk_cmd_graphics_state {
 
 struct panvk_cmd_compute_state {
    struct panvk_descriptor_state desc_state;
-   const struct panvk_compute_pipeline *pipeline;
+   struct panvk_cmd_shader_state shader;
    struct panvk_compute_sysvals sysvals;
 };
 
@@ -172,23 +197,6 @@ struct panvk_cmd_buffer {
 
 VK_DEFINE_HANDLE_CASTS(panvk_cmd_buffer, vk.base, VkCommandBuffer,
                        VK_OBJECT_TYPE_COMMAND_BUFFER)
-
-static inline const struct panvk_pipeline *
-panvk_cmd_get_pipeline(const struct panvk_cmd_buffer *cmdbuf,
-                       VkPipelineBindPoint bindpoint)
-{
-   switch (bindpoint) {
-   case VK_PIPELINE_BIND_POINT_GRAPHICS:
-      return &cmdbuf->state.gfx.pipeline->base;
-
-   case VK_PIPELINE_BIND_POINT_COMPUTE:
-      return &cmdbuf->state.compute.pipeline->base;
-
-   default:
-      assert(!"Unsupported bind point");
-      return NULL;
-   }
-}
 
 static inline struct panvk_descriptor_state *
 panvk_cmd_get_desc_state(struct panvk_cmd_buffer *cmdbuf,
@@ -226,5 +234,10 @@ void panvk_per_arch(cmd_prepare_tiler_context)(struct panvk_cmd_buffer *cmdbuf);
 
 void panvk_per_arch(emit_viewport)(const VkViewport *viewport,
                                    const VkRect2D *scissor, void *vpd);
+
+void panvk_per_arch(cmd_bind_shaders)(struct vk_command_buffer *vk_cmd,
+                                      uint32_t stage_count,
+                                      const gl_shader_stage *stages,
+                                      struct vk_shader **const shaders);
 
 #endif

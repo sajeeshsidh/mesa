@@ -10,15 +10,18 @@
 #error "PAN_ARCH must be defined"
 #endif
 
-#include "util/u_dynarray.h"
-
 #include "util/pan_ir.h"
 
 #include "pan_desc.h"
 
 #include "panvk_descriptor_set.h"
 #include "panvk_macros.h"
-#include "panvk_pipeline_layout.h"
+#include "panvk_priv_bo.h"
+#include "panvk_set_collection_layout.h"
+
+#include "vk_shader.h"
+
+extern const struct vk_device_shader_ops panvk_per_arch(device_shader_ops);
 
 #define MAX_VS_ATTRIBS 16
 
@@ -63,27 +66,44 @@ struct panvk_compute_sysvals {
 };
 
 struct panvk_shader {
+   struct vk_shader vk;
    struct pan_shader_info info;
-   struct util_dynarray binary;
+   struct panvk_set_collection_layout sets_layout;
    struct pan_compute_dim local_size;
    bool has_img_access;
+
+   const void *bin_ptr;
+   uint32_t bin_size;
+
+   struct panvk_priv_bo *upload_bo;
+
+   mali_ptr upload_addr;
+   uint32_t upload_size;
+
+   const char *nir_str;
+   const char *asm_str;
 };
 
-bool panvk_per_arch(blend_needs_lowering)(const struct panvk_device *dev,
-                                          const struct pan_blend_state *state,
-                                          unsigned rt);
+static inline mali_ptr
+panvk_shader_get_dev_addr(const struct panvk_shader *shader)
+{
+   return shader != NULL ? shader->upload_addr : 0;
+}
 
-struct panvk_shader *panvk_per_arch(shader_create)(
-   struct panvk_device *dev, const VkPipelineShaderStageCreateInfo *stage_info,
-   const struct panvk_pipeline_layout *layout,
-   const VkAllocationCallbacks *alloc);
+struct panvk_cmd_shader_state;
+void panvk_per_arch(link_shaders)(struct pan_pool *desc_pool,
+                                  struct panvk_cmd_shader_state *stage,
+                                  struct panvk_cmd_shader_state *next_stage);
 
-void panvk_per_arch(shader_destroy)(struct panvk_device *dev,
-                                    struct panvk_shader *shader,
-                                    const VkAllocationCallbacks *alloc);
+struct panvk_lower_desc_inputs {
+   const struct panvk_device *dev;
+   const struct panfrost_compile_inputs *compile_inputs;
+   struct vk_descriptor_set_layout *const *set_layouts;
+   const struct panvk_set_collection_layout *layout;
+};
 
 bool panvk_per_arch(nir_lower_descriptors)(
-   struct nir_shader *nir, struct panvk_device *dev,
-   const struct panvk_pipeline_layout *layout, bool *has_img_access_out);
+   struct nir_shader *nir, const struct panvk_lower_desc_inputs *inputs,
+   bool *has_img_access_out);
 
 #endif

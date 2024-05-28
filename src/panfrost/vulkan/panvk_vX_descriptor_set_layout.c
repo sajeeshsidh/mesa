@@ -10,8 +10,8 @@
 #include "panvk_descriptor_set_layout.h"
 #include "panvk_device.h"
 #include "panvk_entrypoints.h"
-#include "panvk_pipeline_layout.h"
 #include "panvk_sampler.h"
+#include "panvk_set_collection_layout.h"
 
 #define PANVK_DESCRIPTOR_ALIGN 8
 
