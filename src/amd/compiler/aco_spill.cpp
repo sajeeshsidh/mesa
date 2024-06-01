@@ -430,6 +430,9 @@ init_live_in_vars(spill_ctx& ctx, Block* block, unsigned block_idx)
                 !ctx.program->live.live_out[block_idx - 1].count(t) ||
                 var.regClass().is_linear_vgpr())
                continue;
+            if (var == ctx.program->stack_ptr || var == ctx.program->scratch_offset ||
+                var == ctx.program->private_segment_buffer)
+               continue;
 
             unsigned can_remat = ctx.remat.count(var);
             if (can_remat > remat || (can_remat == remat && ctx.ssa_infos[t].score() > score)) {
@@ -470,7 +473,8 @@ init_live_in_vars(spill_ctx& ctx, Block* block, unsigned block_idx)
          for (unsigned t : live_in) {
             Temp var = Temp(t, ctx.program->temp_rc[t]);
             if (var.type() == type && !ctx.spills_entry[block_idx].count(var) &&
-                ctx.ssa_infos[t].score() > score) {
+                ctx.ssa_infos[t].score() > score && var != ctx.program->stack_ptr &&
+                var != ctx.program->scratch_offset && var != ctx.program->private_segment_buffer) {
                to_spill = var;
                score = ctx.ssa_infos[t].score();
             }
@@ -1078,6 +1082,9 @@ process_block(spill_ctx& ctx, unsigned block_idx, Block* block, RegisterDemand s
                   bool is_spilled_operand = cur_operand_idx != -1u && reloads.count(var);
                   if (cur_operand_idx != -1u && ctx.renames[block_idx].count(var))
                      is_spilled_operand |= reloads.count(ctx.renames[block_idx][var]);
+                  if (var == ctx.program->stack_ptr || var == ctx.program->scratch_offset ||
+                      var == ctx.program->private_segment_buffer)
+                     continue;
 
                   to_spill = var;
                   score = ctx.ssa_infos[t].score();
