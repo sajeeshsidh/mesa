@@ -244,6 +244,24 @@ iris-kbl-traces-performance:
   variables:
     GPU_VERSION: intel-kbl
 
+intel-tgl-cl:
+  extends:
+    - .lava-acer-cp514-2h-1160g7-volteer:x86_64
+    - .intel-tgl-test
+  rules:
+    - !reference [.test, rules]
+    - !reference [.gallium-core-rules, rules]
+    - !reference [.iris-rules, rules]
+    - changes:
+      - src/gallium/frontends/rusticl/**/*
+      when: on_success
+  variables:
+    DEQP_SUITE: intel-tgl-cl
+    HWCI_START_WESTON: 1
+    INTEL_DEBUG: "cl-quiet"
+    RUSTICL_ENABLE: "iris"
+    RUSTICL_FEATURES: "fp16,fp64"
+
 intel-tgl-skqp:
   extends:
     - .lava-acer-cp514-2h-1130g7-volteer:x86_64
