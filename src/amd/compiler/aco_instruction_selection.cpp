@@ -10574,6 +10574,7 @@ visit_call(isel_context* ctx, nir_call_instr* instr)
    info.return_info = std::move(return_infos);
    info.scratch_param_size = scratch_byte_offset;
    ctx->call_infos.push_back(info);
+   ctx->block->contains_call = true;
 }
 
 void
