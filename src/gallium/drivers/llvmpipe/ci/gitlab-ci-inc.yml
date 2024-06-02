@@ -37,15 +37,9 @@
     - changes:
         *llvmpipe_file_list
       when: on_success
-
-.llvmpipe-rusticl-rules:
-  rules:
-    - !reference [.test, rules]
-    - !reference [.llvmpipe-cl-rules, rules]
     - changes:
       - src/gallium/frontends/rusticl/**/*
       when: on_success
-
 
 .llvmpipe-test:
   extends:

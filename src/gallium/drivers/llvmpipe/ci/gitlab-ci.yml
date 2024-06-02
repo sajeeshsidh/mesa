@@ -4,7 +4,7 @@ include:
 llvmpipe-piglit-rusticl:
   extends:
     - .llvmpipe-piglit-cl
-    - .llvmpipe-rusticl-rules
+    - .llvmpipe-cl-rules
   needs:
     - debian-testing
     - debian/x86_64_test-gl
