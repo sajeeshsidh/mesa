@@ -33,15 +33,6 @@
   rules:
     - !reference [.test, rules]
     - !reference [.no_scheduled_pipelines-rules, rules]
-    - changes: &llvmpipe_cl_files
-      - .gitlab-ci.yml
-      - .gitlab-ci/**/*
-      - meson.build
-      - .gitattributes
-      - include/**/*
-      - src/compiler/**/*
-      - src/util/**/*
-      when: on_success
     - !reference [.gallium-core-rules, rules]
     - changes:
         *llvmpipe_file_list
