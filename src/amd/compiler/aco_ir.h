@@ -2178,6 +2178,7 @@ void insert_wait_states(Program* program);
 bool dealloc_vgprs(Program* program);
 void insert_NOPs(Program* program);
 void form_hard_clauses(Program* program);
+void vectorize_spills(Program* program);
 unsigned emit_program(Program* program, std::vector<uint32_t>& code,
                       std::vector<struct aco_symbol>* symbols = NULL, bool append_endpgm = true);
 /**
