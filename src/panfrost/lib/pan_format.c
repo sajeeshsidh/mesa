@@ -44,14 +44,14 @@
 #define MALI_BLEND_PU_R5G5B5A1    (MALI_RGB5_A1_PU << 12)
 
 #if PAN_ARCH <= 5
-#define BFMT2(pipe, internal, writeback, srgb)                                 \
+#define BFMT2(pipe, internal, writeback, srgb, alpha1)                         \
    [PIPE_FORMAT_##pipe] = {                                                    \
       MALI_COLOR_BUFFER_INTERNAL_FORMAT_##internal,                            \
       MALI_COLOR_FORMAT_##writeback,                                           \
       { 0, 0 },                                                                \
    }
 #elif PAN_ARCH == 6
-#define BFMT2(pipe, internal, writeback, srgb)                                 \
+#define BFMT2(pipe, internal, writeback, srgb, alpha1)                         \
    [PIPE_FORMAT_##pipe] = {                                                    \
       MALI_COLOR_BUFFER_INTERNAL_FORMAT_##internal,                            \
       MALI_COLOR_FORMAT_##writeback,                                           \
@@ -63,23 +63,25 @@
       },                                                                       \
    }
 #else
-#define BFMT2(pipe, internal, writeback, srgb)                                 \
+#define BFMT2(pipe, internal, writeback, srgb, alpha1)                         \
    [PIPE_FORMAT_##pipe] = {                                                    \
       MALI_COLOR_BUFFER_INTERNAL_FORMAT_##internal,                            \
       MALI_COLOR_FORMAT_##writeback,                                           \
       {                                                                        \
-         MALI_BLEND_PU_##internal | (srgb ? (1 << 20) : 0),                    \
-         MALI_BLEND_AU_##internal | (srgb ? (1 << 20) : 0),                    \
+         MALI_BLEND_PU_##internal | (srgb ? (1 << 20) : 0) |                   \
+            (alpha1 ? MALI_RGB_COMPONENT_ORDER_RGB1 : 0),                      \
+         MALI_BLEND_AU_##internal | (srgb ? (1 << 20) : 0) |                   \
+            (alpha1 ? MALI_RGB_COMPONENT_ORDER_RGB1 : 0),                      \
       },                                                                       \
    }
 #endif
 
 #define BFMT(pipe, internal_and_writeback)                                     \
-   BFMT2(pipe, internal_and_writeback, internal_and_writeback, 0)
+   BFMT2(pipe, internal_and_writeback, internal_and_writeback, 0, 0)
 
 #define BFMT_SRGB(pipe, writeback)                                             \
-   BFMT2(pipe##_UNORM, R8G8B8A8, writeback, 0),                                \
-      BFMT2(pipe##_SRGB, R8G8B8A8, writeback, 1)
+   BFMT2(pipe##_UNORM, R8G8B8A8, writeback, 0, 0),                        \
+      BFMT2(pipe##_SRGB, R8G8B8A8, writeback, 1, 0)
 
 const struct pan_blendable_format
    GENX(panfrost_blendable_formats)[PIPE_FORMAT_COUNT] = {
@@ -98,10 +100,10 @@ const struct pan_blendable_format
       BFMT_SRGB(R8G8B8X8, R8G8B8A8),
       BFMT_SRGB(R8G8B8A8, R8G8B8A8),
 
-      BFMT2(A8_UNORM, R8G8B8A8, R8, 0),
-      BFMT2(I8_UNORM, R8G8B8A8, R8, 0),
-      BFMT2(R5G6B5_UNORM, R5G6B5A0, R5G6B5, 0),
-      BFMT2(B5G6R5_UNORM, R5G6B5A0, R5G6B5, 0),
+      BFMT2(A8_UNORM, R8G8B8A8, R8, 0, 0),
+      BFMT2(I8_UNORM, R8G8B8A8, R8, 0, 0),
+      BFMT2(R5G6B5_UNORM, R5G6B5A0, R5G6B5, 0, 1),
+      BFMT2(B5G6R5_UNORM, R5G6B5A0, R5G6B5, 0, 1),
 
       BFMT(A4B4G4R4_UNORM, R4G4B4A4),
       BFMT(B4G4R4A4_UNORM, R4G4B4A4),
