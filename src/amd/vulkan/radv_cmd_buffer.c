@@ -12206,7 +12206,7 @@ radv_trace_rays(struct radv_cmd_buffer *cmd_buffer, VkTraceRaysIndirectCommand2K
    const struct radv_userdata_info *shader_loc = radv_get_user_sgpr(rt_prolog, AC_UD_CS_TRAVERSAL_SHADER_ADDR);
    struct radv_shader *traversal_shader = cmd_buffer->state.shaders[MESA_SHADER_INTERSECTION];
    if (shader_loc->sgpr_idx != -1 && traversal_shader) {
-      uint64_t traversal_va = traversal_shader->va | radv_rt_priority_traversal;
+      uint64_t traversal_va = traversal_shader->va;
       radv_emit_shader_pointer(device, cmd_buffer->cs, base_reg + shader_loc->sgpr_idx * 4, traversal_va, true);
    }
 
