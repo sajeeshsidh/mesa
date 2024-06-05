@@ -1147,12 +1147,13 @@ dri2_get_modifier_num_planes(__DRIscreen *_screen,
 }
 
 static __DRIimage *
-dri2_create_image_common(__DRIscreen *_screen,
-                         int width, int height,
-                         int format, unsigned int use,
-                         const uint64_t *modifiers,
-                         const unsigned count,
-                         void *loaderPrivate)
+dri2_create_image(__DRIscreen *_screen,
+                  int width, int height,
+                  int format,
+                  const uint64_t *modifiers,
+                  const unsigned _count,
+                  unsigned int use,
+                  void *loaderPrivate)
 {
    const struct dri2_format_mapping *map = dri2_get_mapping_by_format(format);
    struct dri_screen *screen = dri_screen(_screen);
@@ -1160,9 +1161,24 @@ dri2_create_image_common(__DRIscreen *_screen,
    __DRIimage *img;
    struct pipe_resource templ;
    unsigned tex_usage = 0;
+   unsigned count = _count;
 
    if (!map)
       return NULL;
+
+   if (count == 1 && modifiers[0] == DRM_FORMAT_MOD_INVALID) {
+      count = 0;
+      modifiers = NULL;
+   } else if (count == 1 && modifiers[0] == DRM_FORMAT_MOD_LINEAR &&
+              !pscreen->resource_create_with_modifiers) {
+      count = 0;
+      modifiers = NULL;
+      use |= __DRI_IMAGE_USE_LINEAR;
+   }
+   else if ((count > 1 || modifiers) &&
+            !pscreen->resource_create_with_modifiers) {
+      return NULL;
+   }
 
    if (pscreen->is_format_supported(pscreen, map->pipe_format, screen->target,
                                     0, 0, PIPE_BIND_RENDER_TARGET))
@@ -1232,27 +1248,6 @@ dri2_create_image_common(__DRIscreen *_screen,
    img->loader_private = loaderPrivate;
    img->screen = screen;
    return img;
-}
-
-static __DRIimage *
-dri2_create_image(__DRIscreen *_screen,
-                   int width, int height, int format,
-                   unsigned int use, void *loaderPrivate)
-{
-   return dri2_create_image_common(_screen, width, height, format, use,
-                                   NULL /* modifiers */, 0 /* count */,
-                                   loaderPrivate);
-}
-
-static __DRIimage *
-dri2_create_image_with_modifiers(__DRIscreen *dri_screen,
-                                int width, int height, int format,
-                                const uint64_t *modifiers,
-                                const unsigned count, unsigned int use,
-                                void *loaderPrivate)
-{
-   return dri2_create_image_common(dri_screen, width, height, format, use,
-                                   modifiers, count, loaderPrivate);
 }
 
 static bool
@@ -1931,7 +1926,6 @@ static const __DRIimageExtension dri2ImageExtensionTempl = {
     .getCapabilities              = dri2_get_capabilities,
     .mapImage                     = dri2_map_image,
     .unmapImage                   = dri2_unmap_image,
-    .createImageWithModifiers     = NULL,
     .queryDmaBufFormats           = NULL,
     .queryDmaBufModifiers         = NULL,
     .queryDmaBufFormatModifierAttribs = NULL,
@@ -1956,7 +1950,6 @@ const __DRIimageExtension driVkImageExtension = {
     .getCapabilities              = dri2_get_capabilities,
     .mapImage                     = dri2_map_image,
     .unmapImage                   = dri2_unmap_image,
-    .createImageWithModifiers     = dri2_create_image_with_modifiers,
     .queryDmaBufFormats           = dri2_query_dma_buf_formats,
     .queryDmaBufModifiers         = dri2_query_dma_buf_modifiers,
     .queryDmaBufFormatModifierAttribs = dri2_query_dma_buf_format_modifier_attribs,
@@ -2208,10 +2201,6 @@ dri2_init_screen_extensions(struct dri_screen *screen,
    nExt = &screen->screen_extensions[ARRAY_SIZE(dri_screen_extensions_base)];
 
    screen->image_extension = dri2ImageExtensionTempl;
-   if (pscreen->resource_create_with_modifiers) {
-      screen->image_extension.createImageWithModifiers =
-         dri2_create_image_with_modifiers;
-   }
 
    if (pscreen->get_param(pscreen, PIPE_CAP_NATIVE_FENCE_FD)) {
       screen->image_extension.setInFenceFd = dri2_set_in_fence_fd;
