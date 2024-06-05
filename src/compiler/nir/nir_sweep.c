@@ -50,11 +50,7 @@ sweep_block(nir_shader *nir, nir_block *block)
    /* sweep_impl will mark all metadata invalid.  We can safely release all of
     * this here.
     */
-   ralloc_free(block->live_in);
-   block->live_in = NULL;
-
-   ralloc_free(block->live_out);
-   block->live_out = NULL;
+   nir_block_free_liveness_info(block);
 
    nir_foreach_instr(instr, block) {
       gc_mark_live(nir->gctx, instr);

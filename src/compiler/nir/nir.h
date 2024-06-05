@@ -3060,6 +3060,14 @@ nir_block_ends_in_break(nir_block *block)
           nir_instr_as_jump(instr)->type == nir_jump_break;
 }
 
+static inline void
+nir_block_free_liveness_info(nir_block *block)
+{
+   ralloc_free(block->live_in);
+   ralloc_free(block->live_out);
+   block->live_in = block->live_out = NULL;
+}
+
 #define nir_foreach_instr(instr, block) \
    foreach_list_typed(nir_instr, instr, node, &(block)->instr_list)
 #define nir_foreach_instr_reverse(instr, block) \
