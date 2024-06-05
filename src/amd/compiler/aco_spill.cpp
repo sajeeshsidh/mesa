@@ -87,17 +87,20 @@ struct spill_ctx {
    std::set<Instruction*> unused_remats;
    unsigned wave_size;
 
+   RegisterDemand extra_demand;
+
    unsigned sgpr_spill_slots;
    unsigned vgpr_spill_slots;
    Temp scratch_rsrc;
 
-   spill_ctx(const RegisterDemand target_pressure_, Program* program_)
+   spill_ctx(const RegisterDemand target_pressure_, RegisterDemand extra_demand_, Program* program_)
        : target_pressure(target_pressure_), program(program_), memory(),
          renames(program->blocks.size(), aco::map<Temp, Temp>(memory)),
          spills_entry(program->blocks.size(), aco::unordered_map<Temp, uint32_t>(memory)),
          spills_exit(program->blocks.size(), aco::unordered_map<Temp, uint32_t>(memory)),
          processed(program->blocks.size(), false), ssa_infos(program->peekAllocationId()),
-         remat(memory), wave_size(program->wave_size), sgpr_spill_slots(0), vgpr_spill_slots(0)
+         remat(memory), wave_size(program->wave_size), extra_demand(extra_demand_),
+         sgpr_spill_slots(0), vgpr_spill_slots(0)
    {}
 
    void add_affinity(uint32_t first, uint32_t second)
@@ -1033,8 +1036,14 @@ process_block(spill_ctx& ctx, unsigned block_idx, Block* block, RegisterDemand s
          RegisterDemand new_demand = ctx.program->live.register_demand[block_idx][idx];
          new_demand.update(demand_before);
 
+         RegisterDemand ignored_regs = {};
+
+         /* We spill linear VGPRs for calls in spill_preserved */
+         if (instr->isCall() || (!instructions.empty() && instructions.back()->isCall()))
+            ignored_regs += ctx.extra_demand;
+
          /* if reg pressure is too high, spill variable with furthest next use */
-         while ((new_demand - spilled_registers).exceeds(ctx.target_pressure)) {
+         while ((new_demand - spilled_registers).exceeds(ctx.target_pressure + ignored_regs)) {
             float score = 0.0;
             Temp to_spill;
             unsigned operand_idx = -1u;
@@ -1044,7 +1053,8 @@ process_block(spill_ctx& ctx, unsigned block_idx, Block* block, RegisterDemand s
             unsigned avoid_respill = 0;
 
             RegType type = RegType::sgpr;
-            if (new_demand.vgpr - spilled_registers.vgpr > ctx.target_pressure.vgpr)
+            if (new_demand.vgpr - spilled_registers.vgpr >
+                (ctx.target_pressure.vgpr + ignored_regs.vgpr))
                type = RegType::vgpr;
 
             for (unsigned t : ctx.program->live.live_out[block_idx]) {
@@ -1805,7 +1815,7 @@ spill(Program* program)
    const RegisterDemand target(vgpr_limit - extra_vgprs, sgpr_limit - extra_sgprs);
 
    /* initialize ctx */
-   spill_ctx ctx(target, program);
+   spill_ctx ctx(target, RegisterDemand(extra_vgprs, extra_sgprs), program);
    gather_ssa_use_info(ctx);
    get_rematerialize_info(ctx);
 
