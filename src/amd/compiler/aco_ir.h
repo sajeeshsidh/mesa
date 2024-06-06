@@ -2499,6 +2499,8 @@ RegisterDemand get_temp_registers(Program *program, Block *block, aco_ptr<Instru
 RegisterDemand get_demand_before(Program *program, Block *block, RegisterDemand demand,
                                  aco_ptr<Instruction>& instr, aco_ptr<Instruction>& instr_before,
                                  const IDSet& live_out);
+RegisterDemand get_blocked_abi_demand(Program* program, Block* block, const Pseudo_call_instruction* instr,
+                                      const IDSet& live);
 
 /* number of sgprs that need to be allocated but might notbe addressable as s0-s105 */
 uint16_t get_extra_sgprs(Program* program);
