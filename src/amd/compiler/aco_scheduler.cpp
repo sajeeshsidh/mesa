@@ -1294,10 +1294,54 @@ schedule_program(Program* program)
 
    /* update max_reg_demand and num_waves */
    RegisterDemand new_demand;
+   RegisterDemand real_new_demand;
    for (Block& block : program->blocks) {
       new_demand.update(block.register_demand);
+      if (block.contains_call) {
+         unsigned linear_vgpr_demand = 0;
+         for (auto t : program->live.live_out[block.index])
+            if (program->temp_rc[t].is_linear_vgpr())
+               linear_vgpr_demand += program->temp_rc[t].size();
+         
+         for (unsigned i = block.instructions.size() - 1; i < block.instructions.size(); --i) {
+            Instruction* instr = block.instructions[i].get();
+
+            for (auto& def : instr->definitions) {
+               if (def.isFixed() && def.regClass().type() == RegType::vgpr)
+                  real_new_demand.update(
+                     RegisterDemand((int16_t)(def.physReg().reg() - 256 + linear_vgpr_demand), 0));
+               else if (def.regClass().is_linear_vgpr() && !def.isKill())
+                  linear_vgpr_demand -= def.size();
+            }
+            for (auto& op : instr->operands) {
+               if (op.isFixed() && op.regClass().type() == RegType::vgpr)
+                  real_new_demand.update(
+                     RegisterDemand((int16_t)(op.physReg().reg() - 256 + linear_vgpr_demand), 0));
+               else if (op.regClass().is_linear_vgpr() && op.isFirstKill())
+                  linear_vgpr_demand += op.size();
+            }
+
+            if (!block.instructions[i]->isCall()) {
+               real_new_demand.update(program->live.register_demand[block.index][i]);
+               continue;
+            }
+
+            const unsigned max_vgpr = get_addr_vgpr_from_waves(program, program->min_waves);
+            const unsigned max_sgpr = get_addr_sgpr_from_waves(program, program->min_waves);
+
+            if (instr->call().abi.clobberedRegs.vgpr.hi() == PhysReg{256 + max_vgpr} &&
+                instr->call().abi.clobberedRegs.sgpr.hi() == PhysReg{max_sgpr})
+               real_new_demand.update(
+                  program->live.register_demand[block.index][i] -
+                  get_blocked_abi_demand(program, &block, &instr->call(), program->live.live_out[block.index]));
+            else
+               real_new_demand.update(program->live.register_demand[block.index][i]);
+         }
+      } else {
+         real_new_demand.update(block.register_demand);
+      }
    }
-   update_vgpr_sgpr_demand(program, new_demand);
+   update_vgpr_sgpr_demand(program, new_demand, real_new_demand);
 
 /* if enabled, this code asserts that register_demand is updated correctly */
 #if 0

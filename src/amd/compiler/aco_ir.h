@@ -2423,7 +2423,8 @@ void select_ps_prolog(Program* program, void* pinfo, ac_shader_config* config,
 void lower_phis(Program* program);
 void lower_subdword(Program* program);
 void calc_min_waves(Program* program);
-void update_vgpr_sgpr_demand(Program* program, const RegisterDemand new_demand);
+void update_vgpr_sgpr_demand(Program* program, const RegisterDemand new_demand,
+                             const RegisterDemand new_real_demand);
 void live_var_analysis(Program* program);
 std::vector<uint16_t> dead_code_analysis(Program* program);
 void dominator_tree(Program* program);

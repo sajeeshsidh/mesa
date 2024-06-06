@@ -528,7 +528,8 @@ max_suitable_waves(Program* program, uint16_t waves)
 }
 
 void
-update_vgpr_sgpr_demand(Program* program, const RegisterDemand new_demand)
+update_vgpr_sgpr_demand(Program* program, const RegisterDemand new_demand,
+                        const RegisterDemand new_real_demand)
 {
    assert(program->min_waves >= 1);
    uint16_t sgpr_limit = get_addr_sgpr_from_waves(program, program->min_waves);
@@ -540,9 +541,10 @@ update_vgpr_sgpr_demand(Program* program, const RegisterDemand new_demand)
       program->num_waves = 0;
       program->max_reg_demand = new_demand;
    } else {
-      program->num_waves = program->dev.physical_sgprs / get_sgpr_alloc(program, new_demand.sgpr);
+      program->num_waves =
+         program->dev.physical_sgprs / get_sgpr_alloc(program, new_real_demand.sgpr);
       uint16_t vgpr_demand =
-         get_vgpr_alloc(program, new_demand.vgpr) + program->config->num_shared_vgprs / 2;
+         get_vgpr_alloc(program, new_real_demand.vgpr) + program->config->num_shared_vgprs / 2;
       program->num_waves =
          std::min<uint16_t>(program->num_waves, program->dev.physical_vgprs / vgpr_demand);
       program->num_waves = std::min(program->num_waves, program->dev.max_waves_per_simd);
@@ -564,6 +566,7 @@ live_var_analysis(Program* program)
    unsigned worklist = program->blocks.size();
    std::vector<PhiInfo> phi_info(program->blocks.size());
    RegisterDemand new_demand;
+   RegisterDemand real_new_demand;
 
    program->needs_vcc = program->gfx_level >= GFX10;
 
@@ -585,16 +588,59 @@ live_var_analysis(Program* program)
          phi_info[block.index].linear_phi_ops;
 
       /* update block's register demand */
-      if (program->progress < CompilationProgress::after_ra)
-         for (RegisterDemand& demand : program->live.register_demand[block.index])
+      RegisterDemand real_block_demand;
+      if (program->progress < CompilationProgress::after_ra && block.contains_call) {
+         unsigned linear_vgpr_demand = 0;
+         for (auto t : program->live.live_out[block.index])
+            if (program->temp_rc[t].is_linear_vgpr())
+               linear_vgpr_demand += program->temp_rc[t].size();
+
+         for (unsigned i = program->live.register_demand[block.index].size() - 1;
+              i < program->live.register_demand[block.index].size(); --i) {
+            RegisterDemand& demand = program->live.register_demand[block.index][i];
+
+            const unsigned max_vgpr = get_addr_vgpr_from_waves(program, program->min_waves);
+            const unsigned max_sgpr = get_addr_sgpr_from_waves(program, program->min_waves);
+
+            const auto* instr = block.instructions[i].get();
+
+            for (auto& def : instr->definitions) {
+               if (def.isFixed() && def.regClass().type() == RegType::vgpr)
+                  real_block_demand.update(
+                     RegisterDemand((int16_t)(def.physReg().reg() - 256 + linear_vgpr_demand), 0));
+               else if (def.regClass().is_linear_vgpr() && !def.isKill())
+                  linear_vgpr_demand -= def.size();
+            }
+            for (auto& op : instr->operands) {
+               if (op.isFixed() && op.regClass().type() == RegType::vgpr)
+                  real_block_demand.update(
+                     RegisterDemand((int16_t)(op.physReg().reg() - 256 + linear_vgpr_demand), 0));
+               else if (op.regClass().is_linear_vgpr() && op.isFirstKill())
+                  linear_vgpr_demand += op.size();
+            }
+
+            if (instr->isCall() &&
+                instr->call().abi.clobberedRegs.vgpr.hi() == PhysReg{256 + max_vgpr} &&
+                instr->call().abi.clobberedRegs.sgpr.hi() == PhysReg{max_sgpr}) {
+               real_block_demand.update(
+                  demand - get_blocked_abi_demand(program, &block, &instr->call(),
+                                                  program->live.live_out[block.index]));
+
+            } else
+               real_block_demand.update(demand);
             block.register_demand.update(demand);
+         }
+      } else {
+         real_block_demand = block.register_demand;
+      }
 
       new_demand.update(block.register_demand);
+      real_new_demand.update(real_block_demand);
    }
 
    /* calculate the program's register demand and number of waves */
    if (program->progress < CompilationProgress::after_ra)
-      update_vgpr_sgpr_demand(program, new_demand);
+      update_vgpr_sgpr_demand(program, new_demand, real_new_demand);
 }
 
 } // namespace aco

@@ -1424,14 +1424,16 @@ increase_register_file(ra_ctx& ctx, RegClass rc)
 {
    if (rc.type() == RegType::vgpr && ctx.num_linear_vgprs == 0 &&
        ctx.vgpr_bounds < ctx.vgpr_limit) {
+      RegisterDemand new_demand =
+         RegisterDemand(ctx.vgpr_bounds + 1, ctx.program->max_reg_demand.sgpr);
       /* If vgpr_bounds is less than max_reg_demand.vgpr, this should be a no-op. */
-      update_vgpr_sgpr_demand(
-         ctx.program, RegisterDemand(ctx.vgpr_bounds + 1, ctx.program->max_reg_demand.sgpr));
+      update_vgpr_sgpr_demand(ctx.program, new_demand, new_demand);
 
       ctx.vgpr_bounds = ctx.program->max_reg_demand.vgpr;
    } else if (rc.type() == RegType::sgpr && ctx.program->max_reg_demand.sgpr < ctx.sgpr_limit) {
-      update_vgpr_sgpr_demand(
-         ctx.program, RegisterDemand(ctx.program->max_reg_demand.vgpr, ctx.sgpr_bounds + 1));
+      RegisterDemand new_demand =
+         RegisterDemand(ctx.program->max_reg_demand.vgpr, ctx.sgpr_bounds + 1);
+      update_vgpr_sgpr_demand(ctx.program, new_demand, new_demand);
 
       ctx.sgpr_bounds = ctx.program->max_reg_demand.sgpr;
    } else {
