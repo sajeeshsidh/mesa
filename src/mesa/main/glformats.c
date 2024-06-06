@@ -1798,7 +1798,7 @@ valid_texture_format_enum(const struct gl_context *ctx, GLenum format)
       return _mesa_has_MESA_ycbcr_texture(ctx);
 
    default:
-      return true;
+      return false;
    }
 }
 
@@ -1867,7 +1867,7 @@ valid_texture_type_enum(const struct gl_context *ctx, GLenum type)
       return _mesa_has_float_depth_buffer(ctx);
 
    default:
-      return true;
+      return false;
    }
 }
 
