@@ -2471,6 +2471,95 @@ fail:
 }
 
 static void *
+map_image_staging(struct zink_context *ctx,  struct zink_screen *screen, unsigned usage,
+                  struct zink_resource *res, struct zink_transfer *trans, const struct pipe_box *box)
+{
+   enum pipe_format format = res->base.b.format;
+   if (usage & PIPE_MAP_DEPTH_ONLY)
+      format = util_format_get_depth_only(res->base.b.format);
+   else if (usage & PIPE_MAP_STENCIL_ONLY)
+      format = PIPE_FORMAT_S8_UINT;
+   trans->base.b.stride = util_format_get_stride(format, box->width);
+   trans->base.b.layer_stride = util_format_get_2d_size(format,
+                                                        trans->base.b.stride,
+                                                        box->height);
+
+   struct pipe_resource templ = res->base.b;
+   templ.next = NULL;
+   templ.format = format;
+   templ.usage = usage & PIPE_MAP_READ ? PIPE_USAGE_STAGING : PIPE_USAGE_STREAM;
+   templ.target = PIPE_BUFFER;
+   templ.bind = PIPE_BIND_LINEAR;
+   templ.width0 = trans->base.b.layer_stride * box->depth;
+   templ.height0 = templ.depth0 = 0;
+   templ.last_level = 0;
+   templ.array_size = 1;
+   templ.flags = 0;
+
+   trans->staging_res = zink_resource_create(ctx->base.screen, &templ);
+   if (!trans->staging_res)
+      return NULL;
+
+   struct zink_resource *staging_res = zink_resource(trans->staging_res);
+
+   if (usage & PIPE_MAP_READ) {
+      assert(!(usage & TC_TRANSFER_MAP_THREADED_UNSYNC));
+      /* force multi-context sync */
+      if (zink_resource_usage_is_unflushed_write(res))
+         zink_resource_usage_wait(ctx, res, ZINK_RESOURCE_ACCESS_WRITE);
+      zink_transfer_copy_bufimage(ctx, staging_res, res, trans);
+      /* need to wait for rendering to finish */
+      zink_fence_wait(&ctx->base);
+   }
+
+   return map_resource(screen, staging_res);
+}
+
+static void *
+map_image_direct(struct zink_context *ctx, struct zink_screen *screen, unsigned usage,
+                              struct zink_resource *res, struct zink_transfer *trans, const struct pipe_box *box, unsigned level)
+{
+   assert(res->linear);
+   void *ptr = map_resource(screen, res);
+   if (!ptr)
+      return NULL;
+   if (zink_resource_has_usage(res)) {
+      assert(!(usage & PIPE_MAP_UNSYNCHRONIZED));
+      if (usage & PIPE_MAP_WRITE)
+         zink_fence_wait(&ctx->base);
+      else
+         zink_resource_usage_wait(ctx, res, ZINK_RESOURCE_ACCESS_WRITE);
+   }
+   VkImageSubresource isr = {
+      res->modifiers ? res->obj->modifier_aspect : res->aspect,
+      level,
+      0
+   };
+   VkSubresourceLayout srl;
+   VKSCR(GetImageSubresourceLayout)(screen->dev, res->obj->image, &isr, &srl);
+   trans->base.b.stride = srl.rowPitch;
+   if (res->base.b.target == PIPE_TEXTURE_3D)
+      trans->base.b.layer_stride = srl.depthPitch;
+   else
+      trans->base.b.layer_stride = srl.arrayPitch;
+   trans->offset = srl.offset;
+   trans->depthPitch = srl.depthPitch;
+   const struct util_format_description *desc = util_format_description(res->base.b.format);
+   unsigned offset = srl.offset +
+                     box->z * srl.depthPitch +
+                     (box->y / desc->block.height) * srl.rowPitch +
+                     (box->x / desc->block.width) * (desc->block.bits / 8);
+   if (!res->obj->coherent) {
+      VkDeviceSize size = (VkDeviceSize)box->width * box->height * desc->block.bits / 8;
+      VkMappedMemoryRange range = zink_resource_init_mem_range(screen, res->obj, res->obj->offset + offset, size);
+      if (VKSCR(FlushMappedMemoryRanges)(screen->dev, 1, &range) != VK_SUCCESS) {
+          mesa_loge("ZINK: vkFlushMappedMemoryRanges failed");
+      }
+   }
+   return ((uint8_t *)ptr) + offset;
+}
+
+static void *
 zink_image_map(struct pipe_context *pctx,
                   struct pipe_resource *pres,
                   unsigned level,
@@ -2499,88 +2588,15 @@ zink_image_map(struct pipe_context *pctx,
          /* if the map region intersects with any clears then we have to apply them */
          zink_fb_clears_apply_region(ctx, pres, zink_rect_from_box(box));
    }
+
    if (!res->linear || !res->obj->host_visible) {
-      enum pipe_format format = pres->format;
-      if (usage & PIPE_MAP_DEPTH_ONLY)
-         format = util_format_get_depth_only(pres->format);
-      else if (usage & PIPE_MAP_STENCIL_ONLY)
-         format = PIPE_FORMAT_S8_UINT;
-      trans->base.b.stride = util_format_get_stride(format, box->width);
-      trans->base.b.layer_stride = util_format_get_2d_size(format,
-                                                         trans->base.b.stride,
-                                                         box->height);
-
-      struct pipe_resource templ = *pres;
-      templ.next = NULL;
-      templ.format = format;
-      templ.usage = usage & PIPE_MAP_READ ? PIPE_USAGE_STAGING : PIPE_USAGE_STREAM;
-      templ.target = PIPE_BUFFER;
-      templ.bind = PIPE_BIND_LINEAR;
-      templ.width0 = trans->base.b.layer_stride * box->depth;
-      templ.height0 = templ.depth0 = 0;
-      templ.last_level = 0;
-      templ.array_size = 1;
-      templ.flags = 0;
-
-      trans->staging_res = zink_resource_create(pctx->screen, &templ);
-      if (!trans->staging_res)
-         goto fail;
-
-      struct zink_resource *staging_res = zink_resource(trans->staging_res);
-
-      if (usage & PIPE_MAP_READ) {
-         assert(!(usage & TC_TRANSFER_MAP_THREADED_UNSYNC));
-         /* force multi-context sync */
-         if (zink_resource_usage_is_unflushed_write(res))
-            zink_resource_usage_wait(ctx, res, ZINK_RESOURCE_ACCESS_WRITE);
-         zink_transfer_copy_bufimage(ctx, staging_res, res, trans);
-         /* need to wait for rendering to finish */
-         zink_fence_wait(pctx);
-      }
-
-      ptr = map_resource(screen, staging_res);
+      ptr = map_image_staging(ctx, screen, usage, res, trans, box);
    } else {
-      assert(res->linear);
-      ptr = map_resource(screen, res);
-      if (!ptr)
-         goto fail;
-      if (zink_resource_has_usage(res)) {
-         assert(!(usage & PIPE_MAP_UNSYNCHRONIZED));
-         if (usage & PIPE_MAP_WRITE)
-            zink_fence_wait(pctx);
-         else
-            zink_resource_usage_wait(ctx, res, ZINK_RESOURCE_ACCESS_WRITE);
-      }
-      VkImageSubresource isr = {
-         res->modifiers ? res->obj->modifier_aspect : res->aspect,
-         level,
-         0
-      };
-      VkSubresourceLayout srl;
-      VKSCR(GetImageSubresourceLayout)(screen->dev, res->obj->image, &isr, &srl);
-      trans->base.b.stride = srl.rowPitch;
-      if (res->base.b.target == PIPE_TEXTURE_3D)
-         trans->base.b.layer_stride = srl.depthPitch;
-      else
-         trans->base.b.layer_stride = srl.arrayPitch;
-      trans->offset = srl.offset;
-      trans->depthPitch = srl.depthPitch;
-      const struct util_format_description *desc = util_format_description(res->base.b.format);
-      unsigned offset = srl.offset +
-                        box->z * srl.depthPitch +
-                        (box->y / desc->block.height) * srl.rowPitch +
-                        (box->x / desc->block.width) * (desc->block.bits / 8);
-      if (!res->obj->coherent) {
-         VkDeviceSize size = (VkDeviceSize)box->width * box->height * desc->block.bits / 8;
-         VkMappedMemoryRange range = zink_resource_init_mem_range(screen, res->obj, res->obj->offset + offset, size);
-         if (VKSCR(FlushMappedMemoryRanges)(screen->dev, 1, &range) != VK_SUCCESS) {
-            mesa_loge("ZINK: vkFlushMappedMemoryRanges failed");
-         }
-      }
-      ptr = ((uint8_t *)ptr) + offset;
+      ptr = map_image_direct(ctx, screen, usage, res, trans, box, level);
    }
    if (!ptr)
       goto fail;
+
    if (usage & PIPE_MAP_WRITE) {
       if (!res->valid && res->fb_bind_count) {
          assert(!(usage & PIPE_MAP_UNSYNCHRONIZED));
