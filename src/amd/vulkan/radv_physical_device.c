@@ -102,6 +102,10 @@ radv_calibrated_timestamps_enabled(const struct radv_physical_device *pdev)
 bool
 radv_enable_rt(const struct radv_physical_device *pdev, bool rt_pipelines)
 {
+   /* Temporarily under construction! */
+   if (rt_pipelines)
+      return false;
+
    if (pdev->info.gfx_level < GFX10_3 && !radv_emulate_rt(pdev))
       return false;
 
