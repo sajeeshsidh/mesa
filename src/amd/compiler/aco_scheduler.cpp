@@ -82,9 +82,11 @@ struct UpwardsCursor {
 struct MoveState {
    RegisterDemand max_registers;
 
+   Program* program;
    Block* block;
    Instruction* current;
    RegisterDemand* register_demand; /* demand per instruction */
+   const IDSet* live_out;
    bool improved_rar;
 
    std::vector<bool> depends_on;
@@ -232,8 +234,8 @@ MoveState::downwards_move(DownwardsCursor& cursor, bool add_to_clause)
       return move_fail_pressure;
 
    /* New demand for the moved instruction */
-   const RegisterDemand temp = get_temp_registers(instr);
-   const RegisterDemand temp2 = get_temp_registers(block->instructions[dest_insert_idx - 1]);
+   const RegisterDemand temp = get_temp_registers(program, block, instr, *live_out);
+   const RegisterDemand temp2 = get_temp_registers(program, block, block->instructions[dest_insert_idx - 1], *live_out);
    const RegisterDemand new_demand = register_demand[dest_insert_idx - 1] - temp2 + temp;
    if (new_demand.exceeds(max_registers))
       return move_fail_pressure;
@@ -356,10 +358,10 @@ MoveState::upwards_move(UpwardsCursor& cursor)
    /* check if register pressure is low enough: the diff is negative if register pressure is
     * decreased */
    const RegisterDemand candidate_diff = get_live_changes(instr);
-   const RegisterDemand temp = get_temp_registers(instr);
+   const RegisterDemand temp = get_temp_registers(program, block, instr, *live_out);
    if (RegisterDemand(cursor.total_demand + candidate_diff).exceeds(max_registers))
       return move_fail_pressure;
-   const RegisterDemand temp2 = get_temp_registers(block->instructions[cursor.insert_idx - 1]);
+   const RegisterDemand temp2 = get_temp_registers(program, block, block->instructions[cursor.insert_idx - 1], *live_out);
    const RegisterDemand new_demand =
       register_demand[cursor.insert_idx - 1] - temp2 + candidate_diff + temp;
    if (new_demand.exceeds(max_registers))
@@ -1171,6 +1173,7 @@ schedule_block(sched_ctx& ctx, Program* program, Block* block)
    ctx.last_SMEM_stall = INT16_MIN;
    ctx.mv.block = block;
    ctx.mv.register_demand = program->live.register_demand[block->index].data();
+   ctx.mv.live_out = &program->live.live_out[block->index];
 
    /* go through all instructions and find memory loads */
    unsigned num_stores = 0;
@@ -1239,6 +1242,7 @@ schedule_program(Program* program)
 
    sched_ctx ctx;
    ctx.gfx_level = program->gfx_level;
+   ctx.mv.program = program;
    ctx.mv.depends_on.resize(program->peekAllocationId());
    ctx.mv.RAR_dependencies.resize(program->peekAllocationId());
    ctx.mv.RAR_dependencies_clause.resize(program->peekAllocationId());

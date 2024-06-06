@@ -304,7 +304,8 @@ get_demand_before(spill_ctx& ctx, RegisterDemand temp_registers_before,
       RegisterDemand demand = ctx.program->live.register_demand[block_idx][idx];
       aco_ptr<Instruction>& instr = ctx.program->blocks[block_idx].instructions[idx];
       aco_ptr<Instruction> instr_before(nullptr);
-      return get_demand_before(demand, instr, instr_before);
+      return get_demand_before(ctx.program, &ctx.program->blocks[block_idx], demand, instr,
+                               instr_before, ctx.program->live.live_out[block_idx]);
    } else {
       aco_ptr<Instruction>& instr = ctx.program->blocks[block_idx].instructions[idx];
       RegisterDemand demand_between = get_demand_between(instr);

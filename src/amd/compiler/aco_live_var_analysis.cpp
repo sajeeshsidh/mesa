@@ -61,7 +61,7 @@ get_demand_between(aco_ptr<Instruction>& instr)
 }
 
 RegisterDemand
-get_temp_registers(aco_ptr<Instruction>& instr)
+get_temp_registers(Program *program, Block *block, aco_ptr<Instruction>& instr, const IDSet& live_out)
 {
    RegisterDemand temp_registers;
 
@@ -110,13 +110,13 @@ get_temp_registers(aco_ptr<Instruction>& instr)
 }
 
 RegisterDemand
-get_demand_before(RegisterDemand demand, aco_ptr<Instruction>& instr,
-                  aco_ptr<Instruction>& instr_before)
+get_demand_before(Program *program, Block *block, RegisterDemand demand, aco_ptr<Instruction>& instr,
+                  aco_ptr<Instruction>& instr_before, const IDSet& live_out)
 {
    demand -= get_live_changes(instr);
-   demand -= get_temp_registers(instr);
+   demand -= get_temp_registers(program, block, instr, live_out);
    if (instr_before)
-      demand += get_temp_registers(instr_before);
+      demand += get_temp_registers(program, block, instr_before, live_out);
    return demand;
 }
 
@@ -232,7 +232,8 @@ process_live_temps_per_block(Program* program, Block* block, unsigned& worklist,
          }
       }
 
-      register_demand[idx] += get_temp_registers(block->instructions[idx]);
+      register_demand[idx] +=
+         get_temp_registers(program, block, block->instructions[idx], program->live.live_out[block->index]);
    }
 
    /* handle phi definitions */
