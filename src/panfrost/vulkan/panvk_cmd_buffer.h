@@ -36,23 +36,25 @@ struct panvk_batch {
    struct list_head node;
    struct util_dynarray jobs;
    struct util_dynarray event_ops;
-   struct pan_jc jc;
+   struct pan_jc vtc_jc;
+   struct pan_jc frag_jc;
    struct {
       struct panfrost_ptr desc;
+      uint32_t desc_stride;
       uint32_t bo_count;
 
       /* One slot per color, two more slots for the depth/stencil buffers. */
       struct pan_kmod_bo *bos[MAX_RTS + 2];
+      uint32_t layer_count;
    } fb;
    struct {
       struct pan_kmod_bo *src, *dst;
    } blit;
    struct panfrost_ptr tls;
-   mali_ptr fragment_job;
    struct {
       struct pan_tiler_context ctx;
       struct panfrost_ptr heap_desc;
-      struct panfrost_ptr ctx_desc;
+      struct panfrost_ptr ctx_descs;
       struct mali_tiler_heap_packed heap_templ;
       struct mali_tiler_context_packed ctx_templ;
    } tiler;
@@ -97,6 +99,12 @@ struct panvk_attrib_buf {
    unsigned size;
 };
 
+struct panvk_resolve_attachment {
+   VkResolveModeFlagBits mode;
+   struct panvk_image_view *src_iview;
+   struct panvk_image_view *dst_iview;
+};
+
 struct panvk_cmd_graphics_state {
    struct panvk_descriptor_state desc_state;
    const struct panvk_graphics_pipeline *pipeline;
@@ -134,14 +142,20 @@ struct panvk_cmd_graphics_state {
 
    struct {
       VkRenderingFlags flags;
+      uint32_t layer_count;
 
       enum vk_rp_attachment_flags bound_attachments;
       struct {
          VkFormat fmts[MAX_RTS];
          uint8_t samples[MAX_RTS];
+         struct panvk_resolve_attachment resolve[MAX_RTS];
       } color_attachments;
 
       struct pan_image_view zs_pview;
+
+      struct {
+         struct panvk_resolve_attachment resolve;
+      } z_attachment, s_attachment;
 
       struct {
          struct pan_fb_info info;
@@ -179,6 +193,39 @@ struct panvk_cmd_buffer {
 
 VK_DEFINE_HANDLE_CASTS(panvk_cmd_buffer, vk.base, VkCommandBuffer,
                        VK_OBJECT_TYPE_COMMAND_BUFFER)
+
+struct panvk_cmd_meta_compute_save_ctx {
+   const struct panvk_compute_pipeline *pipeline;
+   struct panvk_descriptor_state desc_state;
+   bool push_set0_saved;
+   struct panvk_push_descriptor_set push_set0;
+   uint8_t push_constants[MAX_PUSH_CONSTANTS_SIZE];
+};
+
+struct panvk_cmd_meta_graphics_save_ctx {
+   const struct panvk_graphics_pipeline *pipeline;
+   struct panvk_descriptor_state desc_state;
+   struct panvk_push_descriptor_set push_set0;
+   bool push_set0_saved;
+   uint8_t push_constants[MAX_PUSH_CONSTANTS_SIZE];
+   struct vk_vertex_input_state vi;
+   struct panvk_attrib_buf vb0;
+
+   struct {
+      struct vk_dynamic_graphics_state all;
+      struct vk_vertex_input_state vi;
+      struct vk_sample_locations_state sl;
+   } dyn_state;
+
+   struct {
+      mali_ptr rsd;
+   } fs;
+
+   struct {
+      mali_ptr attribs;
+      mali_ptr attrib_bufs;
+   } vs;
+};
 
 static inline const struct panvk_pipeline *
 panvk_cmd_get_pipeline(const struct panvk_cmd_buffer *cmdbuf,
@@ -226,9 +273,26 @@ void panvk_per_arch(cmd_alloc_fb_desc)(struct panvk_cmd_buffer *cmdbuf);
 void panvk_per_arch(cmd_alloc_tls_desc)(struct panvk_cmd_buffer *cmdbuf,
                                         bool gfx);
 
-void panvk_per_arch(cmd_prepare_tiler_context)(struct panvk_cmd_buffer *cmdbuf);
+void panvk_per_arch(cmd_prepare_tiler_context)(struct panvk_cmd_buffer *cmdbuf,
+                                               uint32_t layer_idx);
 
 void panvk_per_arch(emit_viewport)(const VkViewport *viewport,
                                    const VkRect2D *scissor, void *vpd);
+
+void panvk_per_arch(cmd_meta_compute_start)(
+   struct panvk_cmd_buffer *cmdbuf,
+   struct panvk_cmd_meta_compute_save_ctx *save_ctx);
+
+void panvk_per_arch(cmd_meta_compute_end)(
+   struct panvk_cmd_buffer *cmdbuf,
+   const struct panvk_cmd_meta_compute_save_ctx *save_ctx);
+
+void panvk_per_arch(cmd_meta_gfx_start)(
+   struct panvk_cmd_buffer *cmdbuf,
+   struct panvk_cmd_meta_graphics_save_ctx *save_ctx);
+
+void panvk_per_arch(cmd_meta_gfx_end)(
+   struct panvk_cmd_buffer *cmdbuf,
+   const struct panvk_cmd_meta_graphics_save_ctx *save_ctx);
 
 #endif

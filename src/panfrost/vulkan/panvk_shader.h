@@ -51,6 +51,11 @@ struct panvk_graphics_sysvals {
       uint32_t base_vertex;
       uint32_t base_instance;
    } vs;
+
+   /* gl_Layer on Bifrost is a bit of hack. We have to issue one draw per
+    * layer, and filter primitives at the VS level.
+    */
+   int32_t layer_id;
 };
 
 struct panvk_compute_sysvals {

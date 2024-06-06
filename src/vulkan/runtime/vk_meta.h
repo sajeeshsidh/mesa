@@ -29,6 +29,8 @@
 #include "util/simple_mtx.h"
 #include "util/u_dynarray.h"
 
+#include "compiler/nir/nir.h"
+
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -46,6 +48,14 @@ struct vk_meta_rect {
 
 #define VK_PRIMITIVE_TOPOLOGY_META_RECT_LIST_MESA (VkPrimitiveTopology)11
 
+struct vk_meta_copy_image_properties {
+   /* Format to use for the image view. */
+   VkFormat view_format;
+
+   /* Size of the image tile. Used to select the optimal workgroup size. */
+   VkExtent3D tile_size;
+};
+
 struct vk_meta_device {
    struct hash_table *cache;
    simple_mtx_t cache_mtx;
@@ -54,6 +64,20 @@ struct vk_meta_device {
    bool use_layered_rendering;
    bool use_gs_for_layer;
    bool use_stencil_export;
+
+   struct {
+      /* Optimal per-workgroup buffer access size for copy/fill/update buffer
+       * operations. This usually depends on the cache properties (something big
+       * enough to maximize cache hits on executing threads, but small enough to
+       * not trash the cache). */
+      uint32_t optimal_size_per_wg;
+
+      /* Set to true if global loads/stores are preferred over SSBO accesses. */
+      bool use_global_address;
+
+      /* Needed for meta shaders accessing storage buffers. */
+      nir_address_format ssbo_addr_format;
+   } buffer_access;
 
    VkResult (*cmd_bind_map_buffer)(struct vk_command_buffer *cmd,
                                    struct vk_meta_device *meta,
@@ -82,6 +106,11 @@ enum vk_meta_object_key_type {
    VK_META_OBJECT_KEY_CLEAR_PIPELINE,
    VK_META_OBJECT_KEY_BLIT_PIPELINE,
    VK_META_OBJECT_KEY_BLIT_SAMPLER,
+   VK_META_OBJECT_KEY_COPY_BUFFER_PIPELINE,
+   VK_META_OBJECT_KEY_COPY_IMAGE_TO_BUFFER_PIPELINE,
+   VK_META_OBJECT_KEY_COPY_BUFFER_TO_IMAGE_PIPELINE,
+   VK_META_OBJECT_KEY_COPY_IMAGE_PIPELINE,
+   VK_META_OBJECT_KEY_FILL_BUFFER_PIPELINE,
 };
 
 uint64_t vk_meta_lookup_object(struct vk_meta_device *meta,
@@ -291,6 +320,40 @@ void vk_meta_resolve_image2(struct vk_command_buffer *cmd,
 void vk_meta_resolve_rendering(struct vk_command_buffer *cmd,
                                struct vk_meta_device *meta,
                                const VkRenderingInfo *pRenderingInfo);
+
+VkDeviceAddress vk_meta_buffer_address(struct vk_device *device,
+                                       VkBuffer buffer);
+
+void vk_meta_copy_buffer(struct vk_command_buffer *cmd,
+                         struct vk_meta_device *meta,
+                         const VkCopyBufferInfo2 *info);
+
+void vk_meta_copy_image_to_buffer(
+   struct vk_command_buffer *cmd, struct vk_meta_device *meta,
+   const VkCopyImageToBufferInfo2 *info,
+   const struct vk_meta_copy_image_properties *img_props);
+
+void vk_meta_copy_buffer_to_image(
+   struct vk_command_buffer *cmd, struct vk_meta_device *meta,
+   const VkCopyBufferToImageInfo2 *info,
+   const struct vk_meta_copy_image_properties *img_props,
+   bool use_gfx_pipeline);
+
+void vk_meta_copy_image(struct vk_command_buffer *cmd,
+                        struct vk_meta_device *meta,
+                        const VkCopyImageInfo2 *info,
+                        const struct vk_meta_copy_image_properties *src_props,
+                        const struct vk_meta_copy_image_properties *dst_props,
+                        bool use_gfx_pipeline);
+
+void vk_meta_update_buffer(struct vk_command_buffer *cmd,
+                           struct vk_meta_device *meta, VkBuffer buffer,
+                           VkDeviceSize offset, VkDeviceSize size,
+                           const void *data);
+
+void vk_meta_fill_buffer(struct vk_command_buffer *cmd,
+                         struct vk_meta_device *meta, VkBuffer buffer,
+                         VkDeviceSize offset, VkDeviceSize size, uint32_t data);
 
 #ifdef __cplusplus
 }
