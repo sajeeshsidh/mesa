@@ -9,6 +9,7 @@
 import argparse
 import os.path
 import re
+import subprocess
 import sys
 
 from mako.template import Template
@@ -48,6 +49,22 @@ ${decl_mod(m.children[name], path + [name])}
 }
 % endif
 </%def>
+
+/// Converts a method to its raw representation.
+pub trait Mthd {
+    /// The hardware address of the method.
+    fn addr(&self) -> u16;
+    /// Converts the method to its raw representation.
+    fn to_bits(&self) -> u32;
+}
+
+pub trait ArrayMthd {
+    /// The hardware address of the method for the given index.
+    fn addr(&self, i: usize) -> u16;
+    /// Converts the method to its raw representation.
+    fn to_bits(&self) -> u32;
+}
+
 ${decl_mod(root, [])}
 """)
 
@@ -88,6 +105,10 @@ def main():
     try:
         with open(args.out_rs, 'w', encoding='utf-8') as f:
             f.write(TEMPLATE_RS.render(root=root))
+            try:
+                subprocess.run(['rustfmt', args.out_rs], check=True)
+            except subprocess.CalledProcessError:
+                pass
 
     except Exception:
         # In the event there's an error, this imports some helpers from mako

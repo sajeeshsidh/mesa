@@ -81,6 +81,25 @@ if with_nouveau_vk
                  '--out-rs', '@OUTPUT0@'],
     )
 
+     cl_rs_generated += custom_target(
+      'nvh_' + cl + '_mthd.rs',
+      input : ['class_parser.py', 'nvidia/classes/'+cl+'.h'],
+      output : ['nvh_'+cl+'_mthd.rs'],
+      command : [prog_python, '@INPUT0@', '--in-h', '@INPUT1@',
+                 '--out-rs-mthd', '@OUTPUT0@'],
+      depend_files: nvk_cl_header_depend_files,
+    )
+
+     cl_rs_generated += custom_target(
+      'nvh_' + cl + '_mthd_debug.rs',
+      input : ['class_parser.py', 'nvidia/classes/'+cl+'.h'],
+      output : ['nvh_'+cl+'_mthd_debug.rs'],
+      command : [prog_python, '@INPUT0@', '--in-h', '@INPUT1@',
+                 '--out-rs-debug', '@OUTPUT0@'],
+      depend_files: nvk_cl_header_depend_files,
+    )
+
+
     fs = import('fs')
     if cl.endswith('c0') and fs.is_file('nvidia/classes/'+cl+'qmd.h')
       cl_rs_generated += custom_target(
@@ -140,5 +159,13 @@ if with_nouveau_vk
 
   idep_nvidia_headers_rs = declare_dependency(
     link_with : _nvidia_headers_rs,
+  )
+
+  _libnvpush_rs = static_library(
+    'nvpush_rs',
+    files('push_rs/lib.rs'),
+    gnu_symbol_visibility: 'hidden',
+    rust_abi: 'rust',
+    dependencies: [idep_nvidia_headers_rs],
   )
 endif
