@@ -120,13 +120,17 @@ process_live_temps_per_block(Program* program, Block* block, unsigned& worklist,
 {
    std::vector<RegisterDemand>& register_demand = program->live.register_demand[block->index];
    RegisterDemand new_demand;
+   unsigned linear_vgpr_demand = 0;
 
    register_demand.resize(block->instructions.size());
    IDSet live = program->live.live_out[block->index];
 
    /* initialize register demand */
-   for (unsigned t : live)
+   for (unsigned t : live) {
       new_demand += Temp(t, program->temp_rc[t]);
+      if (program->temp_rc[t].is_linear_vgpr())
+         linear_vgpr_demand += program->temp_rc[t].size();
+   }
    new_demand.sgpr -= phi_info[block->index].logical_phi_sgpr_ops;
 
    /* traverse the instructions backwards */
@@ -146,6 +150,9 @@ process_live_temps_per_block(Program* program, Block* block, unsigned& worklist,
          }
          if (definition.isFixed() && definition.physReg() == vcc)
             program->needs_vcc = true;
+         if (definition.isFixed() && definition.regClass().type() == RegType::vgpr)
+            block->register_demand.update(
+               RegisterDemand((int16_t)(definition.physReg().reg() - 256 + linear_vgpr_demand), 0));
 
          const Temp temp = definition.getTemp();
          const size_t n = live.erase(temp.id());
@@ -153,6 +160,8 @@ process_live_temps_per_block(Program* program, Block* block, unsigned& worklist,
          if (n) {
             new_demand -= temp;
             definition.setKill(false);
+            if (temp.regClass().is_linear_vgpr())
+               linear_vgpr_demand -= temp.size();
          } else {
             definition.setKill(true);
          }
@@ -174,6 +183,9 @@ process_live_temps_per_block(Program* program, Block* block, unsigned& worklist,
                continue;
             if (operand.isFixed() && operand.physReg() == vcc)
                program->needs_vcc = true;
+            if (operand.isFixed() && operand.regClass().type() == RegType::vgpr)
+               block->register_demand.update(
+                  RegisterDemand((int16_t)(operand.physReg().reg() - 256 + linear_vgpr_demand), 0));
             const Temp temp = operand.getTemp();
             const bool inserted = live.insert(temp.id()).second;
             if (inserted) {
@@ -186,6 +198,8 @@ process_live_temps_per_block(Program* program, Block* block, unsigned& worklist,
                   }
                }
                new_demand += temp;
+               if (operand.regClass().is_linear_vgpr())
+                  linear_vgpr_demand += temp.size();
             }
          }
       }
@@ -469,6 +483,9 @@ live_var_analysis(Program* program)
 
    program->needs_vcc = program->gfx_level >= GFX10;
 
+   for (auto& block : program->blocks)
+      block.register_demand = RegisterDemand();
+
    /* this implementation assumes that the block idx corresponds to the block's position in
     * program->blocks vector */
    while (worklist) {
@@ -484,11 +501,9 @@ live_var_analysis(Program* program)
          phi_info[block.index].linear_phi_ops;
 
       /* update block's register demand */
-      if (program->progress < CompilationProgress::after_ra) {
-         block.register_demand = RegisterDemand();
+      if (program->progress < CompilationProgress::after_ra)
          for (RegisterDemand& demand : program->live.register_demand[block.index])
             block.register_demand.update(demand);
-      }
 
       new_demand.update(block.register_demand);
    }
