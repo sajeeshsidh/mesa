@@ -624,44 +624,50 @@ eval_ici(struct zink_screen *screen, VkImageCreateInfo *ici, const struct pipe_r
    bool first = true;
    bool tried[2] = {0};
    uint64_t mod = DRM_FORMAT_MOD_INVALID;
-retry:
+
    while (!ici->usage) {
-      if (!first) {
-         switch (ici->tiling) {
-         case VK_IMAGE_TILING_DRM_FORMAT_MODIFIER_EXT:
-            ici->tiling = VK_IMAGE_TILING_OPTIMAL;
-            modifiers_count = 0;
-            break;
-         case VK_IMAGE_TILING_OPTIMAL:
-            ici->tiling = VK_IMAGE_TILING_LINEAR;
-            break;
-         case VK_IMAGE_TILING_LINEAR:
-            if (bind & PIPE_BIND_LINEAR) {
-               *success = false;
-               return DRM_FORMAT_MOD_INVALID;
-            }
-            ici->tiling = VK_IMAGE_TILING_OPTIMAL;
-            break;
-         default:
-            unreachable("unhandled tiling mode");
-         }
-         if (tried[ici->tiling]) {
-            if (ici->flags & VK_IMAGE_CREATE_EXTENDED_USAGE_BIT) {
-               *success = false;
-               return DRM_FORMAT_MOD_INVALID;
-            }
-            ici->flags |= VK_IMAGE_CREATE_EXTENDED_USAGE_BIT | VK_IMAGE_CREATE_MUTABLE_FORMAT_BIT;
-            tried[0] = false;
-            tried[1] = false;
-            first = true;
-            goto retry;
-         }
+      if (first) {
+         ici->usage = get_image_usage(screen, ici, templ, bind, modifiers_count, modifiers, &mod);
+         if (ici->tiling != VK_IMAGE_TILING_DRM_FORMAT_MODIFIER_EXT)
+            tried[ici->tiling] = true;
+         first = false;
+         continue;
       }
-      ici->usage = get_image_usage(screen, ici, templ, bind, modifiers_count, modifiers, &mod);
-      first = false;
-      if (ici->tiling != VK_IMAGE_TILING_DRM_FORMAT_MODIFIER_EXT)
-         tried[ici->tiling] = true;
+
+      switch (ici->tiling) {
+      case VK_IMAGE_TILING_DRM_FORMAT_MODIFIER_EXT:
+         ici->tiling = VK_IMAGE_TILING_OPTIMAL;
+         modifiers_count = 0;
+         break;
+      case VK_IMAGE_TILING_OPTIMAL:
+         ici->tiling = VK_IMAGE_TILING_LINEAR;
+         break;
+      case VK_IMAGE_TILING_LINEAR:
+         if (bind & PIPE_BIND_LINEAR) {
+            *success = false;
+            return DRM_FORMAT_MOD_INVALID;
+         }
+         ici->tiling = VK_IMAGE_TILING_OPTIMAL;
+         break;
+      default:
+         unreachable("unhandled tiling mode");
+      }
+
+      assert(ici->tiling == VK_IMAGE_TILING_LINEAR ||
+             ici->tiling == VK_IMAGE_TILING_OPTIMAL);
+
+      if (tried[ici->tiling]) {
+         if (ici->flags & VK_IMAGE_CREATE_EXTENDED_USAGE_BIT) {
+            *success = false;
+            return DRM_FORMAT_MOD_INVALID;
+         }
+         ici->flags |= VK_IMAGE_CREATE_EXTENDED_USAGE_BIT | VK_IMAGE_CREATE_MUTABLE_FORMAT_BIT;
+         tried[VK_IMAGE_TILING_OPTIMAL] = false;
+         tried[VK_IMAGE_TILING_LINEAR] = false;
+         first = true;
+      }
    }
+
    if (want_cube) {
       ici->flags |= VK_IMAGE_CREATE_CUBE_COMPATIBLE_BIT;
       if ((get_image_usage(screen, ici, templ, bind, modifiers_count, modifiers, &mod) & ici->usage) != ici->usage)
