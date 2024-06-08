@@ -81,13 +81,9 @@ validate_ir(Program* program)
          unsigned pck_ops = instr_info.operands[(int)instr->opcode];
 
          if (pck_defs != 0) {
-            /* Before GFX10 v_cmpx also writes VCC. */
-            if (instr->isVOPC() && program->gfx_level < GFX10 && pck_defs == exec_hi)
-               pck_defs = vcc | (exec_hi << 8);
-
             for (unsigned i = 0; i < 4; i++) {
-               uint32_t def = (pck_defs >> (i * 8)) & 0xff;
-               if (def == 0) {
+               aco_type dtype =  get_definition_type(program->gfx_level, instr.get(), i);
+               if (dtype == type_invalid) {
                   check(i == instr->definitions.size(), "Too many definitions", instr.get());
                   break;
                } else {
@@ -96,24 +92,24 @@ validate_ir(Program* program)
                      break;
                }
 
-               if (def == m0) {
+               if (dtype == type_m0) {
                   check(instr->definitions[i].isFixed() && instr->definitions[i].physReg() == m0,
                         "Definition needs m0", instr.get());
-               } else if (def == scc) {
+               } else if (dtype == type_scc) {
                   check(instr->definitions[i].isFixed() && instr->definitions[i].physReg() == scc,
                         "Definition needs scc", instr.get());
-               } else if (def == exec_hi) {
+               } else if (dtype == type_exec) {
                   RegClass rc = instr->isSALU() ? s2 : program->lane_mask;
                   check(instr->definitions[i].isFixed() &&
                            instr->definitions[i].physReg() == exec &&
                            instr->definitions[i].regClass() == rc,
                         "Definition needs exec", instr.get());
-               } else if (def == exec_lo) {
+               } else if (dtype == type_exec_lo) {
                   check(instr->definitions[i].isFixed() &&
                            instr->definitions[i].physReg() == exec_lo &&
                            instr->definitions[i].regClass() == s1,
                         "Definition needs exec_lo", instr.get());
-               } else if (def == vcc) {
+               } else if (dtype == type_vcc) {
                   check(instr->definitions[i].regClass() == program->lane_mask,
                         "Definition has to be lane mask", instr.get());
                   check(!instr->definitions[i].isFixed() ||
@@ -121,16 +117,16 @@ validate_ir(Program* program)
                            instr->isSDWA(),
                         "Definition has to be vcc", instr.get());
                } else {
-                  check(instr->definitions[i].size() == def, "Definition has wrong size",
-                        instr.get());
+                  check(instr->definitions[i].size() == type_get_dwords(dtype),
+                        "Definition has wrong size", instr.get());
                }
             }
          }
 
          if (pck_ops != 0) {
             for (unsigned i = 0; i < 4; i++) {
-               uint32_t op = (pck_ops >> (i * 8)) & 0xff;
-               if (op == 0) {
+               aco_type otype = get_operand_type(instr.get(), i);
+               if (otype == type_invalid) {
                   check(i == instr->operands.size(), "Too many operands", instr.get());
                   break;
                } else {
@@ -139,30 +135,32 @@ validate_ir(Program* program)
                      break;
                }
 
-               if (op == m0) {
+               if (otype == type_m0) {
                   check(instr->operands[i].isFixed() && instr->operands[i].physReg() == m0,
                         "Operand needs m0", instr.get());
-               } else if (op == scc) {
+               } else if (otype == type_scc) {
                   check(instr->operands[i].isFixed() && instr->operands[i].physReg() == scc,
                         "Operand needs scc", instr.get());
-               } else if (op == exec_hi) {
+               } else if (otype == type_exec) {
                   RegClass rc = instr->isSALU() ? s2 : program->lane_mask;
                   check(instr->operands[i].isFixed() && instr->operands[i].physReg() == exec &&
                            instr->operands[i].hasRegClass() && instr->operands[i].regClass() == rc,
                         "Operand needs exec", instr.get());
-               } else if (op == exec_lo) {
+               } else if (otype == type_exec_lo) {
                   check(instr->operands[i].isFixed() && instr->operands[i].physReg() == exec_lo &&
                            instr->operands[i].hasRegClass() && instr->operands[i].regClass() == s1,
                         "Operand needs exec_lo", instr.get());
-               } else if (op == vcc) {
+               } else if (otype == type_vcc) {
                   check(instr->operands[i].hasRegClass() &&
                            instr->operands[i].regClass() == program->lane_mask,
                         "Operand has to be lane mask", instr.get());
                   check(!instr->operands[i].isFixed() || instr->operands[i].physReg() == vcc ||
                            instr->isVOP3(),
                         "Operand has to be vcc", instr.get());
+               } else if (otype == type_imm) {
+                  check(instr->operands[i].isLiteral(), "Operand must be literal", instr.get());
                } else {
-                  check(instr->operands[i].size() == op ||
+                  check(instr->operands[i].size() == type_get_dwords(otype) ||
                            (instr->operands[i].isFixed() && instr->operands[i].physReg() >= 128 &&
                             instr->operands[i].physReg() < 256),
                         "Operand has wrong size", instr.get());

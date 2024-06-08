@@ -1767,6 +1767,13 @@ unsigned get_vopd_opy_start(const Instruction* instr);
 
 unsigned get_operand_size(aco_ptr<Instruction>& instr, unsigned index);
 
+aco_type get_operand_type(Instruction* instr, unsigned index);
+aco_type get_definition_type(enum amd_gfx_level gfx_level, Instruction* instr, unsigned index);
+
+unsigned type_get_constant_size(aco_type t);
+unsigned type_get_bytes(aco_type t);
+unsigned type_get_dwords(aco_type t);
+
 bool should_form_clause(const Instruction* a, const Instruction* b);
 
 enum vmem_type : uint8_t {
