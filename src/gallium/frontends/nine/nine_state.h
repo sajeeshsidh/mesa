@@ -273,7 +273,8 @@ struct nine_context {
     uint32_t last_vtxbuf_count;
     uint16_t vtxstride[PIPE_MAX_ATTRIBS];
     UINT stream_freq[PIPE_MAX_ATTRIBS];
-    uint32_t stream_instancedata_mask; /* derived from stream_freq */
+    uint32_t stream_instancedata_collector_mask; /* derived from stream_freq */
+    uint32_t stream_instancedata_mask; /* _collector_mask after compaction */
     uint32_t stream_usage_mask; /* derived from VS and vdecl */
 
     struct pipe_resource *idxbuf;

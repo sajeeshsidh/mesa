@@ -845,7 +845,7 @@ update_vertex_elements(struct NineDevice9 *device)
     struct nine_context *context = &device->context;
     const struct NineVertexDeclaration9 *vdecl = device->context.vdecl;
     const struct NineVertexShader9 *vs;
-    unsigned n, b, i;
+    unsigned n, b[2], i;
     int index;
     int8_t vdecl_index_map[16]; /* vs->num_inputs <= 16 */
     uint16_t used_streams = 0;
@@ -856,6 +856,7 @@ update_vertex_elements(struct NineDevice9 *device)
     unsigned vtxbuf_holes_map[PIPE_MAX_ATTRIBS];
 
     context->stream_usage_mask = 0;
+    context->stream_instancedata_mask = 0;
     memset(vdecl_index_map, -1, 16);
     vs = context->programmable_vs ? context->vs : device->ff.vs;
 
@@ -901,14 +902,19 @@ update_vertex_elements(struct NineDevice9 *device)
         index = vdecl_index_map[n];
         if (index >= 0) {
             ve.velems[n] = vdecl->elems[index];
-            ve.velems[n].vertex_buffer_index =
-                vtxbuf_holes_map[ve.velems[n].vertex_buffer_index];
-            b = ve.velems[n].vertex_buffer_index;
-            ve.velems[n].src_stride = context->vtxstride[b];
-            context->stream_usage_mask |= 1 << b;
+            /* b[0] is the pre-compaction index, b[1] is the post-compaction
+             * index */
+            b[0] = ve.velems[n].vertex_buffer_index;
+            b[1] = ve.velems[n].vertex_buffer_index = vtxbuf_holes_map[b[0]];
+            context->stream_usage_mask |= 1 << b[1];
+            if (context->stream_instancedata_collector_mask & (1 << b[0]))
+                context->stream_instancedata_mask |= 1 << b[1];
+            /* accesses to the vtxstride and the stream_freq arrays here must
+             * utilize the non-compacted (pre-compaction) index */
+            ve.velems[n].src_stride = context->vtxstride[b[0]];
             /* XXX wine just uses 1 here: */
-            if (context->stream_freq[b] & D3DSTREAMSOURCE_INSTANCEDATA)
-                ve.velems[n].instance_divisor = context->stream_freq[b] & 0x7FFFFF;
+            if (context->stream_freq[b[0]] & D3DSTREAMSOURCE_INSTANCEDATA)
+                ve.velems[n].instance_divisor = context->stream_freq[b[0]] & 0x7FFFFF;
         } else {
             /* if the vertex declaration is incomplete compared to what the
              * vertex shader needs, we bind a dummy vbo with 0 0 0 0.
@@ -1642,9 +1648,9 @@ CSMT_ITEM_NO_WAIT(nine_context_set_stream_source_freq,
     context->stream_freq[StreamNumber] = Setting;
 
     if (Setting & D3DSTREAMSOURCE_INSTANCEDATA)
-        context->stream_instancedata_mask |= 1 << StreamNumber;
+        context->stream_instancedata_collector_mask |= 1 << StreamNumber;
     else
-        context->stream_instancedata_mask &= ~(1 << StreamNumber);
+        context->stream_instancedata_collector_mask &= ~(1 << StreamNumber);
 
     if (StreamNumber != 0)
         context->changed.group |= NINE_STATE_STREAMFREQ;
@@ -3173,12 +3179,13 @@ update_vertex_elements_sw(struct NineDevice9 *device)
         index = vdecl_index_map[n];
         if (index >= 0) {
             ve.velems[n] = vdecl->elems[index];
-            ve.velems[n].vertex_buffer_index =
-                vtxbuf_holes_map[ve.velems[n].vertex_buffer_index];
+            /* accesses to the stream_freq array here must utilize the
+             * non-compacted (pre-compaction) index */
             b = ve.velems[n].vertex_buffer_index;
             /* XXX wine just uses 1 here: */
             if (state->stream_freq[b] & D3DSTREAMSOURCE_INSTANCEDATA)
                 ve.velems[n].instance_divisor = state->stream_freq[b] & 0x7FFFFF;
+            ve.velems[n].vertex_buffer_index = vtxbuf_holes_map[b];
         } else {
             /* if the vertex declaration is incomplete compared to what the
              * vertex shader needs, we bind a dummy vbo with 0 0 0 0.
