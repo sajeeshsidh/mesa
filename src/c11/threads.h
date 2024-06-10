@@ -115,7 +115,8 @@ typedef struct
 #  define TSS_DTOR_ITERATIONS 1
 #elif defined(HAVE_PTHREAD)
 typedef pthread_cond_t  cnd_t;
-typedef pthread_t       thrd_t;
+//typedef pthread_t       thrd_t;
+typedef struct __pthread *thrd_t;
 typedef pthread_key_t   tss_t;
 typedef pthread_mutex_t mtx_t;
 typedef pthread_once_t  once_flag;
