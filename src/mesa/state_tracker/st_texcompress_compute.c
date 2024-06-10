@@ -488,6 +488,7 @@ sw_decode_astc(struct st_context *st,
                                       PIPE_MAP_WRITE, 0, 0,
                                       width_px, height_px, &rgba8_xfer);
    if (!rgba8_map) {
+      pipe_texture_unmap(st->pipe, rgba8_xfer);
       pipe_resource_reference(&rgba8_tex, NULL);
       return NULL;
    }

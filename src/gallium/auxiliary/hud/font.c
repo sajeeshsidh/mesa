@@ -420,6 +420,7 @@ util_font_create_fixed_8x13(struct pipe_context *pipe,
    map = pipe_texture_map(pipe, tex, 0, 0, PIPE_MAP_WRITE, 0, 0,
                           tex->width0, tex->height0, &transfer);
    if (!map) {
+      pipe_texture_unmap(pipe, transfer);
       pipe_resource_reference(&tex, NULL);
       return false;
    }

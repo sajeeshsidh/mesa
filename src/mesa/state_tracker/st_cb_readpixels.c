@@ -533,6 +533,7 @@ st_ReadPixels(struct gl_context *ctx, GLint x, GLint y,
    map = pipe_texture_map_3d(pipe, dst, 0, PIPE_MAP_READ,
                               dst_x, dst_y, 0, width, height, 1, &tex_xfer);
    if (!map) {
+      pipe_texture_unmap(pipe, tex_xfer);
       _mesa_unmap_pbo_dest(ctx, pack);
       pipe_resource_reference(&dst, NULL);
       goto fallback;
