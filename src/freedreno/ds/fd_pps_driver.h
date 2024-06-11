@@ -107,7 +107,7 @@ private:
     */
    class Countable {
    public:
-      Countable(FreedrenoDriver *d, std::string name);
+      Countable(FreedrenoDriver *d, std::string group, std::string name);
 
       operator int64_t() const { return get_value(); };
 
@@ -121,10 +121,11 @@ private:
 
       uint32_t id;
       FreedrenoDriver *d;
+      std::string group;
       std::string name;
    };
 
-   Countable countable(std::string name);
+   Countable countable(std::string group, std::string name);
 
    std::vector<Countable> countables;
 
