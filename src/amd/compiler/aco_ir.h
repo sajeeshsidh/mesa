@@ -2265,8 +2265,6 @@ typedef struct {
    const std::bitset<static_cast<int>(aco_opcode::num_opcodes)> is_atomic;
    const char* name[static_cast<int>(aco_opcode::num_opcodes)];
    const aco::Format format[static_cast<int>(aco_opcode::num_opcodes)];
-   /* sizes used for input/output modifiers and constants */
-   const unsigned operand_size[static_cast<int>(aco_opcode::num_opcodes)];
    const instr_class classes[static_cast<int>(aco_opcode::num_opcodes)];
    const uint32_t definitions[static_cast<int>(aco_opcode::num_opcodes)];
    const uint32_t operands[static_cast<int>(aco_opcode::num_opcodes)];

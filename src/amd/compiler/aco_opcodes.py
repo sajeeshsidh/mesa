@@ -244,33 +244,6 @@ class Instruction(object):
       self.definitions = definitions
       self.operands = operands
 
-      parts = name.replace('_e64', '').rsplit('_', 2)
-      op_dtype = parts[-1]
-
-      op_dtype_sizes = {'{}{}'.format(prefix, size) : size for prefix in 'biuf' for size in [64, 32, 24, 16]}
-      # inline constants are 32-bit for 16-bit integer/typeless instructions: https://reviews.llvm.org/D81841
-      op_dtype_sizes['b16'] = 32
-      op_dtype_sizes['i16'] = 32
-      op_dtype_sizes['u16'] = 32
-
-      # If we can't tell the operand size, default to 32.
-      self.operand_size = op_dtype_sizes.get(op_dtype, 32)
-
-      # exceptions for operands:
-      if 'qsad_' in name:
-        self.operand_size = 0
-      elif 'sad_' in name:
-        self.operand_size = 32
-      elif name in ['v_mad_u64_u32', 'v_mad_i64_i32']:
-        self.operand_size = 0
-      elif self.operand_size == 24:
-        self.operand_size = 32
-      elif op_dtype == 'u8' or op_dtype == 'i8':
-        self.operand_size = 32
-      elif name in ['v_cvt_f32_ubyte0', 'v_cvt_f32_ubyte1',
-                    'v_cvt_f32_ubyte2', 'v_cvt_f32_ubyte3']:
-        self.operand_size = 32
-
 
 class OperandType(IntEnum):
    type_invalid = 0

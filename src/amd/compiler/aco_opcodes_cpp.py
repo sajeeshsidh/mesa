@@ -60,11 +60,6 @@ extern const aco::Info instr_info = {
    },
    {
       % for name in opcode_names:
-      ${instructions[name].operand_size},
-      % endfor
-   },
-   {
-      % for name in opcode_names:
       instr_class::${instructions[name].cls.value},
       % endfor
    },
