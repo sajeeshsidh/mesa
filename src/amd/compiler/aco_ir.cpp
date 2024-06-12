@@ -923,6 +923,40 @@ type_get_dwords(aco_type t)
    return DIV_ROUND_UP(type_get_bytes(t), 4);
 }
 
+unsigned
+type_get_vector_size(aco_type t)
+{
+   switch (t) {
+   case type_invalid:
+   case type_vcc:
+   case type_exec:
+   case type_exec_lo:
+   case type_m0:
+   case type_scc:
+   case type_imm: return 0;
+   case type_f8:
+   case type_bf8:
+   case type_f16:
+   case type_bf16:
+   case type_u16:
+   case type_u32:
+   case type_f32:
+   case type_i64:
+   case type_u64:
+   case type_f64:
+   case type_u128: return 1;
+   case type_pk_f8:
+   case type_pk_bf8:
+   case type_pk_f16:
+   case type_pk_bf16:
+   case type_pk_u16:
+   case type_pk_f32: return 2;
+   case type_pk4_f8:
+   case type_pk4_bf8: return 4;
+   }
+   return 0;
+}
+
 bool
 needs_exec_mask(const Instruction* instr)
 {

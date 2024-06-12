@@ -1774,6 +1774,7 @@ aco_type get_definition_type(enum amd_gfx_level gfx_level, Instruction* instr, u
 unsigned type_get_constant_size(aco_type t);
 unsigned type_get_bytes(aco_type t);
 unsigned type_get_dwords(aco_type t);
+unsigned type_get_vector_size(aco_type t);
 
 bool should_form_clause(const Instruction* a, const Instruction* b);
 
