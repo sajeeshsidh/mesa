@@ -233,7 +233,9 @@ struct DefInfo {
                stride = DIV_ROUND_UP(stride, 4);
          }
          assert(stride > 0);
-      } else if (instr->isMIMG() && instr->mimg().d16 && ctx.program->gfx_level <= GFX9) {
+      }
+
+      if (instr->isMIMG() && instr->mimg().d16 && ctx.program->gfx_level <= GFX9) {
          /* Workaround GFX9 hardware bug for D16 image instructions: FeatureImageGather4D16Bug
           *
           * The register use is not calculated correctly, and the hardware assumes a
@@ -247,6 +249,17 @@ struct DefInfo {
 
          if (imageGather4D16Bug)
             bounds.size -= MAX2(rc.bytes() / 4 - ctx.num_linear_vgprs, 0);
+      } else if (instr->isMTBUF() && ctx.program->gfx_level == GFX11 && operand == -1) {
+         /* Workaround GFX11 hardware bug for D16 MTBUF instructions:
+          *
+          * The register use is not calculated correctly, and the hardware skips the instructions
+          * if the last allocated VGPR is used. Reduce the bounds by 1 in this case.
+          */
+         if (instr->opcode == aco_opcode::tbuffer_load_format_d16_x ||
+             instr->opcode == aco_opcode::tbuffer_load_format_d16_xy ||
+             instr->opcode == aco_opcode::tbuffer_load_format_d16_xyz ||
+             instr->opcode == aco_opcode::tbuffer_load_format_d16_xyzw)
+            bounds.size -= ctx.num_linear_vgprs > 0 ? 0 : 1;
       }
    }
 };
