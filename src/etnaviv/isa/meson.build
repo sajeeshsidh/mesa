@@ -119,6 +119,24 @@ if with_tools.contains('etnaviv')
       '-Anon_camel_case_types',
     ],
   )
+
+  dep_roxmltree = dependency('roxmltree',
+    version : '>= 0.20.roxmltree',
+    fallback : ['roxmltree', 'dep_roxmltree'],
+    required : true,
+  )
+
+  libetnaviv_isa_rs = static_library(
+    'etnaviv_isa_rs',
+    files('lib.rs'),
+    gnu_symbol_visibility : 'hidden',
+    rust_abi : 'c',
+    dependencies: [dep_roxmltree],
+  )
+
+  if with_tests
+    rust.test('isa', libetnaviv_isa_rs, suite : ['etnaviv'])
+  endif
 endif
 
 subdir('tests')
