@@ -1586,7 +1586,7 @@ label_instruction(opt_ctx& ctx, aco_ptr<Instruction>& instr)
    }
 
    if (instr->isVALU() || instr->isVINTRP()) {
-      if (instr_info.can_use_output_modifiers[(int)instr->opcode] || instr->isVINTRP() ||
+      if (can_use_output_modifiers(instr->opcode) || instr->isVINTRP() ||
           instr->opcode == aco_opcode::v_cndmask_b32) {
          bool canonicalized = true;
          if (!does_fp_op_flush_denorms(ctx, instr->opcode)) {
@@ -3351,7 +3351,7 @@ bool
 apply_omod_clamp(opt_ctx& ctx, aco_ptr<Instruction>& instr)
 {
    if (instr->definitions.empty() || ctx.uses[instr->definitions[0].tempId()] != 1 ||
-       !instr_info.can_use_output_modifiers[(int)instr->opcode])
+       !can_use_output_modifiers(instr->opcode))
       return false;
 
    bool can_vop3 = can_use_VOP3(ctx, instr);
@@ -3677,7 +3677,7 @@ combine_vop3p(opt_ctx& ctx, aco_ptr<Instruction>& instr)
        !vop3p->opsel_lo[1] && !vop3p->opsel_hi[1]) {
 
       ssa_info& info = ctx.info[instr->operands[0].tempId()];
-      if (info.is_vop3p() && instr_info.can_use_output_modifiers[(int)info.instr->opcode]) {
+      if (info.is_vop3p() && can_use_output_modifiers(info.instr->opcode)) {
          VALU_instruction* candidate = &ctx.info[instr->operands[0].tempId()].instr->valu();
          candidate->clamp = true;
          propagate_swizzles(candidate, vop3p->opsel_lo[0], vop3p->opsel_hi[0]);

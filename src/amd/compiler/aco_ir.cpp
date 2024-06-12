@@ -514,6 +514,12 @@ can_use_input_modifiers(amd_gfx_level gfx_level, aco_opcode op, int idx)
 }
 
 bool
+can_use_output_modifiers(aco_opcode op)
+{
+   return instr_info.can_use_output_modifiers[(int)op];
+}
+
+bool
 can_use_opsel(amd_gfx_level gfx_level, aco_opcode op, int idx)
 {
    /* opsel is only GFX9+ */

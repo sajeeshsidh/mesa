@@ -1734,6 +1734,7 @@ is_dead(const std::vector<uint16_t>& uses, const Instruction* instr)
 }
 
 bool can_use_input_modifiers(amd_gfx_level gfx_level, aco_opcode op, int idx);
+bool can_use_output_modifiers(aco_opcode op);
 bool can_use_opsel(amd_gfx_level gfx_level, aco_opcode op, int idx);
 bool instr_is_16bit(amd_gfx_level gfx_level, aco_opcode op);
 uint8_t get_gfx11_true16_mask(aco_opcode op);
