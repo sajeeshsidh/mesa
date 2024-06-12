@@ -234,8 +234,6 @@ class Instruction(object):
 
       self.name = name
       self.op = opcode
-      self.input_mod = "1" if (operands & 0x80808080) != 0 else "0"
-      self.output_mod = "1" if (definitions & 0x80808080) != 0 else "0"
       self.is_atomic = "1" if is_atomic else "0"
       self.format = format
       self.cls = cls
@@ -984,7 +982,7 @@ VOP2 = {
    ("v_max_i16",           dst(U16),      src(U16, U16), op(gfx8=0x30, gfx10=-1)),
    ("v_min_u16",           dst(U16),      src(U16, U16), op(gfx8=0x31, gfx10=-1)),
    ("v_min_i16",           dst(U16),      src(U16, U16), op(gfx8=0x32, gfx10=-1)),
-   ("v_ldexp_f16",         dst(F16),      src(noMods(F16), U16), op(gfx8=0x33, gfx10=0x3b)),
+   ("v_ldexp_f16",         dst(F16),      src(F16, U16), op(gfx8=0x33, gfx10=0x3b)),
    ("v_add_u32",           dst(U32),      src(U32, U32), op(gfx9=0x34, gfx10=0x25)), # called v_add_nc_u32 in RDNA
    ("v_sub_u32",           dst(U32),      src(U32, U32), op(gfx9=0x35, gfx10=0x26)), # called v_sub_nc_u32 in RDNA
    ("v_subrev_u32",        dst(U32),      src(U32, U32), op(gfx9=0x36, gfx10=0x27)), # called v_subrev_nc_u32 in RDNA
@@ -1320,7 +1318,7 @@ VOP3 = {
    ("v_mul_f64_e64",           dst(F64), src(F64, F64), op(0x165, gfx8=0x281, gfx10=0x165, gfx11=0x328, gfx12=0x106), InstrClass.ValuDouble), # GFX12 is VOP2 opcode + 0x100
    ("v_min_f64_e64",           dst(F64), src(F64, F64), op(0x166, gfx8=0x282, gfx10=0x166, gfx11=0x329, gfx12=0x10d), InstrClass.ValuDouble), # GFX12 is VOP2 opcode + 0x100
    ("v_max_f64_e64",           dst(F64), src(F64, F64), op(0x167, gfx8=0x283, gfx10=0x167, gfx11=0x32a, gfx12=0x10e), InstrClass.ValuDouble), # GFX12 is VOP2 opcode + 0x100
-   ("v_ldexp_f64",             dst(F64), src(noMods(F64), U32), op(0x168, gfx8=0x284, gfx10=0x168, gfx11=0x32b), InstrClass.ValuDouble), # src1 can take input modifiers
+   ("v_ldexp_f64",             dst(F64), src(F64, U32), op(0x168, gfx8=0x284, gfx10=0x168, gfx11=0x32b), InstrClass.ValuDouble), # src1 can take input modifiers
    ("v_mul_lo_u32",            dst(U32), src(U32, U32), op(0x169, gfx8=0x285, gfx10=0x169, gfx11=0x32c), InstrClass.ValuQuarterRate32),
    ("v_mul_hi_u32",            dst(U32), src(U32, U32), op(0x16a, gfx8=0x286, gfx10=0x16a, gfx11=0x32d), InstrClass.ValuQuarterRate32),
    ("v_mul_lo_i32",            dst(U32), src(U32, U32), op(0x16b, gfx8=0x285, gfx10=0x16b, gfx11=0x32c), InstrClass.ValuQuarterRate32), # identical to v_mul_lo_u32
@@ -1371,7 +1369,7 @@ VOP3 = {
    ("v_interp_p2_legacy_f16",  dst(F16), src(F32, M0, F32), op(gfx8=0x276, gfx10=-1)),
    ("v_interp_p2_f16",         dst(F16), src(F32, M0, F32), op(gfx9=0x277, gfx10=0x35a, gfx11=-1)),
    ("v_interp_p2_hi_f16",      dst(F16), src(F32, M0, F32), op(gfx9=0x277, gfx10=0x35a, gfx11=-1)),
-   ("v_ldexp_f32",             dst(F32), src(noMods(F32), U32), op(0x12b, gfx8=0x288, gfx10=0x362, gfx11=0x31c)),
+   ("v_ldexp_f32",             dst(F32), src(F32, U32), op(0x12b, gfx8=0x288, gfx10=0x362, gfx11=0x31c)),
    ("v_readlane_b32_e64",      dst(U32), src(U32, U32), op(gfx8=0x289, gfx10=0x360)),
    ("v_writelane_b32_e64",     dst(U32), src(U32, U32, U32), op(gfx8=0x28a, gfx10=0x361)),
    ("v_bcnt_u32_b32",          dst(U32), src(U32, U32), op(0x122, gfx8=0x28b, gfx10=0x364, gfx11=0x31e)),

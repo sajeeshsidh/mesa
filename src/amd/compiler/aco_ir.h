@@ -2261,8 +2261,6 @@ typedef struct {
    const int16_t opcode_gfx10[static_cast<int>(aco_opcode::num_opcodes)];
    const int16_t opcode_gfx11[static_cast<int>(aco_opcode::num_opcodes)];
    const int16_t opcode_gfx12[static_cast<int>(aco_opcode::num_opcodes)];
-   const std::bitset<static_cast<int>(aco_opcode::num_opcodes)> can_use_input_modifiers;
-   const std::bitset<static_cast<int>(aco_opcode::num_opcodes)> can_use_output_modifiers;
    const std::bitset<static_cast<int>(aco_opcode::num_opcodes)> is_atomic;
    const char* name[static_cast<int>(aco_opcode::num_opcodes)];
    const aco::Format format[static_cast<int>(aco_opcode::num_opcodes)];
