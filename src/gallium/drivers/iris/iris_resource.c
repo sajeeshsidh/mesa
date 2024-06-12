@@ -1733,6 +1733,8 @@ iris_resource_get_param(struct pipe_screen *pscreen,
          case ISL_TILING_Y0:     *value = I915_FORMAT_MOD_Y_TILED; break;
          case ISL_TILING_X:      *value = I915_FORMAT_MOD_X_TILED; break;
          case ISL_TILING_LINEAR: *value =  DRM_FORMAT_MOD_LINEAR;  break;
+         case ISL_TILING_64:     *value = I915_FORMAT_MOD_Yf_TILED; break;
+         case ISL_TILING_64_XE2: *value = I915_FORMAT_MOD_Yf_TILED; break;
          default:
             assert("no modifier mapped for resource's tiling");
             return false;
