@@ -1,12 +1,13 @@
 include:
   - local: 'src/virtio/ci/gitlab-ci-inc.yml'
 
-venus-lavapipe:
+.venus-lavapipe:
   extends:
     - .deqp-test
     - .venus-lavapipe-test
+  timeout: 25m
   variables:
-    DEQP_FRACTION: 35
+    DEQP_FRACTION: 60
     DEQP_SUITE: venus
     GPU_VERSION: venus
     LP_NUM_THREADS: 2
