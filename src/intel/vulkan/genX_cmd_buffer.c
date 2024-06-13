@@ -37,16 +37,7 @@
 
 #include "ds/intel_tracepoints.h"
 
-/* We reserve :
- *    - GPR 14 for secondary command buffer returns
- *    - GPR 15 for conditional rendering
- */
-#define MI_BUILDER_NUM_ALLOC_GPRS 14
-#define __gen_get_batch_dwords anv_batch_emit_dwords
-#define __gen_address_offset anv_address_add
-#define __gen_get_batch_address(b, a) anv_batch_address(b, a)
-#include "common/mi_builder.h"
-
+#include "genX_mi_builder.h"
 #include "genX_cmd_draw_generated_flush.h"
 
 static void genX(flush_pipeline_select)(struct anv_cmd_buffer *cmd_buffer,
@@ -648,14 +639,19 @@ set_image_compressed_bit(struct anv_cmd_buffer *cmd_buffer,
    if (!isl_aux_usage_has_ccs_e(image->planes[plane].aux_usage))
       return;
 
+   struct anv_device *device = cmd_buffer->device;
+   struct mi_builder b;
+   mi_builder_init(&b, device->info, &cmd_buffer->batch);
+   mi_builder_set_mocs(&b, isl_mocs(&device->isl_dev, 0, false));
+
    for (uint32_t a = 0; a < layer_count; a++) {
       uint32_t layer = base_layer + a;
-      anv_batch_emit(&cmd_buffer->batch, GENX(MI_STORE_DATA_IMM), sdi) {
-         sdi.Address = anv_image_get_compression_state_addr(cmd_buffer->device,
-                                                            image, aspect,
-                                                            level, layer);
-         sdi.ImmediateData = compressed ? UINT32_MAX : 0;
-      }
+      struct anv_address comp_state_addr =
+         anv_image_get_compression_state_addr(device,
+                                              image, aspect,
+                                              level, layer);
+      mi_store(&b, mi_mem32(comp_state_addr),
+                   mi_imm(compressed ? UINT32_MAX : 0));
    }
 
    /* FCV_CCS_E images are automatically fast cleared to default value at
@@ -667,11 +663,10 @@ set_image_compressed_bit(struct anv_cmd_buffer *cmd_buffer,
     */
    if (image->planes[plane].aux_usage == ISL_AUX_USAGE_FCV_CCS_E &&
        base_layer == 0 && level == 0) {
-      anv_batch_emit(&cmd_buffer->batch, GENX(MI_STORE_DATA_IMM), sdi) {
-         sdi.Address = anv_image_get_fast_clear_type_addr(cmd_buffer->device,
-                                                          image, aspect);
-         sdi.ImmediateData = ANV_FAST_CLEAR_DEFAULT_VALUE;
-      }
+      struct anv_address fc_type_addr =
+         anv_image_get_fast_clear_type_addr(device, image, aspect);
+      mi_store(&b, mi_mem32(fc_type_addr),
+                   mi_imm(ANV_FAST_CLEAR_DEFAULT_VALUE));
    }
 }
 
@@ -681,11 +676,14 @@ set_image_fast_clear_state(struct anv_cmd_buffer *cmd_buffer,
                            VkImageAspectFlagBits aspect,
                            enum anv_fast_clear_type fast_clear)
 {
-   anv_batch_emit(&cmd_buffer->batch, GENX(MI_STORE_DATA_IMM), sdi) {
-      sdi.Address = anv_image_get_fast_clear_type_addr(cmd_buffer->device,
-                                                       image, aspect);
-      sdi.ImmediateData = fast_clear;
-   }
+   struct anv_device *device = cmd_buffer->device;
+   struct mi_builder b;
+   mi_builder_init(&b, device->info, &cmd_buffer->batch);
+   mi_builder_set_mocs(&b, isl_mocs(&device->isl_dev, 0, false));
+
+   struct anv_address fc_type_addr =
+      anv_image_get_fast_clear_type_addr(device, image, aspect);
+   mi_store(&b, mi_mem32(fc_type_addr), mi_imm(fast_clear));
 
    /* Whenever we have fast-clear, we consider that slice to be compressed.
     * This makes building predicates much easier.
@@ -705,12 +703,12 @@ anv_cmd_compute_resolve_predicate(struct anv_cmd_buffer *cmd_buffer,
                                   enum isl_aux_op resolve_op,
                                   enum anv_fast_clear_type fast_clear_supported)
 {
-   struct anv_address addr = anv_image_get_fast_clear_type_addr(cmd_buffer->device,
-                                                                image, aspect);
+   struct anv_device *device = cmd_buffer->device;
+   struct anv_address addr =
+      anv_image_get_fast_clear_type_addr(device, image, aspect);
    struct mi_builder b;
-   mi_builder_init(&b, cmd_buffer->device->info, &cmd_buffer->batch);
-   const uint32_t mocs = anv_mocs_for_address(cmd_buffer->device, &addr);
-   mi_builder_set_mocs(&b, mocs);
+   mi_builder_init(&b, device->info, &cmd_buffer->batch);
+   mi_builder_set_mocs(&b, isl_mocs(&device->isl_dev, 0, false));
 
    const struct mi_value fast_clear_type = mi_mem32(addr);
 
@@ -724,7 +722,7 @@ anv_cmd_compute_resolve_predicate(struct anv_cmd_buffer *cmd_buffer,
        * compressed.  See also set_image_fast_clear_state.
        */
       const struct mi_value compression_state =
-         mi_mem32(anv_image_get_compression_state_addr(cmd_buffer->device,
+         mi_mem32(anv_image_get_compression_state_addr(device,
                                                        image, aspect,
                                                        level, array_layer));
       mi_store(&b, mi_reg64(MI_PREDICATE_SRC0), compression_state);
@@ -889,20 +887,22 @@ init_fast_clear_color(struct anv_cmd_buffer *cmd_buffer,
    const uint32_t plane = anv_image_aspect_to_plane(image, aspect);
 
    if (image->planes[plane].aux_usage == ISL_AUX_USAGE_FCV_CCS_E) {
+      struct anv_device *device = cmd_buffer->device;
+
       assert(!image->planes[plane].can_non_zero_fast_clear);
-      assert(cmd_buffer->device->isl_dev.ss.clear_color_state_size == 32);
+      assert(device->isl_dev.ss.clear_color_state_size == 32);
 
       unsigned num_dwords = 6;
       struct anv_address addr =
-         anv_image_get_clear_color_addr(cmd_buffer->device, image, aspect);
+         anv_image_get_clear_color_addr(device, image, aspect);
+
+      struct mi_builder b;
+      mi_builder_init(&b, device->info, &cmd_buffer->batch);
+      mi_builder_set_mocs(&b, anv_mocs_for_address(device, &addr));
 
       for (unsigned i = 0; i < num_dwords; i++) {
-         anv_batch_emit(&cmd_buffer->batch, GENX(MI_STORE_DATA_IMM), sdi) {
-            sdi.Address = addr;
-            sdi.Address.offset += i * 4;
-            sdi.ImmediateData = 0;
-            sdi.ForceWriteCompletionCheck = i == (num_dwords - 1);
-         }
+         mi_builder_set_write_check(&b, i == (num_dwords - 1));
+         mi_store(&b, mi_mem32(anv_address_add(addr, i * 4)), mi_imm(0));
       }
    }
 #endif
@@ -934,6 +934,7 @@ genX(load_image_clear_color)(struct anv_cmd_buffer *cmd_buffer,
 
    struct mi_builder b;
    mi_builder_init(&b, cmd_buffer->device->info, &cmd_buffer->batch);
+   mi_builder_set_write_check(&b, true);
 
    mi_memcpy(&b, ss_clear_addr, entry_addr, copy_size);
 
@@ -5853,19 +5854,21 @@ void genX(cmd_emit_timestamp)(struct anv_batch *batch,
 }
 
 void genX(batch_emit_secondary_call)(struct anv_batch *batch,
+                                     struct anv_device *device,
                                      struct anv_address secondary_addr,
                                      struct anv_address secondary_return_addr)
 {
+   struct mi_builder b;
+   mi_builder_init(&b, device->info, batch);
+   mi_builder_set_mocs(&b, isl_mocs(&device->isl_dev, 0, false));
+   /* Make sure the write in the batch buffer lands before we just execute the
+    * jump.
+    */
+   mi_builder_set_write_check(&b, true);
+
    /* Emit a write to change the return address of the secondary */
-   uint64_t *write_return_addr =
-      anv_batch_emitn(batch,
-                      GENX(MI_STORE_DATA_IMM_length) + 1 /* QWord write */,
-                      GENX(MI_STORE_DATA_IMM),
-#if GFX_VER >= 12
-                      .ForceWriteCompletionCheck = true,
-#endif
-                      .Address = secondary_return_addr) +
-      GENX(MI_STORE_DATA_IMM_ImmediateData_start) / 8;
+   struct mi_reloc_imm_token reloc =
+      mi_store_relocated_imm(&b, mi_mem64(secondary_return_addr));
 
 #if GFX_VER >= 12
    /* Disable prefetcher before jumping into a secondary */
@@ -5885,8 +5888,9 @@ void genX(batch_emit_secondary_call)(struct anv_batch *batch,
    /* Replace the return address written by the MI_STORE_DATA_IMM above with
     * the primary's current batch address (immediately after the jump).
     */
-   *write_return_addr =
-      anv_address_physical(anv_batch_current_address(batch));
+   mi_relocate_store_imm(reloc,
+                         anv_address_physical(
+                            anv_batch_current_address(batch)));
 }
 
 void *

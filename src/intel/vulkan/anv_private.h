@@ -2088,7 +2088,7 @@ anv_mocs(const struct anv_device *device,
 
 static inline uint32_t
 anv_mocs_for_address(const struct anv_device *device,
-                     struct anv_address *addr)
+                     const struct anv_address *addr)
 {
    return anv_mocs(device, addr->bo, 0);
 }
@@ -2287,6 +2287,11 @@ struct anv_batch {
    VkResult                                     status;
 
    enum intel_engine_class                      engine_class;
+
+   /**
+    * Write fencing status for mi_builder.
+    */
+   bool write_fence_status;
 
    /**
     * Number of 3DPRIMITIVE's emitted for WA 16014538804
