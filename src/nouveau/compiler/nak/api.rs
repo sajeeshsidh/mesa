@@ -20,6 +20,7 @@ enum DebugFlags {
     Serial,
     Spill,
     Annotate,
+    NoUgpr,
 }
 
 pub struct Debug {
@@ -43,6 +44,7 @@ impl Debug {
                 "serial" => flags |= 1 << DebugFlags::Serial as u8,
                 "spill" => flags |= 1 << DebugFlags::Spill as u8,
                 "annotate" => flags |= 1 << DebugFlags::Annotate as u8,
+                "nougpr" => flags |= 1 << DebugFlags::NoUgpr as u8,
                 unk => eprintln!("Unknown NAK_DEBUG flag \"{}\"", unk),
             }
         }
@@ -67,6 +69,10 @@ pub trait GetDebugFlags {
 
     fn annotate(&self) -> bool {
         self.debug_flags() & (1 << DebugFlags::Annotate as u8) != 0
+    }
+
+    fn no_ugpr(&self) -> bool {
+        self.debug_flags() & (1 << DebugFlags::NoUgpr as u8) != 0
     }
 }
 
@@ -268,6 +274,11 @@ pub extern "C" fn nak_compile_shader(
         eprintln!("NAK IR after opt_bar_prop:\n{}", &s);
     }
 
+    s.opt_uniform_instrs();
+    if DEBUG.print() {
+        eprintln!("NAK IR after lower_uniform_instrs:\n{}", &s);
+    }
+
     s.opt_copy_prop();
     if DEBUG.print() {
         eprintln!("NAK IR after opt_copy_prop:\n{}", &s);
@@ -298,7 +309,6 @@ pub extern "C" fn nak_compile_shader(
         eprintln!("NAK IR after assign_regs:\n{}", &s);
     }
 
-    s.lower_ineg();
     s.lower_par_copies();
     s.lower_copy_swap();
     s.opt_jump_thread();
