@@ -768,35 +768,6 @@ struct anv_state_stream {
    struct util_dynarray all_blocks;
 };
 
-struct anv_sparse_submission {
-   struct anv_queue *queue;
-
-   struct anv_vm_bind *binds;
-   int binds_len;
-   int binds_capacity;
-
-   uint32_t wait_count;
-   uint32_t signal_count;
-
-   struct vk_sync_wait *waits;
-   struct vk_sync_signal *signals;
-};
-
-struct anv_trtt_bind {
-   uint64_t pte_addr;
-   uint64_t entry_addr;
-};
-
-struct anv_trtt_submission {
-   struct anv_sparse_submission *sparse;
-
-   struct anv_trtt_bind *l3l2_binds;
-   struct anv_trtt_bind *l1_binds;
-
-   int l3l2_binds_len;
-   int l1_binds_len;
-};
-
 /* The block_pool functions exported for testing only.  The block pool should
  * only be used via a state pool (see below).
  */
@@ -1348,6 +1319,9 @@ struct anv_queue {
    struct vk_sync                           *companion_sync;
 
    struct intel_ds_queue                     ds;
+
+   struct anv_async_submit                  *init_submit;
+   struct anv_async_submit                  *init_companion_submit;
 };
 
 struct nir_xfb_info;
@@ -1788,19 +1762,6 @@ struct anv_device_astc_emu {
     VkPipeline pipeline;
 };
 
-struct anv_trtt_batch_bo {
-   struct anv_bo *bo;
-   uint32_t size;
-
-   /* Once device->trtt.timeline_handle signals timeline_val as complete we
-    * can free this struct and its members.
-    */
-   uint64_t timeline_val;
-
-   /* Part of device->trtt.in_flight_batches. */
-   struct list_head link;
-};
-
 struct anv_device {
     struct vk_device                            vk;
 
@@ -1853,7 +1814,7 @@ struct anv_device {
     struct anv_state_pool                       indirect_push_descriptor_pool;
     struct anv_state_pool                       push_descriptor_buffer_pool;
 
-    struct anv_state_reserved_pool              custom_border_colors;
+    struct anv_state_reserved_array_pool        custom_border_colors;
     struct anv_state_reserved_array_pool        custom_border_colors_db;
 
     /** BO used for various workarounds
@@ -1996,7 +1957,7 @@ struct anv_device {
     VkCommandPool                               companion_rcs_cmd_pool;
 
     struct anv_trtt {
-       pthread_mutex_t mutex;
+       simple_mtx_t mutex;
 
        /* Sometimes we need to run batches from places where we don't have a
         * queue coming from the API, so we use this.
@@ -2028,12 +1989,11 @@ struct anv_device {
        struct anv_bo *cur_page_table_bo;
        uint64_t next_page_table_bo_offset;
 
-       /* Timeline syncobj used to track completion of the TR-TT batch BOs. */
-       uint32_t timeline_handle;
+       struct vk_sync *timeline;
        uint64_t timeline_val;
 
-       /* List of struct anv_trtt_batch_bo batches that are in flight and can
-        * be freed once their timeline gets signaled.
+       /* List of struct anv_trtt_submission that are in flight and can be
+        * freed once their vk_sync gets signaled.
         */
        struct list_head in_flight_batches;
     } trtt;
@@ -2200,20 +2160,6 @@ void anv_queue_finish(struct anv_queue *queue);
 
 VkResult anv_queue_submit(struct vk_queue *queue,
                           struct vk_queue_submit *submit);
-VkResult anv_queue_submit_simple_batch(struct anv_queue *queue,
-                                       struct anv_batch *batch,
-                                       bool is_companion_rcs_batch);
-VkResult anv_queue_submit_trtt_batch(struct anv_sparse_submission *submit,
-                                     struct anv_batch *batch);
-
-static inline void
-anv_trtt_batch_bo_free(struct anv_device *device,
-                       struct anv_trtt_batch_bo *trtt_bbo)
-{
-   anv_bo_pool_free(&device->batch_bo_pool, trtt_bbo->bo);
-   list_del(&trtt_bbo->link);
-   vk_free(&device->vk.alloc, trtt_bbo);
-}
 
 void anv_queue_trace(struct anv_queue *queue, const char *label,
                      bool frame, bool begin);
@@ -2476,6 +2422,77 @@ _anv_combine_address(struct anv_batch *batch, void *location,
 /* #define __gen_get_batch_address anv_batch_address */
 /* #define __gen_address_value anv_address_physical */
 /* #define __gen_address_offset anv_address_add */
+
+/* Base structure used to track a submission that needs some clean operations
+ * upon completion. Should be embedded into a larger structure.
+ */
+struct anv_async_submit {
+   struct anv_queue *queue;
+
+   struct anv_bo_pool *bo_pool;
+
+   bool use_companion_rcs;
+
+   bool owns_sync;
+   struct vk_sync_signal signal;
+
+   struct anv_reloc_list relocs;
+   struct anv_batch batch;
+   struct util_dynarray batch_bos;
+};
+
+VkResult
+anv_async_submit_init(struct anv_async_submit *submit,
+                      struct anv_queue *queue,
+                      struct anv_bo_pool *bo_pool,
+                      bool use_companion_rcs,
+                      bool create_signal_sync);
+
+void
+anv_async_submit_fini(struct anv_async_submit *submit);
+
+VkResult
+anv_async_submit_create(struct anv_queue *queue,
+                        struct anv_bo_pool *bo_pool,
+                        bool use_companion_rcs,
+                        bool create_signal_sync,
+                        struct anv_async_submit **out_submit);
+
+void
+anv_async_submit_destroy(struct anv_async_submit *submit);
+
+bool
+anv_async_submit_done(struct anv_async_submit *submit);
+
+bool
+anv_async_submit_wait(struct anv_async_submit *submit);
+
+struct anv_sparse_submission {
+   struct anv_queue *queue;
+
+   struct anv_vm_bind *binds;
+   int binds_len;
+   int binds_capacity;
+
+   uint32_t wait_count;
+   uint32_t signal_count;
+
+   struct vk_sync_wait *waits;
+   struct vk_sync_signal *signals;
+};
+
+struct anv_trtt_bind {
+   uint64_t pte_addr;
+   uint64_t entry_addr;
+};
+
+struct anv_trtt_submission {
+   struct anv_async_submit base;
+
+   struct anv_sparse_submission *sparse;
+
+   struct list_head link;
+};
 
 struct anv_device_memory {
    struct vk_device_memory                      vk;
@@ -3172,6 +3189,9 @@ VkResult anv_sparse_bind_image_memory(struct anv_queue *queue,
 VkResult anv_sparse_bind(struct anv_device *device,
                          struct anv_sparse_submission *sparse_submit);
 
+VkResult anv_sparse_trtt_garbage_collect_batches(struct anv_device *device,
+                                                 bool wait_completion);
+
 VkSparseImageFormatProperties
 anv_sparse_calc_image_format_properties(struct anv_physical_device *pdevice,
                                         VkImageAspectFlags aspect,
@@ -3191,8 +3211,6 @@ VkResult anv_sparse_image_check_support(struct anv_physical_device *pdevice,
                                         VkSampleCountFlagBits samples,
                                         VkImageType type,
                                         VkFormat format);
-VkResult anv_trtt_batch_bo_new(struct anv_device *device, uint32_t batch_size,
-                               struct anv_trtt_batch_bo **out_trtt_bbo);
 
 struct anv_buffer {
    struct vk_buffer vk;
@@ -6072,12 +6090,7 @@ void anv_astc_emu_process(struct anv_cmd_buffer *cmd_buffer,
  *      (vkQueueBeginDebugUtilsLabelEXT/vkQueueEndDebugUtilsLabelEXT)
  */
 struct anv_utrace_submit {
-   /* Batch stuff to implement of copy of timestamps recorded in another
-    * buffer.
-    */
-   struct anv_reloc_list relocs;
-   struct anv_batch batch;
-   struct util_dynarray batch_bos;
+   struct anv_async_submit base;
 
    /* structure used by the perfetto glue */
    struct intel_ds_flush_data ds;
@@ -6085,12 +6098,6 @@ struct anv_utrace_submit {
    /* Stream for temporary allocations */
    struct anv_state_stream dynamic_state_stream;
    struct anv_state_stream general_state_stream;
-
-   /* Syncobj to be signaled when the batch completes */
-   struct vk_sync *sync;
-
-   /* Queue on which all the recorded traces are submitted */
-   struct anv_queue *queue;
 
    /* Buffer of 64bits timestamps (only used for timestamp copies) */
    struct anv_bo *trace_bo;

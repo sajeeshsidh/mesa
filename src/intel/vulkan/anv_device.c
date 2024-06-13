@@ -3251,8 +3251,16 @@ anv_device_init_trtt(struct anv_device *device)
 {
    struct anv_trtt *trtt = &device->trtt;
 
-   if (pthread_mutex_init(&trtt->mutex, NULL) != 0)
-      return vk_error(device, VK_ERROR_INITIALIZATION_FAILED);
+   VkResult result =
+      vk_sync_create(&device->vk,
+                     &device->physical->sync_syncobj_type,
+                     VK_SYNC_IS_TIMELINE,
+                     0 /* initial_value */,
+                     &trtt->timeline);
+   if (result != VK_SUCCESS)
+      return result;
+
+   simple_mtx_init(&trtt->mutex, mtx_plain);
 
    list_inithead(&trtt->in_flight_batches);
 
@@ -3264,33 +3272,11 @@ anv_device_finish_trtt(struct anv_device *device)
 {
    struct anv_trtt *trtt = &device->trtt;
 
-   if (trtt->timeline_val > 0) {
-      struct drm_syncobj_timeline_wait wait = {
-         .handles = (uintptr_t)&trtt->timeline_handle,
-         .points = (uintptr_t)&trtt->timeline_val,
-         .timeout_nsec = INT64_MAX,
-         .count_handles = 1,
-         .flags = DRM_SYNCOBJ_WAIT_FLAGS_WAIT_ALL,
-         .first_signaled = false,
-      };
-      if (intel_ioctl(device->fd, DRM_IOCTL_SYNCOBJ_TIMELINE_WAIT, &wait))
-         fprintf(stderr, "TR-TT syncobj wait failed!\n");
+   anv_sparse_trtt_garbage_collect_batches(device, true);
 
-      list_for_each_entry_safe(struct anv_trtt_batch_bo, trtt_bbo,
-                               &trtt->in_flight_batches, link)
-         anv_trtt_batch_bo_free(device, trtt_bbo);
+   vk_sync_destroy(&device->vk, trtt->timeline);
 
-   }
-
-   if (trtt->timeline_handle > 0) {
-      struct drm_syncobj_destroy destroy = {
-         .handle = trtt->timeline_handle,
-      };
-      if (intel_ioctl(device->fd, DRM_IOCTL_SYNCOBJ_DESTROY, &destroy))
-         fprintf(stderr, "TR-TT syncobj destroy failed!\n");
-   }
-
-   pthread_mutex_destroy(&trtt->mutex);
+   simple_mtx_destroy(&trtt->mutex);
 
    vk_free(&device->vk.alloc, trtt->l3_mirror);
    vk_free(&device->vk.alloc, trtt->l2_mirror);
@@ -3435,24 +3421,9 @@ VkResult anv_CreateDevice(
       goto fail_context_id;
    }
 
-   device->queue_count = 0;
-   for (uint32_t i = 0; i < pCreateInfo->queueCreateInfoCount; i++) {
-      const VkDeviceQueueCreateInfo *queueCreateInfo =
-         &pCreateInfo->pQueueCreateInfos[i];
-
-      for (uint32_t j = 0; j < queueCreateInfo->queueCount; j++) {
-         result = anv_queue_init(device, &device->queues[device->queue_count],
-                                 queueCreateInfo, j);
-         if (result != VK_SUCCESS)
-            goto fail_queues;
-
-         device->queue_count++;
-      }
-   }
-
    if (pthread_mutex_init(&device->vma_mutex, NULL) != 0) {
       result = vk_error(device, VK_ERROR_INITIALIZATION_FAILED);
-      goto fail_queues;
+      goto fail_queues_alloc;
    }
 
    /* keep the page with address zero out of the allocator */
@@ -3572,17 +3543,20 @@ VkResult anv_CreateDevice(
     * We achieve that by reserving all the custom border colors we support
     * right off the bat, so they are close to the base address.
     */
-   anv_state_reserved_pool_init(&device->custom_border_colors,
-                                &device->dynamic_state_pool,
-                                MAX_CUSTOM_BORDER_COLORS,
-                                sizeof(struct gfx8_border_color), 64);
+   result = anv_state_reserved_array_pool_init(&device->custom_border_colors,
+                                               &device->dynamic_state_pool,
+                                               MAX_CUSTOM_BORDER_COLORS,
+                                               sizeof(struct gfx8_border_color), 64);
+   if (result != VK_SUCCESS)
+      goto fail_dynamic_state_db_pool;
+
    if (device->vk.enabled_extensions.EXT_descriptor_buffer) {
       result = anv_state_reserved_array_pool_init(&device->custom_border_colors_db,
                                                   &device->dynamic_state_db_pool,
                                                   MAX_CUSTOM_BORDER_COLORS,
                                                   sizeof(struct gfx8_border_color), 64);
       if (result != VK_SUCCESS)
-         goto fail_dynamic_state_db_pool;
+         goto fail_custom_border_color_pool;
    }
 
    result = anv_state_pool_init(&device->instruction_state_pool, device,
@@ -3849,16 +3823,12 @@ VkResult anv_CreateDevice(
          goto fail_trivial_batch_bo_and_scratch_pool;
    }
 
-   result = anv_device_init_trtt(device);
-   if (result != VK_SUCCESS)
-      goto fail_btd_fifo_bo;
-
    struct vk_pipeline_cache_create_info pcc_info = { .weak_ref = true, };
    device->vk.mem_cache =
       vk_pipeline_cache_create(&device->vk, &pcc_info, NULL);
    if (!device->vk.mem_cache) {
       result = vk_error(device, VK_ERROR_OUT_OF_HOST_MEMORY);
-      goto fail_trtt;
+      goto fail_btd_fifo_bo;
    }
 
    /* Internal shaders need their own pipeline cache because, unlike the rest
@@ -3888,12 +3858,6 @@ VkResult anv_CreateDevice(
          goto fail_internal_cache;
    }
 
-   result = anv_device_init_rt_shaders(device);
-   if (result != VK_SUCCESS) {
-      result = vk_error(device, VK_ERROR_OUT_OF_HOST_MEMORY);
-      goto fail_print;
-   }
-
 #if DETECT_OS_ANDROID
    device->u_gralloc = u_gralloc_create(U_GRALLOC_TYPE_AUTO);
 #endif
@@ -3918,8 +3882,18 @@ VkResult anv_CreateDevice(
                                            &pool_info, NULL,
                                            &device->companion_rcs_cmd_pool);
       if (result != VK_SUCCESS) {
-         goto fail_internal_cache;
+         goto fail_print;
       }
+   }
+
+   result = anv_device_init_trtt(device);
+   if (result != VK_SUCCESS)
+      goto fail_companion_cmd_pool;
+
+   result = anv_device_init_rt_shaders(device);
+   if (result != VK_SUCCESS) {
+      result = vk_error(device, VK_ERROR_OUT_OF_HOST_MEMORY);
+      goto fail_trtt;
    }
 
    anv_device_init_blorp(device);
@@ -3931,8 +3905,6 @@ VkResult anv_CreateDevice(
    anv_device_init_astc_emu(device);
 
    anv_device_perf_init(device);
-
-   anv_device_utrace_init(device);
 
    anv_device_init_embedded_samplers(device);
 
@@ -3966,22 +3938,44 @@ VkResult anv_CreateDevice(
    if (device->info->ver > 9)
       BITSET_CLEAR(device->gfx_dirty_state, ANV_GFX_STATE_PMA_FIX);
 
+   device->queue_count = 0;
+   for (uint32_t i = 0; i < pCreateInfo->queueCreateInfoCount; i++) {
+      const VkDeviceQueueCreateInfo *queueCreateInfo =
+         &pCreateInfo->pQueueCreateInfos[i];
+
+      for (uint32_t j = 0; j < queueCreateInfo->queueCount; j++) {
+         result = anv_queue_init(device, &device->queues[device->queue_count],
+                                 queueCreateInfo, j);
+         if (result != VK_SUCCESS)
+            goto fail_queues;
+
+         device->queue_count++;
+      }
+   }
+
+   anv_device_utrace_init(device);
+
    result = anv_genX(device->info, init_device_state)(device);
    if (result != VK_SUCCESS)
-      goto fail_companion_cmd_pool;
+      goto fail_utrace;
 
    *pDevice = anv_device_to_handle(device);
 
    return VK_SUCCESS;
 
- fail_companion_cmd_pool:
-   anv_device_finish_embedded_samplers(device);
+ fail_utrace:
    anv_device_utrace_finish(device);
+ fail_queues:
+   for (uint32_t i = 0; i < device->queue_count; i++)
+      anv_queue_finish(&device->queues[i]);
+   anv_device_finish_embedded_samplers(device);
    anv_device_finish_blorp(device);
-   anv_device_finish_rt_shaders(device);
    anv_device_finish_astc_emu(device);
    anv_device_finish_internal_kernels(device);
-
+   anv_device_finish_rt_shaders(device);
+ fail_trtt:
+   anv_device_finish_trtt(device);
+ fail_companion_cmd_pool:
    if (device->info->verx10 >= 125) {
       vk_common_DestroyCommandPool(anv_device_to_handle(device),
                                    device->companion_rcs_cmd_pool, NULL);
@@ -3993,8 +3987,6 @@ VkResult anv_CreateDevice(
    vk_pipeline_cache_destroy(device->internal_cache, NULL);
  fail_default_pipeline_cache:
    vk_pipeline_cache_destroy(device->vk.mem_cache, NULL);
- fail_trtt:
-   anv_device_finish_trtt(device);
  fail_btd_fifo_bo:
    if (ANV_SUPPORT_RT && device->info->has_ray_tracing)
       anv_device_release_bo(device, device->btd_fifo_bo);
@@ -4037,8 +4029,9 @@ VkResult anv_CreateDevice(
  fail_reserved_array_pool:
    if (device->vk.enabled_extensions.EXT_descriptor_buffer)
       anv_state_reserved_array_pool_finish(&device->custom_border_colors_db);
+ fail_custom_border_color_pool:
+   anv_state_reserved_array_pool_finish(&device->custom_border_colors);
  fail_dynamic_state_db_pool:
-   anv_state_reserved_pool_finish(&device->custom_border_colors);
    if (device->vk.enabled_extensions.EXT_descriptor_buffer)
       anv_state_pool_finish(&device->dynamic_state_db_pool);
  fail_dynamic_state_pool:
@@ -4062,9 +4055,7 @@ VkResult anv_CreateDevice(
    util_vma_heap_finish(&device->vma_hi);
    util_vma_heap_finish(&device->vma_lo);
    pthread_mutex_destroy(&device->vma_mutex);
- fail_queues:
-   for (uint32_t i = 0; i < device->queue_count; i++)
-      anv_queue_finish(&device->queues[i]);
+ fail_queues_alloc:
    vk_free(&device->vk.alloc, device->queues);
  fail_context_id:
    anv_device_destroy_context_or_vm(device);
@@ -4095,11 +4086,14 @@ void anv_DestroyDevice(
 
    struct anv_physical_device *pdevice = device->physical;
 
+   /* Do TRTT batch garbage collection before destroying queues. */
+   anv_device_finish_trtt(device);
+
+   anv_device_utrace_finish(device);
+
    for (uint32_t i = 0; i < device->queue_count; i++)
       anv_queue_finish(&device->queues[i]);
    vk_free(&device->vk.alloc, device->queues);
-
-   anv_device_utrace_finish(device);
 
    anv_device_finish_blorp(device);
 
@@ -4117,8 +4111,6 @@ void anv_DestroyDevice(
 
    anv_device_finish_embedded_samplers(device);
 
-   anv_device_finish_trtt(device);
-
    if (ANV_SUPPORT_RT && device->info->has_ray_tracing)
       anv_device_release_bo(device, device->btd_fifo_bo);
 
@@ -4127,6 +4119,7 @@ void anv_DestroyDevice(
                                    device->companion_rcs_cmd_pool, NULL);
    }
 
+   anv_state_reserved_array_pool_finish(&device->custom_border_colors);
    if (device->vk.enabled_extensions.EXT_descriptor_buffer)
       anv_state_reserved_array_pool_finish(&device->custom_border_colors_db);
 
@@ -4134,7 +4127,6 @@ void anv_DestroyDevice(
    /* We only need to free these to prevent valgrind errors.  The backing
     * BO will go away in a couple of lines so we don't actually leak.
     */
-   anv_state_reserved_pool_finish(&device->custom_border_colors);
    anv_state_pool_free(&device->dynamic_state_pool, device->border_colors);
    anv_state_pool_free(&device->dynamic_state_pool, device->slice_hash);
    anv_state_pool_free(&device->dynamic_state_pool, device->cps_states);
@@ -5335,8 +5327,8 @@ void anv_DestroySampler(
    }
 
    if (sampler->custom_border_color.map) {
-      anv_state_reserved_pool_free(&device->custom_border_colors,
-                                   sampler->custom_border_color);
+      anv_state_reserved_array_pool_free(&device->custom_border_colors,
+                                         sampler->custom_border_color);
    }
    if (sampler->custom_border_color_db.map) {
       anv_state_reserved_array_pool_free(&device->custom_border_colors_db,
