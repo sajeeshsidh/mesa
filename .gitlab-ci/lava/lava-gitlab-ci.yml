@@ -36,6 +36,9 @@ variables:
     - $RUNNER_TAG
   after_script:
     - curl -L --retry 4 -f --retry-all-errors --retry-delay 60 -s "https://${JOB_RESULTS_PATH}" | tar --zstd -x
+    - zstdcat results/results.csv.zst > results/results.csv
+    - ./artifacts/lava/add-results-to-json.py -c results/results.csv -j results/lava_job_detail.json convert
+    - rm results/results.csv
   needs:
     - alpine/x86_64_lava_ssh_client
     - !reference [.required-for-hardware-jobs, needs]
