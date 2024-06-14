@@ -130,6 +130,24 @@ if with_tools.contains('etnaviv')
     required : true,
   )
 
+  dep_syn = dependency('syn',
+    version : '>= 2.0.15',
+    fallback : ['syn', 'dep_syn'],
+    required : true,
+  )
+
+  dep_pest_generator = dependency('pest_generator',
+    version: '>= 2.7.6',
+    fallback: ['pest_generator', 'dep_pest_generator'],
+    required: true,
+  )
+
+  _libetnaviv_isa_proc_rs = rust.proc_macro(
+    'etnaviv_isa_proc',
+    files('isa_proc.rs'),
+    dependencies : [dep_roxmltree, dep_syn, dep_pest_generator],
+  )
+
   libetnaviv_isa_rs = static_library(
     'etnaviv_isa_rs',
     files('lib.rs'),
@@ -140,6 +158,8 @@ if with_tools.contains('etnaviv')
 
   if with_tests
     rust.test('isa', libetnaviv_isa_rs, suite : ['etnaviv'])
+    # triggers a Meson bug :/
+    # rust.test('isa_proc', _libetnaviv_isa_proc_rs, suite : ['etnaviv'])
   endif
 endif
 
