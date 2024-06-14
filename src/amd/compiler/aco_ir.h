@@ -2225,6 +2225,7 @@ int get_op_fixed_to_def(Instruction* instr);
 
 /* utilities for dealing with register demand */
 RegisterDemand get_live_changes(aco_ptr<Instruction>& instr);
+RegisterDemand get_demand_between(aco_ptr<Instruction>& instr);
 RegisterDemand get_temp_registers(aco_ptr<Instruction>& instr);
 RegisterDemand get_demand_before(RegisterDemand demand, aco_ptr<Instruction>& instr,
                                  aco_ptr<Instruction>& instr_before);
