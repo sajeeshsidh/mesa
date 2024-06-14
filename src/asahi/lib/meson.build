@@ -85,7 +85,7 @@ libagx_shaders = custom_target(
 
 libasahi_lib = static_library(
   'asahi_lib',
-  [libasahi_lib_files, libagx_shaders, agx_pack],
+  [libasahi_lib_files, libagx_shaders, agx_pack, sha1_h],
   include_directories : inc_asahi,
   c_args : [no_override_init_args],
   gnu_symbol_visibility : 'hidden',
