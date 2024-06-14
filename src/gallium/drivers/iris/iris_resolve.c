@@ -41,7 +41,7 @@
  * This causes a self-dependency, where both rendering and sampling may
  * concurrently read or write the CCS buffer, causing incorrect pixels.
  */
-static bool
+static void
 disable_rb_aux_buffer(struct iris_context *ice,
                       bool *draw_aux_buffer_disabled,
                       struct iris_resource *tex_res,
@@ -55,7 +55,7 @@ disable_rb_aux_buffer(struct iris_context *ice,
    if (tex_res->aux.usage != ISL_AUX_USAGE_CCS_D &&
        tex_res->aux.usage != ISL_AUX_USAGE_CCS_E &&
        tex_res->aux.usage != ISL_AUX_USAGE_FCV_CCS_E)
-      return false;
+      return;
 
    for (unsigned i = 0; i < cso_fb->nr_cbufs; i++) {
       struct iris_surface *surf = (void *) cso_fb->cbufs[i];
@@ -76,8 +76,6 @@ disable_rb_aux_buffer(struct iris_context *ice,
                  "Disabling CCS because a renderbuffer is also bound %s.\n",
                  usage);
    }
-
-   return found;
 }
 
 static void
