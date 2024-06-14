@@ -357,6 +357,17 @@ typedef enum ir3_instruction_flags {
     * (eq) calculations.
     */
    IR3_INSTR_NEEDS_HELPERS = BIT(18),
+
+   /* isam.v */
+   IR3_INSTR_V = BIT(19),
+
+   /* isam.1d. Note that .1d is an active-low bit. */
+   IR3_INSTR_INV_1D = BIT(20),
+
+   /* isam.v/ldib.b/stib.b can optionally use an immediate offset with one of
+    * their sources.
+    */
+   IR3_INSTR_IMM_OFFSET = BIT(21),
 } ir3_instruction_flags;
 
 struct ir3_instruction {
@@ -2693,8 +2704,8 @@ INSTR2NODST(STC)
 INSTR2NODST(STSC)
 #ifndef GPU
 #elif GPU >= 600
-INSTR3NODST(STIB);
-INSTR2(LDIB);
+INSTR4NODST(STIB);
+INSTR3(LDIB);
 INSTR5(LDG_A);
 INSTR6NODST(STG_A);
 INSTR2(ATOMIC_G_ADD)

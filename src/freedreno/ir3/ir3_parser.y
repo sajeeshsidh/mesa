@@ -716,7 +716,7 @@ static void print_token(FILE *file, int type, YYSTYPE value)
 %token <tok> T_MOD_MEM
 %token <tok> T_MOD_RT
 
-%type <num> integer offset
+%type <num> integer offset uoffset
 %type <num> flut_immed
 %type <flt> float
 %type <reg> src dst const cat0_src1 cat0_src2
@@ -1079,8 +1079,9 @@ cat4_instr:        cat4_opc dst_reg ',' src_reg_or_const_or_rel_or_imm
 cat5_opc_dsxypp:   T_OP_DSXPP_1   { new_instr(OPC_DSXPP_1)->cat5.type = TYPE_F32; }
 |                  T_OP_DSYPP_1   { new_instr(OPC_DSYPP_1)->cat5.type = TYPE_F32; }
 
-cat5_opc:          T_OP_ISAM      { new_instr(OPC_ISAM); }
-|                  T_OP_ISAML     { new_instr(OPC_ISAML); }
+cat5_opc_isam:     T_OP_ISAM      { new_instr(OPC_ISAM)->flags |= IR3_INSTR_INV_1D; }
+
+cat5_opc:          T_OP_ISAML     { new_instr(OPC_ISAML); }
 |                  T_OP_ISAMM     { new_instr(OPC_ISAMM); }
 |                  T_OP_SAM       { new_instr(OPC_SAM); }
 |                  T_OP_SAMB      { new_instr(OPC_SAMB); }
@@ -1117,6 +1118,7 @@ cat5_flag:         '.' T_3D       { instr->flags |= IR3_INSTR_3D; }
 |                  '.' 'p'        { instr->flags |= IR3_INSTR_P; }
 |                  '.' 's'        { instr->flags |= IR3_INSTR_S; }
 |                  '.' T_S2EN     { instr->flags |= IR3_INSTR_S2EN; }
+|                  '.' T_1D       { instr->flags &= ~IR3_INSTR_INV_1D; }
 |                  '.' T_UNIFORM  { }
 |                  '.' T_NONUNIFORM  { instr->flags |= IR3_INSTR_NONUNIF; }
 |                  '.' T_BASE     { instr->flags |= IR3_INSTR_B; instr->cat5.tex_base = $2; }
@@ -1129,24 +1131,23 @@ cat5_tex:          T_TEX          { instr->cat5.tex = $1; }
 cat5_type:         '(' type ')'   { instr->cat5.type = $2; }
 cat5_a1:           src_reg        { instr->flags |= IR3_INSTR_A1EN; }
 
+cat5_samp_tex:     src_reg
+|                  cat5_samp ',' cat5_tex
+|                  cat5_samp
+|                  cat5_tex
+
+cat5_samp_tex_all: cat5_samp_tex
+|                  cat5_samp ',' cat5_a1
+|                  cat5_tex ',' cat5_a1
+
 cat5_instr:        cat5_opc_dsxypp cat5_flags dst_reg ',' src_reg
-|                  cat5_opc cat5_flags cat5_type dst_reg ',' src_reg ',' src_reg ',' src_reg
-|                  cat5_opc cat5_flags cat5_type dst_reg ',' src_reg ',' src_reg ',' cat5_samp ',' cat5_tex
-|                  cat5_opc cat5_flags cat5_type dst_reg ',' src_reg ',' src_reg ',' cat5_samp ',' cat5_a1
-|                  cat5_opc cat5_flags cat5_type dst_reg ',' src_reg ',' src_reg ',' cat5_tex ',' cat5_a1
-|                  cat5_opc cat5_flags cat5_type dst_reg ',' src_reg ',' src_reg ',' cat5_samp
-|                  cat5_opc cat5_flags cat5_type dst_reg ',' src_reg ',' src_reg ',' cat5_tex
-|                  cat5_opc cat5_flags cat5_type dst_reg ',' src_reg ',' src_reg
-|                  cat5_opc cat5_flags cat5_type dst_reg ',' src_reg ',' cat5_samp ',' cat5_tex
-|                  cat5_opc cat5_flags cat5_type dst_reg ',' src_reg ',' cat5_samp ',' cat5_a1
-|                  cat5_opc cat5_flags cat5_type dst_reg ',' src_reg ',' cat5_tex ',' cat5_a1
-|                  cat5_opc cat5_flags cat5_type dst_reg ',' src_reg ',' cat5_samp
-|                  cat5_opc cat5_flags cat5_type dst_reg ',' src_reg ',' cat5_tex
-|                  cat5_opc cat5_flags cat5_type dst_reg ',' src_reg
-|                  cat5_opc cat5_flags cat5_type dst_reg ',' cat5_samp ',' cat5_tex
-|                  cat5_opc cat5_flags cat5_type dst_reg ',' cat5_samp
-|                  cat5_opc cat5_flags cat5_type dst_reg ',' cat5_tex
+|                  cat5_opc cat5_flags cat5_type dst_reg ',' src_reg ',' src_reg ',' cat5_samp_tex_all
+|                  cat5_opc cat5_flags cat5_type dst_reg ',' src_reg ',' cat5_samp_tex_all
+|                  cat5_opc cat5_flags cat5_type dst_reg ',' cat5_samp_tex
 |                  cat5_opc cat5_flags cat5_type dst_reg
+|                  cat5_opc_isam cat5_flags cat5_type dst_reg ',' src_reg ',' src_reg ',' cat5_samp_tex_all
+|                  cat5_opc_isam cat5_flags cat5_type dst_reg ',' src_reg ',' cat5_samp_tex_all
+|                  cat5_opc_isam '.' 'v' cat5_flags cat5_type dst_reg ',' src_reg src_uoffset ',' cat5_samp_tex_all { instr->flags |= IR3_INSTR_V; }
 |                  T_OP_TCINV { new_instr(OPC_TCINV); }
 
 cat6_typed:        '.' T_UNTYPED  { instr->cat6.typed = 0; }
@@ -1295,13 +1296,15 @@ cat6_bindless_ibo_opc_2src: T_OP_ATOMIC_B_ADD        { new_instr(OPC_ATOMIC_B_AD
 |                  T_OP_ATOMIC_B_AND        { new_instr(OPC_ATOMIC_B_AND); dummy_dst(); }
 |                  T_OP_ATOMIC_B_OR         { new_instr(OPC_ATOMIC_B_OR); dummy_dst(); }
 |                  T_OP_ATOMIC_B_XOR        { new_instr(OPC_ATOMIC_B_XOR); dummy_dst(); }
-|                  T_OP_STIB_B              { new_instr(OPC_STIB); dummy_dst(); }
 
-cat6_bindless_ibo_opc_2src_dst: T_OP_LDIB_B              { new_instr(OPC_LDIB); }
+cat6_bindless_ibo_opc_3src: T_OP_STIB_B     { new_instr(OPC_STIB); dummy_dst(); }
+
+cat6_bindless_ibo_opc_3src_dst: T_OP_LDIB_B              { new_instr(OPC_LDIB); }
 
 cat6_bindless_ibo: cat6_bindless_ibo_opc_1src cat6_typed cat6_dim cat6_type '.' cat6_immed '.' cat6_bindless_mode dst_reg ',' cat6_reg_or_immed
 |                  cat6_bindless_ibo_opc_2src cat6_typed cat6_dim cat6_type '.' cat6_immed '.' cat6_bindless_mode src_reg ',' cat6_reg_or_immed ',' cat6_reg_or_immed { swap(instr->srcs[0], instr->srcs[2]); }
-|                  cat6_bindless_ibo_opc_2src_dst cat6_typed cat6_dim cat6_type '.' cat6_immed '.' cat6_bindless_mode dst_reg ',' cat6_reg_or_immed ',' cat6_reg_or_immed { swap(instr->srcs[0], instr->srcs[1]); }
+|                  cat6_bindless_ibo_opc_3src cat6_typed cat6_dim cat6_type '.' cat6_immed '.' cat6_bindless_mode src_reg ',' cat6_reg_or_immed src_uoffset ',' cat6_reg_or_immed { swap(instr->srcs[0], instr->srcs[3]); }
+|                  cat6_bindless_ibo_opc_3src_dst cat6_typed cat6_dim cat6_type '.' cat6_immed '.' cat6_bindless_mode dst_reg ',' cat6_reg_or_immed src_uoffset ',' cat6_reg_or_immed { swap(instr->srcs[0], instr->srcs[2]); swap(instr->srcs[1], instr->srcs[2]); }
 
 cat6_bindless_ldc_opc: T_OP_LDC  { new_instr(OPC_LDC); }
 
@@ -1510,9 +1513,13 @@ src_reg_or_rel_or_imm: src_reg
 |                  relative
 |                  immediate
 
-offset:            { $$ = 0; }
+uoffset:           { $$ = 0; }
 |                  '+' integer { $$ = $2; }
+
+offset:            uoffset
 |                  '-' integer { $$ = -$2; }
+
+src_uoffset:       uoffset { new_src(0, IR3_REG_IMMED)->uim_val = $1; if ($1) instr->flags |= IR3_INSTR_IMM_OFFSET; }
 
 relative_gpr_src:  'r' '<' T_A0 offset '>'  { new_src(0, IR3_REG_RELATIV)->array.offset = $4; }
 |                  T_HR '<' T_A0 offset '>'  { new_src(0, IR3_REG_RELATIV | IR3_REG_HALF)->array.offset = $4; }

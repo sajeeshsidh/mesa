@@ -6575,6 +6575,21 @@ typedef struct {
 
    /** nir_load/store_buffer_amd max base offset */
    uint32_t buffer_max;
+
+   /**
+    * Callback to get the max base offset for instructions for which the
+    * corresponding value above is zero.
+    */
+   uint32_t (*max_offset_cb)(nir_intrinsic_instr *intr, const void *data);
+
+   /** Data to pass to max_offset_cb. */
+   const void *max_offset_data;
+
+   /**
+    * Allow the offset calculation to wrap. If false, constant additions that
+    * might wrap will not be folded into the offset.
+    */
+   bool allow_offset_wrap;
 } nir_opt_offsets_options;
 
 bool nir_opt_offsets(nir_shader *shader, const nir_opt_offsets_options *options);
