@@ -95,7 +95,7 @@ aco_postprocess_shader(const struct aco_compiler_options* options,
    std::string llvm_ir;
 
    if (options->dump_preoptir)
-      aco_print_program(program.get(), stderr);
+      aco_print_program(program.get(), stderr, options->dump_mtx);
 
    ASSERTED bool is_valid = validate_cfg(program.get());
    assert(is_valid);
@@ -146,7 +146,8 @@ aco_postprocess_shader(const struct aco_compiler_options* options,
    }
 
    if ((debug_flags & DEBUG_LIVE_INFO) && options->dump_shader)
-      aco_print_program(program.get(), stderr, live_vars, print_live_vars | print_kill);
+      aco_print_program(program.get(), stderr, live_vars, options->dump_mtx,
+                        print_live_vars | print_kill);
 
    if (!info->is_trap_handler_shader) {
       if (!options->optimisations_disabled && !(debug_flags & DEBUG_NO_SCHED))
@@ -157,10 +158,10 @@ aco_postprocess_shader(const struct aco_compiler_options* options,
       register_allocation(program.get(), live_vars);
 
       if (validate_ra(program.get())) {
-         aco_print_program(program.get(), stderr);
+         aco_print_program(program.get(), stderr, options->dump_mtx);
          abort();
       } else if (options->dump_shader) {
-         aco_print_program(program.get(), stderr);
+         aco_print_program(program.get(), stderr, options->dump_mtx);
       }
 
       validate(program.get());
@@ -321,7 +322,7 @@ aco_compile_rt_prolog(const struct aco_compiler_options* options,
       form_hard_clauses(program.get());
 
    if (options->dump_shader)
-      aco_print_program(program.get(), stderr);
+      aco_print_program(program.get(), stderr, options->dump_mtx);
 
    /* assembly */
    std::vector<uint32_t> code;
@@ -361,7 +362,7 @@ aco_compile_vs_prolog(const struct aco_compiler_options* options,
       form_hard_clauses(program.get());
 
    if (options->dump_shader)
-      aco_print_program(program.get(), stderr);
+      aco_print_program(program.get(), stderr, options->dump_mtx);
 
    /* assembly */
    std::vector<uint32_t> code;

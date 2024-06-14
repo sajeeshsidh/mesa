@@ -10,6 +10,8 @@
 #ifndef ACO_SHADER_INFO_H
 #define ACO_SHADER_INFO_H
 
+#include "util/simple_mtx.h"
+
 #include "ac_hw_stage.h"
 #include "ac_shader_args.h"
 #include "amd_family.h"
@@ -158,6 +160,9 @@ struct aco_compiler_options {
    enum radeon_family family;
    enum amd_gfx_level gfx_level;
    uint32_t address32_hi;
+
+   simple_mtx_t* dump_mtx;
+
    struct {
       void (*func)(void* private_data, enum aco_compiler_debug_level level, const char* message);
       void* private_data;

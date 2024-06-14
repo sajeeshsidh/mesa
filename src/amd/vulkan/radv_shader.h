@@ -179,6 +179,8 @@ struct radv_nir_compiler_options {
    bool wgp_mode;
    const struct radeon_info *info;
 
+   simple_mtx_t *dump_mtx;
+
    struct {
       void (*func)(void *private_data, enum aco_compiler_debug_level level, const char *message);
       void *private_data;

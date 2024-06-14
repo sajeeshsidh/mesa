@@ -418,9 +418,6 @@ radv_rt_nir_to_asm(struct radv_device *device, struct vk_pipeline_cache *cache,
 
       if (stage_info)
          radv_gather_unused_args(stage_info, shaders[i]);
-
-      if (radv_can_dump_shader(device, temp_stage.nir, false))
-         nir_print_shader(temp_stage.nir, stderr);
    }
 
    bool dump_shader = radv_can_dump_shader(device, shaders[0], false);

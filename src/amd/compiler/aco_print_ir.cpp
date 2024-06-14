@@ -1047,8 +1047,12 @@ aco_print_block(enum amd_gfx_level gfx_level, const Block* block, FILE* output, 
 }
 
 void
-aco_print_program(const Program* program, FILE* output, const live& live_vars, unsigned flags)
+aco_print_program(const Program* program, FILE* output, const live& live_vars,
+                  simple_mtx_t* dump_mtx, unsigned flags)
 {
+   if (dump_mtx)
+      simple_mtx_lock(dump_mtx);
+
    switch (program->progress) {
    case CompilationProgress::after_isel: fprintf(output, "After Instruction Selection:\n"); break;
    case CompilationProgress::after_spilling:
@@ -1079,12 +1083,15 @@ aco_print_program(const Program* program, FILE* output, const live& live_vars, u
    }
 
    fprintf(output, "\n");
+
+   if (dump_mtx)
+      simple_mtx_unlock(dump_mtx);
 }
 
 void
-aco_print_program(const Program* program, FILE* output, unsigned flags)
+aco_print_program(const Program* program, FILE* output, simple_mtx_t* dump_mtx, unsigned flags)
 {
-   aco_print_program(program, output, live(), flags);
+   aco_print_program(program, output, live(), dump_mtx, flags);
 }
 
 } // namespace aco

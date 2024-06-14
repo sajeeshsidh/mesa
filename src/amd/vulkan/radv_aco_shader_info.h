@@ -101,6 +101,7 @@ radv_aco_convert_opts(struct aco_compiler_options *aco_info, const struct radv_n
    ASSIGN_FIELD(record_stats);
    ASSIGN_FIELD(enable_mrt_output_nan_fixup);
    ASSIGN_FIELD(wgp_mode);
+   ASSIGN_FIELD(dump_mtx);
    ASSIGN_FIELD(debug.func);
    ASSIGN_FIELD(debug.private_data);
    ASSIGN_FIELD(debug.private_data);

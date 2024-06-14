@@ -604,7 +604,7 @@ collect_preasm_stats(Program* program)
    program->statistics[aco_statistic_inv_throughput] = round(1.0 / wave64_per_cycle);
 
    if (debug_flags & DEBUG_PERF_INFO) {
-      aco_print_program(program, stderr, print_no_ssa | print_perf_info);
+      aco_print_program(program, stderr, NULL, print_no_ssa | print_perf_info);
 
       fprintf(stderr, "num_waves: %u\n", program->num_waves);
       fprintf(stderr, "salu_smem_usage: %f\n", usage[(int)BlockCycleEstimator::scalar]);

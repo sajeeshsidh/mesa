@@ -2542,9 +2542,6 @@ radv_graphics_shaders_compile(struct radv_device *device, struct vk_pipeline_cac
       radv_postprocess_nir(device, gfx_state, &stages[i]);
 
       stages[i].feedback.duration += os_time_get_nano() - stage_start;
-
-      if (radv_can_dump_shader(device, stages[i].nir, false))
-         nir_print_shader(stages[i].nir, stderr);
    }
 
    /* Compile NIR shaders to AMD assembly. */
