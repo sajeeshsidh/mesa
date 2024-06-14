@@ -296,7 +296,8 @@ get_rematerialize_info(spill_ctx& ctx)
 }
 
 RegisterDemand
-get_demand_before(spill_ctx& ctx, unsigned block_idx, unsigned idx)
+get_demand_before(spill_ctx& ctx, RegisterDemand temp_registers_before,
+                  unsigned block_idx, unsigned idx)
 {
    if (idx == 0) {
       RegisterDemand demand = ctx.program->live.register_demand[block_idx][idx];
@@ -304,7 +305,10 @@ get_demand_before(spill_ctx& ctx, unsigned block_idx, unsigned idx)
       aco_ptr<Instruction> instr_before(nullptr);
       return get_demand_before(demand, instr, instr_before);
    } else {
-      return ctx.program->live.register_demand[block_idx][idx - 1];
+      aco_ptr<Instruction>& instr = ctx.program->blocks[block_idx].instructions[idx];
+      RegisterDemand demand_between = get_demand_between(instr);
+      return ctx.program->live.register_demand[block_idx][idx - 1] - temp_registers_before +
+             demand_between;
    }
 }
 
@@ -328,7 +332,7 @@ get_live_in_demand(spill_ctx& ctx, unsigned block_idx)
          reg_pressure += phi->definitions[0].getTemp();
    }
 
-   reg_pressure += get_demand_before(ctx, block_idx, idx);
+   reg_pressure += get_demand_before(ctx, RegisterDemand(), block_idx, idx);
 
    /* Consider register pressure from linear predecessors. This can affect
     * reg_pressure if the branch instructions define sgprs. */
@@ -932,7 +936,7 @@ add_coupling_code(spill_ctx& ctx, Block* block, IDSet& live_in)
 
    if (!ctx.processed[block_idx]) {
       assert(!(block->kind & block_kind_loop_header));
-      RegisterDemand demand_before = get_demand_before(ctx, block_idx, idx);
+      RegisterDemand demand_before = get_demand_before(ctx, RegisterDemand(), block_idx, idx);
       std::vector<RegisterDemand>& register_demand =
          ctx.program->live.register_demand[block->index];
       register_demand.erase(register_demand.begin(), register_demand.begin() + idx);
@@ -961,6 +965,8 @@ process_block(spill_ctx& ctx, unsigned block_idx, Block* block, RegisterDemand s
    }
 
    auto& current_spills = ctx.spills_exit[block_idx];
+
+   RegisterDemand temp_registers_before;
 
    while (idx < block->instructions.size()) {
       aco_ptr<Instruction>& instr = block->instructions[idx];
@@ -999,8 +1005,9 @@ process_block(spill_ctx& ctx, unsigned block_idx, Block* block, RegisterDemand s
       /* check if register demand is low enough before and after the current instruction */
       if (block->register_demand.exceeds(ctx.target_pressure)) {
 
+         RegisterDemand demand_before = get_demand_before(ctx, temp_registers_before, block_idx, idx);
          RegisterDemand new_demand = ctx.program->live.register_demand[block_idx][idx];
-         new_demand.update(get_demand_before(ctx, block_idx, idx));
+         new_demand.update(demand_before);
 
          /* if reg pressure is too high, spill variable with furthest next use */
          while ((new_demand - spilled_registers).exceeds(ctx.target_pressure)) {
@@ -1094,6 +1101,7 @@ process_block(spill_ctx& ctx, unsigned block_idx, Block* block, RegisterDemand s
             do_reload(ctx, pair.second.first, pair.first, pair.second.second);
          instructions.emplace_back(std::move(reload));
       }
+      temp_registers_before = get_temp_registers(instr);
       instructions.emplace_back(std::move(instr));
       idx++;
    }
