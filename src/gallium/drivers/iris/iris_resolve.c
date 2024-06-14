@@ -49,7 +49,15 @@ disable_rb_aux_buffer(struct iris_context *ice,
                       const char *usage)
 {
    struct pipe_framebuffer_state *cso_fb = &ice->state.framebuffer;
-   bool found = false;
+   struct iris_screen *screen = (void *) ice->ctx.screen;
+   const struct intel_device_info *devinfo = screen->devinfo;
+
+   if (devinfo->ver >= 20) {
+      for (unsigned i = 0; i < cso_fb->nr_cbufs; i++) {
+         draw_aux_buffer_disabled[i] = false;
+      }
+      return;
+   }
 
    /* We only need to worry about color compression and fast clears. */
    if (tex_res->aux.usage != ISL_AUX_USAGE_CCS_D &&
@@ -57,6 +65,7 @@ disable_rb_aux_buffer(struct iris_context *ice,
        tex_res->aux.usage != ISL_AUX_USAGE_FCV_CCS_E)
       return;
 
+   bool found = false;
    for (unsigned i = 0; i < cso_fb->nr_cbufs; i++) {
       struct iris_surface *surf = (void *) cso_fb->cbufs[i];
       if (!surf)
