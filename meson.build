@@ -319,6 +319,13 @@ with_any_intel = [
 ].contains(true)
 with_any_nouveau = with_gallium_nouveau or with_nouveau_vk
 
+if get_option('panfrost-clc') != 'system'
+  with_panfrost_clc = get_option('panfrost-clc') == 'enabled' or \
+                      with_gallium_panfrost
+else
+  with_panfrost_clc = false
+endif
+
 # needed in the loader
 if with_nouveau_vk
   pre_args += '-DHAVE_NVK'
