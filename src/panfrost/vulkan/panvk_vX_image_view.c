@@ -115,8 +115,15 @@ panvk_per_arch(CreateImageView)(VkDevice _device,
        view->vk.view_format == VK_FORMAT_S8_UINT)
       view->pview.format = PIPE_FORMAT_X32_S8X24_UINT;
 
-   if (view->vk.usage &
-       (VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_INPUT_ATTACHMENT_BIT)) {
+   VkImageUsageFlags tex_usage_mask =
+      VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_INPUT_ATTACHMENT_BIT;
+
+#if PAN_ARCH >= 9
+   /* Valhall passes a texture descriptor to LEA_TEX. */
+   tex_usage_mask |= VK_IMAGE_USAGE_STORAGE_BIT;
+#endif
+
+   if (view->vk.usage & tex_usage_mask) {
       /* Use a temporary pan_image_view so we can tweak it for texture
        * descriptor emission without changing the original definition.
        */
@@ -150,6 +157,7 @@ panvk_per_arch(CreateImageView)(VkDevice _device,
       GENX(panfrost_new_texture)(&pview, view->descs.tex.opaque, &ptr);
    }
 
+#if PAN_ARCH <= 7
    if (view->vk.usage & VK_IMAGE_USAGE_STORAGE_BIT) {
       bool is_3d = image->pimage.layout.dim == MALI_TEXTURE_DIMENSION_3D;
       unsigned offset = image->pimage.data.offset;
@@ -159,11 +167,24 @@ panvk_per_arch(CreateImageView)(VkDevice _device,
                                  is_3d ? view->pview.first_layer : 0);
 
       pan_pack(view->descs.img_attrib_buf[0].opaque, ATTRIBUTE_BUFFER, cfg) {
+         /* The format is the only thing we lack to emit attribute descriptors
+          * when copying from the set to the attribute tables. Instead of
+          * making the descriptor size to store an extra format, we pack
+          * the 22-bit format with the texel stride, which is expected to be
+          * fit in remaining 10 bits.
+          */
+         uint32_t fmt_blksize = util_format_get_blocksize(view->pview.format);
+         uint32_t hw_fmt =
+            GENX(panfrost_format_from_pipe_format)(view->pview.format)->hw;
+
+         assert(fmt_blksize < BITFIELD_MASK(10));
+         assert(hw_fmt < BITFIELD_MASK(22));
+
          cfg.type = image->pimage.layout.modifier == DRM_FORMAT_MOD_LINEAR
                        ? MALI_ATTRIBUTE_TYPE_3D_LINEAR
                        : MALI_ATTRIBUTE_TYPE_3D_INTERLEAVED;
          cfg.pointer = image->pimage.data.base + offset;
-         cfg.stride = util_format_get_blocksize(view->pview.format);
+         cfg.stride = fmt_blksize | (hw_fmt << 10);
          cfg.size = pan_kmod_bo_size(image->bo) - offset;
       }
 
@@ -184,6 +205,7 @@ panvk_per_arch(CreateImageView)(VkDevice _device,
          }
       }
    }
+#endif
 
    *pView = panvk_image_view_to_handle(view);
    return VK_SUCCESS;
