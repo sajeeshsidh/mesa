@@ -106,7 +106,28 @@ shrink_dest_to_read_mask(nir_def *def, bool shrink_start)
    if (def->parent_instr->type == nir_instr_type_intrinsic)
       intr = nir_instr_as_intrinsic(def->parent_instr);
 
-   shrink_start &= (intr != NULL) && nir_intrinsic_has_component(intr) &&
+   int offset_src = -1;
+
+   if (intr) {
+      switch (intr->intrinsic) {
+      case nir_intrinsic_load_global:
+      case nir_intrinsic_load_global_constant:
+      case nir_intrinsic_load_constant:
+      case nir_intrinsic_load_push_constant:
+      case nir_intrinsic_load_shared:
+         offset_src = 0;
+         break;
+      case nir_intrinsic_load_ubo:
+      case nir_intrinsic_load_ssbo:
+      case nir_intrinsic_load_smem_amd:
+         offset_src = 1;
+         break;
+      default:;
+      }
+   }
+
+   shrink_start &= intr != NULL && (nir_intrinsic_has_component(intr) ||
+                                    offset_src >= 0) &&
                    is_only_used_by_alu(def);
 
    int last_bit = util_last_bit(mask);
@@ -122,7 +143,23 @@ shrink_dest_to_read_mask(nir_def *def, bool shrink_start)
       if (first_bit) {
          assert(shrink_start);
 
-         nir_intrinsic_set_component(intr, nir_intrinsic_component(intr) + first_bit);
+         if (nir_intrinsic_has_component(intr)) {
+            unsigned new_component = nir_intrinsic_component(intr) + first_bit;
+            nir_intrinsic_set_component(intr, new_component);
+         } else {
+            /* Add the component offset into the src offset. */
+            unsigned offset = (def->bit_size / 8) * first_bit;
+
+            if (nir_intrinsic_has_align_offset(intr)) {
+               unsigned align_offset = (nir_intrinsic_align_offset(intr) + offset) %
+                                       nir_intrinsic_align_mul(intr);
+               nir_intrinsic_set_align_offset(intr, align_offset);
+            }
+
+            nir_builder b = nir_builder_at(nir_before_instr(&intr->instr));
+            nir_src_rewrite(&intr->src[offset_src],
+                            nir_iadd_imm(&b, intr->src[offset_src].ssa, offset));
+         }
 
          /* Reswizzle sources, which must be ALU since they have swizzle */
          uint8_t swizzle[NIR_MAX_VEC_COMPONENTS] = { 0 };
