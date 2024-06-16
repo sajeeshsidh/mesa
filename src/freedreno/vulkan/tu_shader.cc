@@ -2345,22 +2345,15 @@ tu_shader_deserialize(struct vk_pipeline_cache *cache,
    return &shader->base;
 }
 
-VkResult
-tu_shader_create(struct tu_device *dev,
-                 struct tu_shader **shader_out,
-                 nir_shader *nir,
-                 const struct tu_shader_key *key,
-                 const struct ir3_shader_key *ir3_key,
-                 const void *key_data,
-                 size_t key_size,
-                 struct tu_pipeline_layout *layout,
-                 bool executable_info)
+static void
+tu_lower_nir(struct tu_device *dev,
+             nir_shader *nir,
+             const struct tu_shader_key *key,
+             struct tu_shader *shader,
+             struct tu_pipeline_layout *layout,
+             struct ir3_stream_output_info *so_info,
+             unsigned *reserved_consts_vec4)
 {
-   struct tu_shader *shader = tu_shader_init(dev, key_data, key_size);
-
-   if (!shader)
-      return VK_ERROR_OUT_OF_HOST_MEMORY;
-
    const nir_opt_access_options access_options = {
       .is_vulkan = true,
    };
@@ -2447,17 +2440,16 @@ tu_shader_create(struct tu_device *dev,
    nir_assign_io_var_locations(nir, nir_var_shader_in, &nir->num_inputs, nir->info.stage);
    nir_assign_io_var_locations(nir, nir_var_shader_out, &nir->num_outputs, nir->info.stage);
 
-  /* Gather information for transform feedback. This should be called after:
+   /* Gather information for transform feedback. This should be called after:
     * - nir_split_per_member_structs.
     * - nir_remove_dead_variables with varyings, so that we could align
     *   stream outputs correctly.
     * - nir_assign_io_var_locations - to have valid driver_location
     */
-   struct ir3_stream_output_info so_info = {};
    if (nir->info.stage == MESA_SHADER_VERTEX ||
          nir->info.stage == MESA_SHADER_TESS_EVAL ||
          nir->info.stage == MESA_SHADER_GEOMETRY)
-      tu_gather_xfb_info(nir, &so_info);
+      tu_gather_xfb_info(nir, so_info);
 
    for (unsigned i = 0; i < layout->num_sets; i++) {
       if (layout->set[i].layout) {
@@ -2468,12 +2460,33 @@ tu_shader_create(struct tu_device *dev,
       }
    }
 
-   unsigned reserved_consts_vec4 = 0;
-   NIR_PASS_V(nir, tu_lower_io, dev, shader, layout, &reserved_consts_vec4);
+   NIR_PASS_V(nir, tu_lower_io, dev, shader, layout, reserved_consts_vec4);
 
    nir_shader_gather_info(nir, nir_shader_get_entrypoint(nir));
 
    ir3_finalize_nir(dev->compiler, nir);
+}
+
+VkResult
+tu_shader_create(struct tu_device *dev,
+                 struct tu_shader **shader_out,
+                 nir_shader *nir,
+                 const struct tu_shader_key *key,
+                 const struct ir3_shader_key *ir3_key,
+                 const void *key_data,
+                 size_t key_size,
+                 struct tu_pipeline_layout *layout,
+                 bool executable_info)
+{
+   struct tu_shader *shader = tu_shader_init(dev, key_data, key_size);
+
+   if (!shader)
+      return VK_ERROR_OUT_OF_HOST_MEMORY;
+
+   struct ir3_stream_output_info so_info = {};
+   unsigned reserved_consts_vec4 = 0;
+
+   tu_lower_nir(dev, nir, key, shader, layout, &so_info, &reserved_consts_vec4);
 
    const struct ir3_shader_options options = {
       .num_reserved_user_consts = reserved_consts_vec4,
