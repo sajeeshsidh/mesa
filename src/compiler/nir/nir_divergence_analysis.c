@@ -955,9 +955,10 @@ update_instr_divergence(nir_instr *instr, struct divergence_state *state)
       return visit_def(&nir_instr_as_undef(instr)->def, state);
    case nir_instr_type_deref:
       return visit_deref(state->shader, nir_instr_as_deref(instr), state);
+   case nir_instr_type_call:
+      return false;
    case nir_instr_type_jump:
    case nir_instr_type_phi:
-   case nir_instr_type_call:
    case nir_instr_type_parallel_copy:
    default:
       unreachable("NIR divergence analysis: Unsupported instruction type.");
@@ -1225,7 +1226,8 @@ nir_divergence_analysis(nir_shader *shader)
       .first_visit = true,
    };
 
-   visit_cf_list(&nir_shader_get_entrypoint(shader)->body, &state);
+   nir_foreach_function_impl(impl, shader)
+      visit_cf_list(&impl->body, &state);
 }
 
 /* Compute divergence between vertices of the same primitive. This uses
@@ -1244,7 +1246,8 @@ nir_vertex_divergence_analysis(nir_shader *shader)
       .first_visit = true,
    };
 
-   visit_cf_list(&nir_shader_get_entrypoint(shader)->body, &state);
+   nir_foreach_function_impl(impl, shader)
+      visit_cf_list(&impl->body, &state);
 }
 
 bool
