@@ -82,9 +82,11 @@ struct UpwardsCursor {
 struct MoveState {
    RegisterDemand max_registers;
 
+   Program* program;
    Block* block;
    Instruction* current;
    RegisterDemand* register_demand; /* demand per instruction */
+   const IDSet* live_out;
    bool improved_rar;
 
    std::vector<bool> depends_on;
@@ -232,8 +234,8 @@ MoveState::downwards_move(DownwardsCursor& cursor, bool add_to_clause)
       return move_fail_pressure;
 
    /* New demand for the moved instruction */
-   const RegisterDemand temp = get_temp_registers(instr);
-   const RegisterDemand temp2 = get_temp_registers(block->instructions[dest_insert_idx - 1]);
+   const RegisterDemand temp = get_temp_registers(program, block, instr, *live_out);
+   const RegisterDemand temp2 = get_temp_registers(program, block, block->instructions[dest_insert_idx - 1], *live_out);
    const RegisterDemand new_demand = register_demand[dest_insert_idx - 1] - temp2 + temp;
    if (new_demand.exceeds(max_registers))
       return move_fail_pressure;
@@ -356,10 +358,10 @@ MoveState::upwards_move(UpwardsCursor& cursor)
    /* check if register pressure is low enough: the diff is negative if register pressure is
     * decreased */
    const RegisterDemand candidate_diff = get_live_changes(instr);
-   const RegisterDemand temp = get_temp_registers(instr);
+   const RegisterDemand temp = get_temp_registers(program, block, instr, *live_out);
    if (RegisterDemand(cursor.total_demand + candidate_diff).exceeds(max_registers))
       return move_fail_pressure;
-   const RegisterDemand temp2 = get_temp_registers(block->instructions[cursor.insert_idx - 1]);
+   const RegisterDemand temp2 = get_temp_registers(program, block, block->instructions[cursor.insert_idx - 1], *live_out);
    const RegisterDemand new_demand =
       register_demand[cursor.insert_idx - 1] - temp2 + candidate_diff + temp;
    if (new_demand.exceeds(max_registers))
@@ -1171,6 +1173,7 @@ schedule_block(sched_ctx& ctx, Program* program, Block* block)
    ctx.last_SMEM_stall = INT16_MIN;
    ctx.mv.block = block;
    ctx.mv.register_demand = program->live.register_demand[block->index].data();
+   ctx.mv.live_out = &program->live.live_out[block->index];
 
    /* go through all instructions and find memory loads */
    unsigned num_stores = 0;
@@ -1239,6 +1242,7 @@ schedule_program(Program* program)
 
    sched_ctx ctx;
    ctx.gfx_level = program->gfx_level;
+   ctx.mv.program = program;
    ctx.mv.depends_on.resize(program->peekAllocationId());
    ctx.mv.RAR_dependencies.resize(program->peekAllocationId());
    ctx.mv.RAR_dependencies_clause.resize(program->peekAllocationId());
@@ -1265,6 +1269,14 @@ schedule_program(Program* program)
    assert(ctx.num_waves > 0);
    ctx.mv.max_registers = {int16_t(get_addr_vgpr_from_waves(program, ctx.num_waves * wave_fac) - 2),
                            int16_t(get_addr_sgpr_from_waves(program, ctx.num_waves * wave_fac))};
+   /* If not all preserved SGPRs in callee shaders were spilled, don't try using them for
+    * scheduling.
+    */
+   if (program->is_callee) {
+      ctx.mv.max_registers.sgpr =
+         std::max(std::min(ctx.mv.max_registers.sgpr, program->cur_reg_demand.sgpr),
+                  (int16_t)program->callee_abi.clobberedRegs.sgpr.size);
+   }
 
    /* NGG culling shaders are very sensitive to position export scheduling.
     * Schedule less aggressively when early primitive export is used, and
@@ -1282,10 +1294,54 @@ schedule_program(Program* program)
 
    /* update max_reg_demand and num_waves */
    RegisterDemand new_demand;
+   RegisterDemand real_new_demand;
    for (Block& block : program->blocks) {
       new_demand.update(block.register_demand);
+      if (block.contains_call) {
+         unsigned linear_vgpr_demand = 0;
+         for (auto t : program->live.live_out[block.index])
+            if (program->temp_rc[t].is_linear_vgpr())
+               linear_vgpr_demand += program->temp_rc[t].size();
+         
+         for (unsigned i = block.instructions.size() - 1; i < block.instructions.size(); --i) {
+            Instruction* instr = block.instructions[i].get();
+
+            for (auto& def : instr->definitions) {
+               if (def.isFixed() && def.regClass().type() == RegType::vgpr)
+                  real_new_demand.update(
+                     RegisterDemand((int16_t)(def.physReg().reg() - 256 + linear_vgpr_demand), 0));
+               else if (def.regClass().is_linear_vgpr() && !def.isKill())
+                  linear_vgpr_demand -= def.size();
+            }
+            for (auto& op : instr->operands) {
+               if (op.isFixed() && op.regClass().type() == RegType::vgpr)
+                  real_new_demand.update(
+                     RegisterDemand((int16_t)(op.physReg().reg() - 256 + linear_vgpr_demand), 0));
+               else if (op.regClass().is_linear_vgpr() && op.isFirstKill())
+                  linear_vgpr_demand += op.size();
+            }
+
+            if (!block.instructions[i]->isCall()) {
+               real_new_demand.update(program->live.register_demand[block.index][i]);
+               continue;
+            }
+
+            const unsigned max_vgpr = get_addr_vgpr_from_waves(program, program->min_waves);
+            const unsigned max_sgpr = get_addr_sgpr_from_waves(program, program->min_waves);
+
+            if (instr->call().abi.clobberedRegs.vgpr.hi() == PhysReg{256 + max_vgpr} &&
+                instr->call().abi.clobberedRegs.sgpr.hi() == PhysReg{max_sgpr})
+               real_new_demand.update(
+                  program->live.register_demand[block.index][i] -
+                  get_blocked_abi_demand(program, &block, &instr->call(), program->live.live_out[block.index]));
+            else
+               real_new_demand.update(program->live.register_demand[block.index][i]);
+         }
+      } else {
+         real_new_demand.update(block.register_demand);
+      }
    }
-   update_vgpr_sgpr_demand(program, new_demand);
+   update_vgpr_sgpr_demand(program, new_demand, real_new_demand);
 
 /* if enabled, this code asserts that register_demand is updated correctly */
 #if 0

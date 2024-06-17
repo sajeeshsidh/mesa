@@ -5,6 +5,7 @@
  */
 
 #include "aco_instruction_selection.h"
+#include "aco_nir_call_attribs.h"
 
 #include "common/ac_nir.h"
 #include "common/sid.h"
@@ -254,8 +255,8 @@ setup_nir(isel_context* ctx, nir_shader* nir)
    nir_convert_to_lcssa(nir, true, false);
    nir_lower_phis_to_scalar(nir, true);
 
-   nir_function_impl* func = nir_shader_get_entrypoint(nir);
-   nir_index_ssa_defs(func);
+   nir_foreach_function_impl (impl, nir)
+      nir_index_ssa_defs(impl);
 }
 
 } /* end namespace */
@@ -263,7 +264,6 @@ setup_nir(isel_context* ctx, nir_shader* nir)
 void
 init_context(isel_context* ctx, nir_shader* shader)
 {
-   nir_function_impl* impl = nir_shader_get_entrypoint(shader);
    ctx->shader = shader;
 
    /* Init NIR range analysis. */
@@ -282,323 +282,347 @@ init_context(isel_context* ctx, nir_shader* shader)
    if (nir_opt_uniform_atomics(shader) && nir_lower_int64(shader))
       nir_divergence_analysis(shader);
 
-   apply_nuw_to_offsets(ctx, impl);
+   nir_foreach_function_impl (impl, shader) {
+      apply_nuw_to_offsets(ctx, impl);
 
-   /* sanitize control flow */
-   sanitize_cf_list(impl, &impl->body);
-   nir_metadata_preserve(impl, nir_metadata_none);
+      /* sanitize control flow */
+      sanitize_cf_list(impl, &impl->body);
+      nir_metadata_preserve(impl, nir_metadata_none);
 
-   /* we'll need these for isel */
-   nir_metadata_require(impl, nir_metadata_block_index);
+      /* we'll need these for isel */
+      nir_metadata_require(impl, nir_metadata_block_index);
 
-   if (ctx->options->dump_preoptir) {
-      fprintf(stderr, "NIR shader before instruction selection:\n");
-      nir_print_shader(shader, stderr);
-   }
+      if (ctx->options->dump_preoptir) {
+         fprintf(stderr, "NIR shader before instruction selection:\n");
+         nir_print_shader(shader, stderr);
+      }
 
-   ctx->first_temp_id = ctx->program->peekAllocationId();
-   ctx->program->allocateRange(impl->ssa_alloc);
-   RegClass* regclasses = ctx->program->temp_rc.data() + ctx->first_temp_id;
+      ctx->first_temp_id = ctx->program->peekAllocationId();
+      ctx->program->allocateRange(impl->ssa_alloc);
+      RegClass* regclasses = ctx->program->temp_rc.data() + ctx->first_temp_id;
 
-   /* TODO: make this recursive to improve compile times */
-   bool done = false;
-   while (!done) {
-      done = true;
-      nir_foreach_block (block, impl) {
-         nir_foreach_instr (instr, block) {
-            switch (instr->type) {
-            case nir_instr_type_alu: {
-               nir_alu_instr* alu_instr = nir_instr_as_alu(instr);
-               RegType type = alu_instr->def.divergent ? RegType::vgpr : RegType::sgpr;
-               switch (alu_instr->op) {
-               case nir_op_fmul:
-               case nir_op_fmulz:
-               case nir_op_fadd:
-               case nir_op_fsub:
-               case nir_op_ffma:
-               case nir_op_ffmaz:
-               case nir_op_fmax:
-               case nir_op_fmin:
-               case nir_op_fneg:
-               case nir_op_fabs:
-               case nir_op_fsat:
-               case nir_op_fsign:
-               case nir_op_frcp:
-               case nir_op_frsq:
-               case nir_op_fsqrt:
-               case nir_op_fexp2:
-               case nir_op_flog2:
-               case nir_op_ffract:
-               case nir_op_ffloor:
-               case nir_op_fceil:
-               case nir_op_ftrunc:
-               case nir_op_fround_even:
-               case nir_op_fsin_amd:
-               case nir_op_fcos_amd:
-               case nir_op_f2f16:
-               case nir_op_f2f16_rtz:
-               case nir_op_f2f16_rtne:
-               case nir_op_f2f32:
-               case nir_op_f2f64:
-               case nir_op_u2f16:
-               case nir_op_u2f32:
-               case nir_op_u2f64:
-               case nir_op_i2f16:
-               case nir_op_i2f32:
-               case nir_op_i2f64:
-               case nir_op_pack_half_2x16_rtz_split:
-               case nir_op_pack_half_2x16_split:
-               case nir_op_pack_unorm_2x16:
-               case nir_op_pack_snorm_2x16:
-               case nir_op_pack_uint_2x16:
-               case nir_op_pack_sint_2x16:
-               case nir_op_unpack_half_2x16_split_x:
-               case nir_op_unpack_half_2x16_split_y:
-               case nir_op_fddx:
-               case nir_op_fddy:
-               case nir_op_fddx_fine:
-               case nir_op_fddy_fine:
-               case nir_op_fddx_coarse:
-               case nir_op_fddy_coarse:
-               case nir_op_fquantize2f16:
-               case nir_op_ldexp:
-               case nir_op_frexp_sig:
-               case nir_op_frexp_exp:
-               case nir_op_cube_amd:
-               case nir_op_msad_4x8:
-               case nir_op_mqsad_4x8:
-               case nir_op_udot_4x8_uadd:
-               case nir_op_sdot_4x8_iadd:
-               case nir_op_sudot_4x8_iadd:
-               case nir_op_udot_4x8_uadd_sat:
-               case nir_op_sdot_4x8_iadd_sat:
-               case nir_op_sudot_4x8_iadd_sat:
-               case nir_op_udot_2x16_uadd:
-               case nir_op_sdot_2x16_iadd:
-               case nir_op_udot_2x16_uadd_sat:
-               case nir_op_sdot_2x16_iadd_sat: type = RegType::vgpr; break;
-               case nir_op_f2i16:
-               case nir_op_f2u16:
-               case nir_op_f2i32:
-               case nir_op_f2u32:
-               case nir_op_b2i8:
-               case nir_op_b2i16:
-               case nir_op_b2i32:
-               case nir_op_b2b32:
-               case nir_op_b2f16:
-               case nir_op_b2f32:
-               case nir_op_mov: break;
-               case nir_op_iabs:
-               case nir_op_iadd:
-               case nir_op_iadd_sat:
-               case nir_op_uadd_sat:
-               case nir_op_isub:
-               case nir_op_isub_sat:
-               case nir_op_usub_sat:
-               case nir_op_imul:
-               case nir_op_imin:
-               case nir_op_imax:
-               case nir_op_umin:
-               case nir_op_umax:
-               case nir_op_ishl:
-               case nir_op_ishr:
-               case nir_op_ushr:
-                  /* packed 16bit instructions have to be VGPR */
-                  type = alu_instr->def.num_components == 2 ? RegType::vgpr : type;
-                  FALLTHROUGH;
-               default:
-                  for (unsigned i = 0; i < nir_op_infos[alu_instr->op].num_inputs; i++) {
-                     if (regclasses[alu_instr->src[i].src.ssa->index].type() == RegType::vgpr)
-                        type = RegType::vgpr;
+      unsigned call_count = 0;
+
+      /* TODO: make this recursive to improve compile times */
+      bool done = false;
+      while (!done) {
+         done = true;
+         nir_foreach_block (block, impl) {
+            nir_foreach_instr (instr, block) {
+               switch (instr->type) {
+               case nir_instr_type_alu: {
+                  nir_alu_instr* alu_instr = nir_instr_as_alu(instr);
+                  RegType type = alu_instr->def.divergent ? RegType::vgpr : RegType::sgpr;
+                  switch (alu_instr->op) {
+                  case nir_op_fmul:
+                  case nir_op_fmulz:
+                  case nir_op_fadd:
+                  case nir_op_fsub:
+                  case nir_op_ffma:
+                  case nir_op_ffmaz:
+                  case nir_op_fmax:
+                  case nir_op_fmin:
+                  case nir_op_fneg:
+                  case nir_op_fabs:
+                  case nir_op_fsat:
+                  case nir_op_fsign:
+                  case nir_op_frcp:
+                  case nir_op_frsq:
+                  case nir_op_fsqrt:
+                  case nir_op_fexp2:
+                  case nir_op_flog2:
+                  case nir_op_ffract:
+                  case nir_op_ffloor:
+                  case nir_op_fceil:
+                  case nir_op_ftrunc:
+                  case nir_op_fround_even:
+                  case nir_op_fsin_amd:
+                  case nir_op_fcos_amd:
+                  case nir_op_f2f16:
+                  case nir_op_f2f16_rtz:
+                  case nir_op_f2f16_rtne:
+                  case nir_op_f2f32:
+                  case nir_op_f2f64:
+                  case nir_op_u2f16:
+                  case nir_op_u2f32:
+                  case nir_op_u2f64:
+                  case nir_op_i2f16:
+                  case nir_op_i2f32:
+                  case nir_op_i2f64:
+                  case nir_op_pack_half_2x16_rtz_split:
+                  case nir_op_pack_half_2x16_split:
+                  case nir_op_pack_unorm_2x16:
+                  case nir_op_pack_snorm_2x16:
+                  case nir_op_pack_uint_2x16:
+                  case nir_op_pack_sint_2x16:
+                  case nir_op_unpack_half_2x16_split_x:
+                  case nir_op_unpack_half_2x16_split_y:
+                  case nir_op_fddx:
+                  case nir_op_fddy:
+                  case nir_op_fddx_fine:
+                  case nir_op_fddy_fine:
+                  case nir_op_fddx_coarse:
+                  case nir_op_fddy_coarse:
+                  case nir_op_fquantize2f16:
+                  case nir_op_ldexp:
+                  case nir_op_frexp_sig:
+                  case nir_op_frexp_exp:
+                  case nir_op_cube_amd:
+                  case nir_op_msad_4x8:
+                  case nir_op_mqsad_4x8:
+                  case nir_op_udot_4x8_uadd:
+                  case nir_op_sdot_4x8_iadd:
+                  case nir_op_sudot_4x8_iadd:
+                  case nir_op_udot_4x8_uadd_sat:
+                  case nir_op_sdot_4x8_iadd_sat:
+                  case nir_op_sudot_4x8_iadd_sat:
+                  case nir_op_udot_2x16_uadd:
+                  case nir_op_sdot_2x16_iadd:
+                  case nir_op_udot_2x16_uadd_sat:
+                  case nir_op_sdot_2x16_iadd_sat: type = RegType::vgpr; break;
+                  case nir_op_f2i16:
+                  case nir_op_f2u16:
+                  case nir_op_f2i32:
+                  case nir_op_f2u32:
+                  case nir_op_b2i8:
+                  case nir_op_b2i16:
+                  case nir_op_b2i32:
+                  case nir_op_b2b32:
+                  case nir_op_b2f16:
+                  case nir_op_b2f32:
+                  case nir_op_mov: break;
+                  case nir_op_iabs:
+                  case nir_op_iadd:
+                  case nir_op_iadd_sat:
+                  case nir_op_uadd_sat:
+                  case nir_op_isub:
+                  case nir_op_isub_sat:
+                  case nir_op_usub_sat:
+                  case nir_op_imul:
+                  case nir_op_imin:
+                  case nir_op_imax:
+                  case nir_op_umin:
+                  case nir_op_umax:
+                  case nir_op_ishl:
+                  case nir_op_ishr:
+                  case nir_op_ushr:
+                     /* packed 16bit instructions have to be VGPR */
+                     type = alu_instr->def.num_components == 2 ? RegType::vgpr : type;
+                     FALLTHROUGH;
+                  default:
+                     for (unsigned i = 0; i < nir_op_infos[alu_instr->op].num_inputs; i++) {
+                        if (regclasses[alu_instr->src[i].src.ssa->index].type() == RegType::vgpr)
+                           type = RegType::vgpr;
+                     }
+                     break;
                   }
-                  break;
-               }
 
-               RegClass rc =
-                  get_reg_class(ctx, type, alu_instr->def.num_components, alu_instr->def.bit_size);
-               regclasses[alu_instr->def.index] = rc;
-               break;
-            }
-            case nir_instr_type_load_const: {
-               unsigned num_components = nir_instr_as_load_const(instr)->def.num_components;
-               unsigned bit_size = nir_instr_as_load_const(instr)->def.bit_size;
-               RegClass rc = get_reg_class(ctx, RegType::sgpr, num_components, bit_size);
-               regclasses[nir_instr_as_load_const(instr)->def.index] = rc;
-               break;
-            }
-            case nir_instr_type_intrinsic: {
-               nir_intrinsic_instr* intrinsic = nir_instr_as_intrinsic(instr);
-               if (!nir_intrinsic_infos[intrinsic->intrinsic].has_dest)
-                  break;
-               if (intrinsic->intrinsic == nir_intrinsic_strict_wqm_coord_amd) {
-                  regclasses[intrinsic->def.index] =
-                     RegClass::get(RegType::vgpr, intrinsic->def.num_components * 4 +
-                                                     nir_intrinsic_base(intrinsic))
-                        .as_linear();
+                  RegClass rc = get_reg_class(ctx, type, alu_instr->def.num_components,
+                                              alu_instr->def.bit_size);
+                  regclasses[alu_instr->def.index] = rc;
                   break;
                }
-               RegType type = RegType::sgpr;
-               switch (intrinsic->intrinsic) {
-               case nir_intrinsic_load_push_constant:
-               case nir_intrinsic_load_workgroup_id:
-               case nir_intrinsic_load_num_workgroups:
-               case nir_intrinsic_load_sbt_base_amd:
-               case nir_intrinsic_load_subgroup_id:
-               case nir_intrinsic_load_num_subgroups:
-               case nir_intrinsic_load_first_vertex:
-               case nir_intrinsic_load_base_instance:
-               case nir_intrinsic_vote_all:
-               case nir_intrinsic_vote_any:
-               case nir_intrinsic_read_first_invocation:
-               case nir_intrinsic_as_uniform:
-               case nir_intrinsic_read_invocation:
-               case nir_intrinsic_first_invocation:
-               case nir_intrinsic_ballot:
-               case nir_intrinsic_ballot_relaxed:
-               case nir_intrinsic_bindless_image_samples:
-               case nir_intrinsic_load_scalar_arg_amd:
-               case nir_intrinsic_load_lds_ngg_scratch_base_amd:
-               case nir_intrinsic_load_lds_ngg_gs_out_vertex_base_amd:
-               case nir_intrinsic_load_smem_amd:
-               case nir_intrinsic_unit_test_uniform_amd: type = RegType::sgpr; break;
-               case nir_intrinsic_load_sample_id:
-               case nir_intrinsic_load_input:
-               case nir_intrinsic_load_output:
-               case nir_intrinsic_load_input_vertex:
-               case nir_intrinsic_load_per_vertex_input:
-               case nir_intrinsic_load_per_vertex_output:
-               case nir_intrinsic_load_vertex_id_zero_base:
-               case nir_intrinsic_load_barycentric_sample:
-               case nir_intrinsic_load_barycentric_pixel:
-               case nir_intrinsic_load_barycentric_model:
-               case nir_intrinsic_load_barycentric_centroid:
-               case nir_intrinsic_load_barycentric_at_offset:
-               case nir_intrinsic_load_interpolated_input:
-               case nir_intrinsic_load_frag_coord:
-               case nir_intrinsic_load_frag_shading_rate:
-               case nir_intrinsic_load_sample_pos:
-               case nir_intrinsic_load_local_invocation_id:
-               case nir_intrinsic_load_local_invocation_index:
-               case nir_intrinsic_load_subgroup_invocation:
-               case nir_intrinsic_load_tess_coord:
-               case nir_intrinsic_write_invocation_amd:
-               case nir_intrinsic_mbcnt_amd:
-               case nir_intrinsic_lane_permute_16_amd:
-               case nir_intrinsic_load_instance_id:
-               case nir_intrinsic_ssbo_atomic:
-               case nir_intrinsic_ssbo_atomic_swap:
-               case nir_intrinsic_global_atomic_amd:
-               case nir_intrinsic_global_atomic_swap_amd:
-               case nir_intrinsic_bindless_image_atomic:
-               case nir_intrinsic_bindless_image_atomic_swap:
-               case nir_intrinsic_bindless_image_size:
-               case nir_intrinsic_shared_atomic:
-               case nir_intrinsic_shared_atomic_swap:
-               case nir_intrinsic_load_scratch:
-               case nir_intrinsic_load_invocation_id:
-               case nir_intrinsic_load_primitive_id:
-               case nir_intrinsic_load_typed_buffer_amd:
-               case nir_intrinsic_load_buffer_amd:
-               case nir_intrinsic_load_initial_edgeflags_amd:
-               case nir_intrinsic_gds_atomic_add_amd:
-               case nir_intrinsic_bvh64_intersect_ray_amd:
-               case nir_intrinsic_load_vector_arg_amd:
-               case nir_intrinsic_ordered_xfb_counter_add_gfx11_amd:
-               case nir_intrinsic_cmat_muladd_amd:
-               case nir_intrinsic_unit_test_divergent_amd: type = RegType::vgpr; break;
-               case nir_intrinsic_load_shared:
-               case nir_intrinsic_load_shared2_amd:
-                  /* When the result of these loads is only used by cross-lane instructions,
-                   * it is beneficial to use a VGPR destination. This is because this allows
-                   * to put the s_waitcnt further down, which decreases latency.
-                   */
-                  if (only_used_by_cross_lane_instrs(&intrinsic->def)) {
+               case nir_instr_type_load_const: {
+                  unsigned num_components = nir_instr_as_load_const(instr)->def.num_components;
+                  unsigned bit_size = nir_instr_as_load_const(instr)->def.bit_size;
+                  RegClass rc = get_reg_class(ctx, RegType::sgpr, num_components, bit_size);
+                  regclasses[nir_instr_as_load_const(instr)->def.index] = rc;
+                  break;
+               }
+               case nir_instr_type_intrinsic: {
+                  nir_intrinsic_instr* intrinsic = nir_instr_as_intrinsic(instr);
+                  if (!nir_intrinsic_infos[intrinsic->intrinsic].has_dest)
+                     break;
+                  if (intrinsic->intrinsic == nir_intrinsic_strict_wqm_coord_amd) {
+                     regclasses[intrinsic->def.index] =
+                        RegClass::get(RegType::vgpr, intrinsic->def.num_components * 4 +
+                                                        nir_intrinsic_base(intrinsic))
+                           .as_linear();
+                     break;
+                  }
+                  RegType type = RegType::sgpr;
+                  switch (intrinsic->intrinsic) {
+                  case nir_intrinsic_load_push_constant:
+                  case nir_intrinsic_load_workgroup_id:
+                  case nir_intrinsic_load_num_workgroups:
+                  case nir_intrinsic_load_ray_launch_size:
+                  case nir_intrinsic_load_sbt_base_amd:
+                  case nir_intrinsic_load_subgroup_id:
+                  case nir_intrinsic_load_num_subgroups:
+                  case nir_intrinsic_load_first_vertex:
+                  case nir_intrinsic_load_base_instance:
+                  case nir_intrinsic_vote_all:
+                  case nir_intrinsic_vote_any:
+                  case nir_intrinsic_read_first_invocation:
+                  case nir_intrinsic_as_uniform:
+                  case nir_intrinsic_read_invocation:
+                  case nir_intrinsic_first_invocation:
+                  case nir_intrinsic_ballot:
+                  case nir_intrinsic_ballot_relaxed:
+                  case nir_intrinsic_bindless_image_samples:
+                  case nir_intrinsic_load_scalar_arg_amd:
+                  case nir_intrinsic_load_lds_ngg_scratch_base_amd:
+                  case nir_intrinsic_load_lds_ngg_gs_out_vertex_base_amd:
+                  case nir_intrinsic_load_smem_amd:
+                  case nir_intrinsic_unit_test_uniform_amd: type = RegType::sgpr; break;
+                  case nir_intrinsic_load_sample_id:
+                  case nir_intrinsic_load_input:
+                  case nir_intrinsic_load_output:
+                  case nir_intrinsic_load_input_vertex:
+                  case nir_intrinsic_load_per_vertex_input:
+                  case nir_intrinsic_load_per_vertex_output:
+                  case nir_intrinsic_load_vertex_id_zero_base:
+                  case nir_intrinsic_load_barycentric_sample:
+                  case nir_intrinsic_load_barycentric_pixel:
+                  case nir_intrinsic_load_barycentric_model:
+                  case nir_intrinsic_load_barycentric_centroid:
+                  case nir_intrinsic_load_barycentric_at_offset:
+                  case nir_intrinsic_load_interpolated_input:
+                  case nir_intrinsic_load_frag_coord:
+                  case nir_intrinsic_load_frag_shading_rate:
+                  case nir_intrinsic_load_sample_pos:
+                  case nir_intrinsic_load_local_invocation_id:
+                  case nir_intrinsic_load_local_invocation_index:
+                  case nir_intrinsic_load_subgroup_invocation:
+                  case nir_intrinsic_load_ray_launch_id:
+                  case nir_intrinsic_load_tess_coord:
+                  case nir_intrinsic_write_invocation_amd:
+                  case nir_intrinsic_mbcnt_amd:
+                  case nir_intrinsic_lane_permute_16_amd:
+                  case nir_intrinsic_load_instance_id:
+                  case nir_intrinsic_ssbo_atomic:
+                  case nir_intrinsic_ssbo_atomic_swap:
+                  case nir_intrinsic_global_atomic_amd:
+                  case nir_intrinsic_global_atomic_swap_amd:
+                  case nir_intrinsic_bindless_image_atomic:
+                  case nir_intrinsic_bindless_image_atomic_swap:
+                  case nir_intrinsic_bindless_image_size:
+                  case nir_intrinsic_shared_atomic:
+                  case nir_intrinsic_shared_atomic_swap:
+                  case nir_intrinsic_load_scratch:
+                  case nir_intrinsic_load_invocation_id:
+                  case nir_intrinsic_load_primitive_id:
+                  case nir_intrinsic_load_typed_buffer_amd:
+                  case nir_intrinsic_load_buffer_amd:
+                  case nir_intrinsic_load_initial_edgeflags_amd:
+                  case nir_intrinsic_gds_atomic_add_amd:
+                  case nir_intrinsic_bvh64_intersect_ray_amd:
+                  case nir_intrinsic_load_vector_arg_amd:
+                  case nir_intrinsic_ordered_xfb_counter_add_gfx11_amd:
+                  case nir_intrinsic_cmat_muladd_amd:
+                  case nir_intrinsic_unit_test_divergent_amd: type = RegType::vgpr; break;
+                  case nir_intrinsic_load_shared:
+                  case nir_intrinsic_load_shared2_amd:
+                     /* When the result of these loads is only used by cross-lane instructions,
+                      * it is beneficial to use a VGPR destination. This is because this allows
+                      * to put the s_waitcnt further down, which decreases latency.
+                      */
+                     if (only_used_by_cross_lane_instrs(&intrinsic->def)) {
+                        type = RegType::vgpr;
+                        break;
+                     }
+                     FALLTHROUGH;
+                  case nir_intrinsic_shuffle:
+                  case nir_intrinsic_quad_broadcast:
+                  case nir_intrinsic_quad_swap_horizontal:
+                  case nir_intrinsic_quad_swap_vertical:
+                  case nir_intrinsic_quad_swap_diagonal:
+                  case nir_intrinsic_quad_swizzle_amd:
+                  case nir_intrinsic_masked_swizzle_amd:
+                  case nir_intrinsic_rotate:
+                  case nir_intrinsic_inclusive_scan:
+                  case nir_intrinsic_exclusive_scan:
+                  case nir_intrinsic_reduce:
+                  case nir_intrinsic_load_ubo:
+                  case nir_intrinsic_load_ssbo:
+                  case nir_intrinsic_load_global_amd:
+                     type = intrinsic->def.divergent ? RegType::vgpr : RegType::sgpr;
+                     break;
+                  case nir_intrinsic_load_view_index:
+                     type = ctx->stage == fragment_fs ? RegType::vgpr : RegType::sgpr;
+                     break;
+                  case nir_intrinsic_load_return_param_amd: {
                      type = RegType::vgpr;
                      break;
                   }
-                  FALLTHROUGH;
-               case nir_intrinsic_shuffle:
-               case nir_intrinsic_quad_broadcast:
-               case nir_intrinsic_quad_swap_horizontal:
-               case nir_intrinsic_quad_swap_vertical:
-               case nir_intrinsic_quad_swap_diagonal:
-               case nir_intrinsic_quad_swizzle_amd:
-               case nir_intrinsic_masked_swizzle_amd:
-               case nir_intrinsic_rotate:
-               case nir_intrinsic_inclusive_scan:
-               case nir_intrinsic_exclusive_scan:
-               case nir_intrinsic_reduce:
-               case nir_intrinsic_load_ubo:
-               case nir_intrinsic_load_ssbo:
-               case nir_intrinsic_load_global_amd:
-                  type = intrinsic->def.divergent ? RegType::vgpr : RegType::sgpr;
-                  break;
-               case nir_intrinsic_load_view_index:
-                  type = ctx->stage == fragment_fs ? RegType::vgpr : RegType::sgpr;
-                  break;
-               default:
-                  for (unsigned i = 0; i < nir_intrinsic_infos[intrinsic->intrinsic].num_srcs;
-                       i++) {
-                     if (regclasses[intrinsic->src[i].ssa->index].type() == RegType::vgpr)
-                        type = RegType::vgpr;
+                  case nir_intrinsic_load_param: {
+                     nir_parameter* param =
+                        &impl->function->params[nir_intrinsic_param_idx(intrinsic)];
+                     type = (param->driver_attributes & ACO_NIR_PARAM_ATTRIB_UNIFORM)
+                               ? RegType::sgpr
+                               : RegType::vgpr;
+                     break;
                   }
+                  default:
+                     for (unsigned i = 0; i < nir_intrinsic_infos[intrinsic->intrinsic].num_srcs;
+                          i++) {
+                        if (regclasses[intrinsic->src[i].ssa->index].type() == RegType::vgpr)
+                           type = RegType::vgpr;
+                     }
+                     break;
+                  }
+                  RegClass rc = get_reg_class(ctx, type, intrinsic->def.num_components,
+                                              intrinsic->def.bit_size);
+                  regclasses[intrinsic->def.index] = rc;
                   break;
                }
-               RegClass rc =
-                  get_reg_class(ctx, type, intrinsic->def.num_components, intrinsic->def.bit_size);
-               regclasses[intrinsic->def.index] = rc;
-               break;
-            }
-            case nir_instr_type_tex: {
-               nir_tex_instr* tex = nir_instr_as_tex(instr);
-               RegType type = tex->def.divergent ? RegType::vgpr : RegType::sgpr;
+               case nir_instr_type_tex: {
+                  nir_tex_instr* tex = nir_instr_as_tex(instr);
+                  RegType type = tex->def.divergent ? RegType::vgpr : RegType::sgpr;
 
-               if (tex->op == nir_texop_texture_samples) {
-                  assert(!tex->def.divergent);
-               }
-
-               RegClass rc = get_reg_class(ctx, type, tex->def.num_components, tex->def.bit_size);
-               regclasses[tex->def.index] = rc;
-               break;
-            }
-            case nir_instr_type_undef: {
-               unsigned num_components = nir_instr_as_undef(instr)->def.num_components;
-               unsigned bit_size = nir_instr_as_undef(instr)->def.bit_size;
-               RegClass rc = get_reg_class(ctx, RegType::sgpr, num_components, bit_size);
-               regclasses[nir_instr_as_undef(instr)->def.index] = rc;
-               break;
-            }
-            case nir_instr_type_phi: {
-               nir_phi_instr* phi = nir_instr_as_phi(instr);
-               RegType type = RegType::sgpr;
-               unsigned num_components = phi->def.num_components;
-               assert((phi->def.bit_size != 1 || num_components == 1) &&
-                      "Multiple components not supported on boolean phis.");
-
-               if (phi->def.divergent) {
-                  type = RegType::vgpr;
-               } else {
-                  nir_foreach_phi_src (src, phi) {
-                     if (regclasses[src->src.ssa->index].type() == RegType::vgpr)
-                        type = RegType::vgpr;
+                  if (tex->op == nir_texop_texture_samples) {
+                     assert(!tex->def.divergent);
                   }
-               }
 
-               RegClass rc = get_reg_class(ctx, type, num_components, phi->def.bit_size);
-               if (rc != regclasses[phi->def.index])
-                  done = false;
-               regclasses[phi->def.index] = rc;
-               break;
-            }
-            default: break;
+                  RegClass rc =
+                     get_reg_class(ctx, type, tex->def.num_components, tex->def.bit_size);
+                  regclasses[tex->def.index] = rc;
+                  break;
+               }
+               case nir_instr_type_undef: {
+                  unsigned num_components = nir_instr_as_undef(instr)->def.num_components;
+                  unsigned bit_size = nir_instr_as_undef(instr)->def.bit_size;
+                  RegClass rc = get_reg_class(ctx, RegType::sgpr, num_components, bit_size);
+                  regclasses[nir_instr_as_undef(instr)->def.index] = rc;
+                  break;
+               }
+               case nir_instr_type_phi: {
+                  nir_phi_instr* phi = nir_instr_as_phi(instr);
+                  RegType type = RegType::sgpr;
+                  unsigned num_components = phi->def.num_components;
+                  assert((phi->def.bit_size != 1 || num_components == 1) &&
+                         "Multiple components not supported on boolean phis.");
+
+                  if (phi->def.divergent) {
+                     type = RegType::vgpr;
+                  } else {
+                     nir_foreach_phi_src (src, phi) {
+                        if (regclasses[src->src.ssa->index].type() == RegType::vgpr)
+                           type = RegType::vgpr;
+                     }
+                  }
+
+                  RegClass rc = get_reg_class(ctx, type, num_components, phi->def.bit_size);
+                  if (rc != regclasses[phi->def.index])
+                     done = false;
+                  regclasses[phi->def.index] = rc;
+                  break;
+               }
+               case nir_instr_type_call: {
+                  ++call_count;
+                  break;
+               }
+               default: break;
+               }
             }
          }
       }
+
+      ctx->call_infos.reserve(call_count);
+
+      ctx->program->config->spi_ps_input_ena = ctx->program->info.ps.spi_ps_input_ena;
+      ctx->program->config->spi_ps_input_addr = ctx->program->info.ps.spi_ps_input_addr;
    }
-
-   ctx->program->config->spi_ps_input_ena = ctx->program->info.ps.spi_ps_input_ena;
-   ctx->program->config->spi_ps_input_addr = ctx->program->info.ps.spi_ps_input_addr;
-
    /* align and copy constant data */
    while (ctx->program->constant_data.size() % 4u)
       ctx->program->constant_data.push_back(0);
@@ -677,7 +701,8 @@ setup_isel_context(Program* program, unsigned shader_count, struct nir_shader* c
 
    unsigned nir_num_blocks = 0;
    for (unsigned i = 0; i < shader_count; i++)
-      nir_num_blocks += nir_shader_get_entrypoint(shaders[i])->num_blocks;
+      nir_foreach_function_impl (impl, shaders[i])
+         nir_num_blocks += impl->num_blocks;
    ctx.program->blocks.reserve(nir_num_blocks * 2);
    ctx.block = ctx.program->create_and_insert_block();
    ctx.block->kind = block_kind_top_level;

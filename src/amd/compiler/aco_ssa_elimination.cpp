@@ -538,7 +538,8 @@ eliminate_useless_exec_writes_in_block(ssa_elimination_ctx& ctx, Block& block)
    /* Check if any successor needs the outgoing exec mask from the current block. */
 
    bool exec_write_used;
-   if (block.kind & block_kind_end_with_regs) {
+   if (block.kind & block_kind_end_with_regs ||
+       (block.linear_succs.empty() && ctx.program->is_callee)) {
       /* Last block of a program with succeed shader part should respect final exec write. */
       exec_write_used = true;
    } else {

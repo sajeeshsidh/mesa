@@ -365,6 +365,27 @@ non_uniform_access_callback(const nir_src *src, void *_)
    return nir_chase_binding(*src).success ? 0x2 : 0x3;
 }
 
+static bool
+radv_rt_can_remat_intrinsic(nir_instr *instr)
+{
+   nir_intrinsic_instr *intrin = nir_instr_as_intrinsic(instr);
+   switch (intrin->intrinsic) {
+   case nir_intrinsic_load_ray_launch_id:
+   case nir_intrinsic_load_ray_launch_size:
+   case nir_intrinsic_vulkan_resource_index:
+   case nir_intrinsic_vulkan_resource_reindex:
+   case nir_intrinsic_load_vulkan_descriptor:
+   case nir_intrinsic_load_push_constant:
+   case nir_intrinsic_load_global_constant:
+   case nir_intrinsic_load_smem_amd:
+   case nir_intrinsic_load_scalar_arg_amd:
+   case nir_intrinsic_load_vector_arg_amd:
+      return true;
+   default:
+      return false;
+   }
+}
+
 void
 radv_postprocess_nir(struct radv_device *device, const struct radv_graphics_state_key *gfx_state,
                      struct radv_shader_stage *stage)
@@ -435,7 +456,9 @@ radv_postprocess_nir(struct radv_device *device, const struct radv_graphics_stat
          NIR_PASS(_, stage->nir, nir_opt_shrink_stores, !instance->drirc.disable_shrink_image_store);
 
          /* Gather info again, to update whether 8/16-bit are used. */
-         nir_shader_gather_info(stage->nir, nir_shader_get_entrypoint(stage->nir));
+         nir_foreach_function_impl (impl, stage->nir)
+            if (impl->function->is_entrypoint || impl->function->is_exported)
+               nir_shader_gather_info(stage->nir, impl);
       }
    }
 
@@ -581,6 +604,10 @@ radv_postprocess_nir(struct radv_device *device, const struct radv_graphics_stat
       stage->nir, io_to_mem || lowered_ngg || stage->stage == MESA_SHADER_COMPUTE || stage->stage == MESA_SHADER_TASK,
       gfx_level >= GFX7);
 
+   NIR_PASS(_, stage->nir, radv_nir_lower_call_abi, stage->info.wave_size);
+   NIR_PASS(_, stage->nir, nir_lower_global_vars_to_local);
+   NIR_PASS(_, stage->nir, nir_lower_vars_to_ssa);
+
    NIR_PASS(_, stage->nir, nir_lower_fp16_casts, nir_lower_fp16_split_fp64);
 
    if (stage->nir->info.bit_sizes_int & (8 | 16)) {
@@ -654,6 +681,9 @@ radv_postprocess_nir(struct radv_device *device, const struct radv_graphics_stat
        * spilling.
        */
       NIR_PASS(_, stage->nir, nir_opt_move, nir_move_comparisons);
+
+      struct nir_minimize_call_live_states_options live_opts = {.can_remat = radv_rt_can_remat_intrinsic};
+      NIR_PASS(_, stage->nir, nir_minimize_call_live_states, &live_opts);
    }
 }
 

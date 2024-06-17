@@ -32,22 +32,87 @@ get_live_changes(aco_ptr<Instruction>& instr)
    return changes;
 }
 
-void
-handle_def_fixed_to_op(RegisterDemand* demand, RegisterDemand demand_before, Instruction* instr,
-                       int op_idx)
+RegisterDemand
+get_demand_between(aco_ptr<Instruction>& instr)
 {
-   /* Usually the register demand before an instruction would be considered part of the previous
-    * instruction, since it's not greater than the register demand for that previous instruction.
-    * Except, it can be greater in the case of an definition fixed to a non-killed operand: the RA
-    * needs to reserve space between the two instructions for the definition (containing a copy of
-    * the operand).
-    */
-   demand_before += instr->definitions[0].getTemp();
-   demand->update(demand_before);
+   RegisterDemand demand_between;
+   for (Operand op : instr->operands) {
+      if (op.isTemp() && op.isFixed() && !op.isFirstKill()) {
+         for (Operand op2 : instr->operands) {
+            if (!op2.isTemp())
+               continue;
+            if (op2 == op)
+               break;
+
+            if (op2.tempId() == op.tempId() && op2.isFixed() && op2.physReg() != op.physReg()) {
+               if (!op.isLateKill())
+                  demand_between += op.getTemp();
+               break;
+            }
+         }
+      }
+   }
+
+   int op_idx = get_op_fixed_to_def(instr.get());
+   if (op_idx != -1 && !instr->operands[op_idx].isKill())
+      demand_between += instr->definitions[0].getTemp();
+
+   return demand_between;
 }
 
 RegisterDemand
-get_temp_registers(aco_ptr<Instruction>& instr)
+get_blocked_abi_demand(Program* program, Block *block, const Pseudo_call_instruction* instr,
+                       const IDSet& live_out)
+{
+   const unsigned max_vgpr = get_addr_vgpr_from_waves(program, program->min_waves);
+   /* Linear VGPRs can intersect with preserved VGPRs, we insert spill code for them in
+    * spill_preserved.
+    */
+   unsigned linear_vgpr_demand = 0;
+   for (auto temp : live_out)
+      if (program->temp_rc[temp].is_linear_vgpr())
+         linear_vgpr_demand += program->temp_rc[temp].size();
+   for (auto it = block->instructions.rbegin(); it != block->instructions.rend(); ++it) {
+      if (it->get() == instr)
+         break;
+      if ((*it)->opcode == aco_opcode::p_start_linear_vgpr)
+         for (auto& def : (*it)->definitions)
+            linear_vgpr_demand += def.size();
+      else
+         for (auto& op : (*it)->operands)
+            if (op.regClass().is_linear_vgpr() && op.isKill())
+               linear_vgpr_demand += op.size();
+   }
+
+   unsigned preserved_vgprs = max_vgpr - (instr->abi.clobberedRegs.vgpr.hi() - 256);
+   linear_vgpr_demand -= std::min(preserved_vgprs, linear_vgpr_demand);
+
+   unsigned preserved_vgpr_demand =
+      instr->abi.clobberedRegs.vgpr.size -
+      std::min(linear_vgpr_demand, instr->abi.clobberedRegs.vgpr.size);
+   unsigned preserved_sgpr_demand = instr->abi.clobberedRegs.sgpr.size;
+
+   /* Don't count definitions contained in clobbered call regs twice */
+   for (auto& definition : instr->definitions) {
+      if (definition.isTemp() && definition.isFixed()) {
+         auto def_regs = PhysRegInterval{PhysReg{definition.physReg().reg()}, definition.size()};
+         for (auto reg : def_regs) {
+            if (instr->abi.clobberedRegs.sgpr.contains(reg))
+               --preserved_sgpr_demand;
+            if (instr->abi.clobberedRegs.vgpr.contains(reg))
+               --preserved_vgpr_demand;
+         }
+      }
+   }
+   if (instr->abi.clobberedRegs.sgpr.contains(instr->operands[1].physReg()) &&
+       !instr->operands[1].isKill())
+      --preserved_sgpr_demand;
+
+   return RegisterDemand(preserved_vgpr_demand, preserved_sgpr_demand);
+}
+
+RegisterDemand
+get_temp_registers(Program *program, Block *block, aco_ptr<Instruction>& instr, const IDSet& live_out)
 {
    RegisterDemand temp_registers;
 
@@ -58,29 +123,54 @@ get_temp_registers(aco_ptr<Instruction>& instr)
          temp_registers += def.getTemp();
    }
 
+   /* Usually the register demand before an instruction would be considered part of the previous
+    * instruction, since it's not greater than the register demand for that previous instruction.
+    * Except, it can be greater in case we need to copy operands around: the RA needs to reserve
+    * space between the two instructions for the copies.
+    */
+   RegisterDemand demand_between;
+
    for (Operand op : instr->operands) {
       if (op.isTemp() && op.isLateKill() && op.isFirstKill())
          temp_registers += op.getTemp();
+      if (op.isTemp() && op.isFixed() && !op.isFirstKill()) {
+         for (Operand op2 : instr->operands) {
+            if (!op2.isTemp())
+               continue;
+            if (op2 == op)
+               break;
+
+            if (op2.tempId() == op.tempId() && op2.isFixed() && op2.physReg() != op.physReg()) {
+               if (op.isLateKill())
+                  temp_registers += op.getTemp();
+               else
+                  demand_between += op.getTemp();
+               break;
+            }
+         }
+      }
    }
 
    int op_idx = get_op_fixed_to_def(instr.get());
-   if (op_idx != -1 && !instr->operands[op_idx].isKill()) {
-      RegisterDemand before_instr;
-      before_instr -= get_live_changes(instr);
-      handle_def_fixed_to_op(&temp_registers, before_instr, instr.get(), op_idx);
-   }
+   if (op_idx != -1 && !instr->operands[op_idx].isKill())
+      demand_between += instr->definitions[0].getTemp();
 
+   if (instr->isCall())
+      temp_registers += get_blocked_abi_demand(program, block, &instr->call(), live_out);
+
+   if (demand_between.sgpr || demand_between.vgpr)
+      temp_registers.update(demand_between - get_live_changes(instr));
    return temp_registers;
 }
 
 RegisterDemand
-get_demand_before(RegisterDemand demand, aco_ptr<Instruction>& instr,
-                  aco_ptr<Instruction>& instr_before)
+get_demand_before(Program *program, Block *block, RegisterDemand demand, aco_ptr<Instruction>& instr,
+                  aco_ptr<Instruction>& instr_before, const IDSet& live_out)
 {
    demand -= get_live_changes(instr);
-   demand -= get_temp_registers(instr);
+   demand -= get_temp_registers(program, block, instr, live_out);
    if (instr_before)
-      demand += get_temp_registers(instr_before);
+      demand += get_temp_registers(program, block, instr_before, live_out);
    return demand;
 }
 
@@ -112,13 +202,17 @@ process_live_temps_per_block(Program* program, Block* block, unsigned& worklist,
 {
    std::vector<RegisterDemand>& register_demand = program->live.register_demand[block->index];
    RegisterDemand new_demand;
+   unsigned linear_vgpr_demand = 0;
 
    register_demand.resize(block->instructions.size());
    IDSet live = program->live.live_out[block->index];
 
    /* initialize register demand */
-   for (unsigned t : live)
+   for (unsigned t : live) {
       new_demand += Temp(t, program->temp_rc[t]);
+      if (program->temp_rc[t].is_linear_vgpr())
+         linear_vgpr_demand += program->temp_rc[t].size();
+   }
    new_demand.sgpr -= phi_info[block->index].logical_phi_sgpr_ops;
 
    /* traverse the instructions backwards */
@@ -138,6 +232,9 @@ process_live_temps_per_block(Program* program, Block* block, unsigned& worklist,
          }
          if (definition.isFixed() && definition.physReg() == vcc)
             program->needs_vcc = true;
+         if (definition.isFixed() && definition.regClass().type() == RegType::vgpr)
+            block->register_demand.update(
+               RegisterDemand((int16_t)(definition.physReg().reg() - 256 + linear_vgpr_demand), 0));
 
          const Temp temp = definition.getTemp();
          const size_t n = live.erase(temp.id());
@@ -145,8 +242,9 @@ process_live_temps_per_block(Program* program, Block* block, unsigned& worklist,
          if (n) {
             new_demand -= temp;
             definition.setKill(false);
+            if (temp.regClass().is_linear_vgpr())
+               linear_vgpr_demand -= temp.size();
          } else {
-            register_demand[idx] += temp;
             definition.setKill(true);
          }
       }
@@ -167,6 +265,9 @@ process_live_temps_per_block(Program* program, Block* block, unsigned& worklist,
                continue;
             if (operand.isFixed() && operand.physReg() == vcc)
                program->needs_vcc = true;
+            if (operand.isFixed() && operand.regClass().type() == RegType::vgpr)
+               block->register_demand.update(
+                  RegisterDemand((int16_t)(operand.physReg().reg() - 256 + linear_vgpr_demand), 0));
             const Temp temp = operand.getTemp();
             const bool inserted = live.insert(temp.id()).second;
             if (inserted) {
@@ -178,18 +279,15 @@ process_live_temps_per_block(Program* program, Block* block, unsigned& worklist,
                      insn->operands[j].setKill(true);
                   }
                }
-               if (operand.isLateKill())
-                  register_demand[idx] += temp;
                new_demand += temp;
+               if (operand.regClass().is_linear_vgpr())
+                  linear_vgpr_demand += temp.size();
             }
          }
       }
 
-      int op_idx = get_op_fixed_to_def(insn);
-      if (op_idx != -1 && !insn->operands[op_idx].isKill()) {
-         RegisterDemand before_instr = new_demand;
-         handle_def_fixed_to_op(&register_demand[idx], before_instr, insn, op_idx);
-      }
+      register_demand[idx] +=
+         get_temp_registers(program, block, block->instructions[idx], program->live.live_out[block->index]);
    }
 
    /* handle phi definitions */
@@ -430,20 +528,23 @@ max_suitable_waves(Program* program, uint16_t waves)
 }
 
 void
-update_vgpr_sgpr_demand(Program* program, const RegisterDemand new_demand)
+update_vgpr_sgpr_demand(Program* program, const RegisterDemand new_demand,
+                        const RegisterDemand new_real_demand)
 {
    assert(program->min_waves >= 1);
    uint16_t sgpr_limit = get_addr_sgpr_from_waves(program, program->min_waves);
    uint16_t vgpr_limit = get_addr_vgpr_from_waves(program, program->min_waves);
 
+   program->cur_reg_demand = new_demand;
    /* this won't compile, register pressure reduction necessary */
    if (new_demand.vgpr > vgpr_limit || new_demand.sgpr > sgpr_limit) {
       program->num_waves = 0;
       program->max_reg_demand = new_demand;
    } else {
-      program->num_waves = program->dev.physical_sgprs / get_sgpr_alloc(program, new_demand.sgpr);
+      program->num_waves =
+         program->dev.physical_sgprs / get_sgpr_alloc(program, new_real_demand.sgpr);
       uint16_t vgpr_demand =
-         get_vgpr_alloc(program, new_demand.vgpr) + program->config->num_shared_vgprs / 2;
+         get_vgpr_alloc(program, new_real_demand.vgpr) + program->config->num_shared_vgprs / 2;
       program->num_waves =
          std::min<uint16_t>(program->num_waves, program->dev.physical_vgprs / vgpr_demand);
       program->num_waves = std::min(program->num_waves, program->dev.max_waves_per_simd);
@@ -465,8 +566,12 @@ live_var_analysis(Program* program)
    unsigned worklist = program->blocks.size();
    std::vector<PhiInfo> phi_info(program->blocks.size());
    RegisterDemand new_demand;
+   RegisterDemand real_new_demand;
 
    program->needs_vcc = program->gfx_level >= GFX10;
+
+   for (auto& block : program->blocks)
+      block.register_demand = RegisterDemand();
 
    /* this implementation assumes that the block idx corresponds to the block's position in
     * program->blocks vector */
@@ -483,18 +588,59 @@ live_var_analysis(Program* program)
          phi_info[block.index].linear_phi_ops;
 
       /* update block's register demand */
-      if (program->progress < CompilationProgress::after_ra) {
-         block.register_demand = RegisterDemand();
-         for (RegisterDemand& demand : program->live.register_demand[block.index])
+      RegisterDemand real_block_demand;
+      if (program->progress < CompilationProgress::after_ra && block.contains_call) {
+         unsigned linear_vgpr_demand = 0;
+         for (auto t : program->live.live_out[block.index])
+            if (program->temp_rc[t].is_linear_vgpr())
+               linear_vgpr_demand += program->temp_rc[t].size();
+
+         for (unsigned i = program->live.register_demand[block.index].size() - 1;
+              i < program->live.register_demand[block.index].size(); --i) {
+            RegisterDemand& demand = program->live.register_demand[block.index][i];
+
+            const unsigned max_vgpr = get_addr_vgpr_from_waves(program, program->min_waves);
+            const unsigned max_sgpr = get_addr_sgpr_from_waves(program, program->min_waves);
+
+            const auto* instr = block.instructions[i].get();
+
+            for (auto& def : instr->definitions) {
+               if (def.isFixed() && def.regClass().type() == RegType::vgpr)
+                  real_block_demand.update(
+                     RegisterDemand((int16_t)(def.physReg().reg() - 256 + linear_vgpr_demand), 0));
+               else if (def.regClass().is_linear_vgpr() && !def.isKill())
+                  linear_vgpr_demand -= def.size();
+            }
+            for (auto& op : instr->operands) {
+               if (op.isFixed() && op.regClass().type() == RegType::vgpr)
+                  real_block_demand.update(
+                     RegisterDemand((int16_t)(op.physReg().reg() - 256 + linear_vgpr_demand), 0));
+               else if (op.regClass().is_linear_vgpr() && op.isFirstKill())
+                  linear_vgpr_demand += op.size();
+            }
+
+            if (instr->isCall() &&
+                instr->call().abi.clobberedRegs.vgpr.hi() == PhysReg{256 + max_vgpr} &&
+                instr->call().abi.clobberedRegs.sgpr.hi() == PhysReg{max_sgpr}) {
+               real_block_demand.update(
+                  demand - get_blocked_abi_demand(program, &block, &instr->call(),
+                                                  program->live.live_out[block.index]));
+
+            } else
+               real_block_demand.update(demand);
             block.register_demand.update(demand);
+         }
+      } else {
+         real_block_demand = block.register_demand;
       }
 
       new_demand.update(block.register_demand);
+      real_new_demand.update(real_block_demand);
    }
 
    /* calculate the program's register demand and number of waves */
    if (program->progress < CompilationProgress::after_ra)
-      update_vgpr_sgpr_demand(program, new_demand);
+      update_vgpr_sgpr_demand(program, new_demand, real_new_demand);
 }
 
 } // namespace aco

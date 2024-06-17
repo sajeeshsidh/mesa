@@ -12207,7 +12207,8 @@ radv_trace_rays(struct radv_cmd_buffer *cmd_buffer, VkTraceRaysIndirectCommand2K
 
    /* Since the workgroup size is 8x4 (or 8x8), 1D dispatches can only fill 8 threads per wave at most. To increase
     * occupancy, it's beneficial to convert to a 2D dispatch in these cases. */
-   if (tables && tables->height == 1 && tables->width >= cmd_buffer->state.rt_prolog->info.cs.block_size[0])
+   if (tables && tables->height == 1 && tables->width >= cmd_buffer->state.rt_prolog->info.cs.block_size[0] &&
+       pdev->info.gfx_level >= GFX9)
       tables->height = ACO_RT_CONVERTED_2D_LAUNCH_SIZE;
 
    struct radv_dispatch_info info = {0};
@@ -12267,7 +12268,7 @@ radv_trace_rays(struct radv_cmd_buffer *cmd_buffer, VkTraceRaysIndirectCommand2K
    const struct radv_userdata_info *shader_loc = radv_get_user_sgpr(rt_prolog, AC_UD_CS_TRAVERSAL_SHADER_ADDR);
    struct radv_shader *traversal_shader = cmd_buffer->state.shaders[MESA_SHADER_INTERSECTION];
    if (shader_loc->sgpr_idx != -1 && traversal_shader) {
-      uint64_t traversal_va = traversal_shader->va | radv_rt_priority_traversal;
+      uint64_t traversal_va = traversal_shader->va;
       radv_emit_shader_pointer(device, cmd_buffer->cs, base_reg + shader_loc->sgpr_idx * 4, traversal_va, true);
    }
 

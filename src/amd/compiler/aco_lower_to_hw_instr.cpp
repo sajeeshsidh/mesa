@@ -2107,10 +2107,10 @@ hw_init_scratch(Builder& bld, Definition def, Operand scratch_addr, Operand scra
       bld.sop2(aco_opcode::s_addc_u32, Definition(scratch_hi, s1), Definition(scc, s1),
                scratch_addr_hi, hi_add, Operand(scc, s1));
 
-      /* "((size - 1) << 11) | register" (FLAT_SCRATCH_LO/HI is encoded as register
-       * 20/21) */
-      bld.sopk(aco_opcode::s_setreg_b32, Operand(scratch_lo, s1), (31 << 11) | 20);
-      bld.sopk(aco_opcode::s_setreg_b32, Operand(scratch_hi, s1), (31 << 11) | 21);
+      bld.sopk(aco_opcode::s_setreg_b32, Operand(scratch_lo, s1),
+               get_hwreg_imm(HwReg::FLAT_SCRATCH_LO));
+      bld.sopk(aco_opcode::s_setreg_b32, Operand(scratch_hi, s1),
+               get_hwreg_imm(HwReg::FLAT_SCRATCH_HI));
    } else {
       bld.sop2(aco_opcode::s_add_u32, Definition(flat_scr_lo, s1), Definition(scc, s1),
                scratch_addr_lo, scratch_offset);
@@ -2781,6 +2781,20 @@ lower_to_hw_instr(Program* program)
                         ((32 - 1) << 11) | shader_cycles_hi);
                break;
             }
+            case aco_opcode::p_callee_stack_ptr: {
+               unsigned caller_stack_size =
+                  ctx.program->config->scratch_bytes_per_wave / ctx.program->wave_size;
+               unsigned scratch_param_size = instr->operands[0].constantValue();
+               unsigned callee_stack_start = caller_stack_size + scratch_param_size;
+               if (ctx.program->gfx_level < GFX9)
+                  callee_stack_start *= ctx.program->wave_size;
+               if (instr->operands.size() < 2)
+                  bld.sop1(aco_opcode::s_mov_b32, instr->definitions[0],
+                           Operand::c32(callee_stack_start));
+               else
+                  bld.sop2(aco_opcode::s_add_u32, instr->definitions[0], Definition(scc, s1),
+                           instr->operands[1], Operand::c32(callee_stack_start));
+            }
             default: break;
             }
          } else if (instr->isBranch()) {
@@ -2955,6 +2969,16 @@ lower_to_hw_instr(Program* program)
          } else if (instr->isMIMG() && instr->mimg().strict_wqm) {
             lower_image_sample(&ctx, instr);
             ctx.instructions.emplace_back(std::move(instr));
+         } else if (instr->isCall()) {
+            PhysReg stack_reg = instr->operands[1].physReg();
+            if (instr->operands[2].constantValue())
+               bld.sop2(aco_opcode::s_add_u32, Definition(stack_reg, s1), Definition(scc, s1),
+                        Operand(stack_reg, s1), instr->operands[2]);
+            bld.sop1(aco_opcode::s_swappc_b64, Definition(instr->operands[0].physReg(), s2),
+                     Operand(instr->operands[4].physReg(), s2));
+            if (instr->operands[2].constantValue())
+               bld.sop2(aco_opcode::s_sub_u32, Definition(stack_reg, s1), Definition(scc, s1),
+                        Operand(stack_reg, s1), instr->operands[2]);
          } else {
             ctx.instructions.emplace_back(std::move(instr));
          }
