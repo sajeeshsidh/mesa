@@ -956,11 +956,14 @@ handle_split(struct ra_ctx *ctx, struct ir3_instruction *split)
       struct ir3_instruction *spill_split =
          ir3_instr_create(split->block, OPC_META_SPLIT, 1, 1);
       struct ir3_register *dst = __ssa_dst(spill_split);
-      ir3_src_create(spill_split, INVALID_REG, IR3_REG_SSA)->def =
-         src_interval->spill_def;
+      struct ir3_register *src =
+         ir3_src_create(spill_split, INVALID_REG, IR3_REG_SSA);
+      src->def = src_interval->spill_def;
+      src->wrmask = src_interval->spill_def->wrmask;
       spill_split->split.off = split->split.off;
       ir3_instr_move_after(spill_split, split);
       dst_interval->spill_def = dst;
+      list_del(&split->node);
       return;
    }
 
@@ -1192,7 +1195,7 @@ handle_block(struct ra_ctx *ctx, struct ir3_block *block)
    if (block->predecessors_count > 1)
       record_pred_live_outs(ctx, block);
 
-   foreach_instr (instr, &block->instr_list) {
+   foreach_instr_safe (instr, &block->instr_list) {
       di(instr, "processing");
 
       handle_instr(ctx, instr);
