@@ -2137,6 +2137,9 @@ nir_build_call(nir_builder *build, nir_function *func, size_t count,
    nir_builder_instr_insert(build, &call->instr);
 }
 
+nir_def *
+nir_build_string(nir_builder *build, const char *value);
+
 /*
  * Call a given nir_function * with a variadic number of nir_def * arguments.
  *

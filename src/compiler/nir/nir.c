@@ -880,6 +880,14 @@ nir_parallel_copy_instr_create(nir_shader *shader)
    return instr;
 }
 
+nir_debug_info_instr *
+nir_debug_info_instr_create(nir_shader *shader)
+{
+   nir_debug_info_instr *instr = gc_zalloc(shader->gctx, nir_debug_info_instr, 1);
+   instr_init(&instr->instr, nir_instr_type_debug_info);
+   return instr;
+}
+
 nir_undef_instr *
 nir_undef_instr_create(nir_shader *shader,
                        unsigned num_components,
@@ -1331,6 +1339,7 @@ nir_instr_def(nir_instr *instr)
 
    case nir_instr_type_call:
    case nir_instr_type_jump:
+   case nir_instr_type_debug_info:
       return NULL;
    }
 
@@ -1399,6 +1408,16 @@ nir_src_as_const_value(nir_src src)
    nir_load_const_instr *load = nir_instr_as_load_const(src.ssa->parent_instr);
 
    return load->value;
+}
+
+char *
+nir_src_as_string(nir_src src)
+{
+   nir_debug_info_instr *di = nir_src_as_debug_info(src);
+   if (di && di->type == nir_debug_info_string)
+      return di->string;
+
+   return NULL;
 }
 
 /**

@@ -221,6 +221,10 @@ opt_move_discards_to_top_impl(nir_function_impl *impl)
             continue;
          }
 
+         case nir_instr_type_debug_info:
+            instr->pass_flags = STOP_PROCESSING_INSTR_FLAG;
+            goto break_all;
+
          case nir_instr_type_parallel_copy:
             unreachable("Unhanded instruction type");
          }
