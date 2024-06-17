@@ -217,19 +217,20 @@ v3d_general_tmu_op(nir_intrinsic_instr *instr)
         case nir_intrinsic_load_uniform:
         case nir_intrinsic_load_shared:
         case nir_intrinsic_load_scratch:
-        case nir_intrinsic_load_global_2x32:
+        case nir_intrinsic_load_global:
+        case nir_intrinsic_load_global_constant:
         case nir_intrinsic_store_ssbo:
         case nir_intrinsic_store_shared:
         case nir_intrinsic_store_scratch:
-        case nir_intrinsic_store_global_2x32:
+        case nir_intrinsic_store_global:
                 return V3D_TMU_OP_REGULAR;
 
         case nir_intrinsic_ssbo_atomic:
         case nir_intrinsic_ssbo_atomic_swap:
         case nir_intrinsic_shared_atomic:
         case nir_intrinsic_shared_atomic_swap:
-        case nir_intrinsic_global_atomic_2x32:
-        case nir_intrinsic_global_atomic_swap_2x32:
+        case nir_intrinsic_global_atomic:
+        case nir_intrinsic_global_atomic_swap:
                 return v3d_general_tmu_op_for_atomic(instr);
 
         default:
@@ -510,7 +511,7 @@ ntq_emit_tmu_general(struct v3d_compile *c, nir_intrinsic_instr *instr,
         bool atomic_add_replaced =
                 (instr->intrinsic == nir_intrinsic_ssbo_atomic ||
                  instr->intrinsic == nir_intrinsic_shared_atomic ||
-                 instr->intrinsic == nir_intrinsic_global_atomic_2x32) &&
+                 instr->intrinsic == nir_intrinsic_global_atomic) &&
                 nir_intrinsic_atomic_op(instr) == nir_atomic_op_iadd &&
                  (tmu_op == V3D_TMU_OP_WRITE_AND_READ_INC ||
                   tmu_op == V3D_TMU_OP_WRITE_OR_READ_DEC);
@@ -518,14 +519,15 @@ ntq_emit_tmu_general(struct v3d_compile *c, nir_intrinsic_instr *instr,
         bool is_store = (instr->intrinsic == nir_intrinsic_store_ssbo ||
                          instr->intrinsic == nir_intrinsic_store_scratch ||
                          instr->intrinsic == nir_intrinsic_store_shared ||
-                         instr->intrinsic == nir_intrinsic_store_global_2x32);
+                         instr->intrinsic == nir_intrinsic_store_global);
 
         bool is_load = (instr->intrinsic == nir_intrinsic_load_uniform ||
                         instr->intrinsic == nir_intrinsic_load_ubo ||
                         instr->intrinsic == nir_intrinsic_load_ssbo ||
                         instr->intrinsic == nir_intrinsic_load_scratch ||
                         instr->intrinsic == nir_intrinsic_load_shared ||
-                        instr->intrinsic == nir_intrinsic_load_global_2x32);
+                        instr->intrinsic == nir_intrinsic_load_global ||
+                        instr->intrinsic == nir_intrinsic_load_global_constant);
 
         if (!is_load)
                 c->tmu_dirty_rcl = true;
@@ -542,7 +544,8 @@ ntq_emit_tmu_general(struct v3d_compile *c, nir_intrinsic_instr *instr,
                    instr->intrinsic == nir_intrinsic_load_ubo ||
                    instr->intrinsic == nir_intrinsic_load_scratch ||
                    instr->intrinsic == nir_intrinsic_load_shared ||
-                   instr->intrinsic == nir_intrinsic_load_global_2x32 ||
+                   instr->intrinsic == nir_intrinsic_load_global ||
+                   instr->intrinsic == nir_intrinsic_load_global_constant ||
                    atomic_add_replaced) {
                 offset_src = 0 + has_index;
         } else if (is_store) {
@@ -3390,7 +3393,8 @@ ntq_emit_intrinsic(struct v3d_compile *c, nir_intrinsic_instr *instr)
                 ntq_emit_load_uniform(c, instr);
                 break;
 
-        case nir_intrinsic_load_global_2x32:
+        case nir_intrinsic_load_global:
+        case nir_intrinsic_load_global_constant:
                 ntq_emit_tmu_general(c, instr, false, true);
                 c->has_general_tmu_load = true;
                 break;
@@ -3412,9 +3416,9 @@ ntq_emit_intrinsic(struct v3d_compile *c, nir_intrinsic_instr *instr)
                 ntq_emit_tmu_general(c, instr, false, false);
                 break;
 
-        case nir_intrinsic_store_global_2x32:
-        case nir_intrinsic_global_atomic_2x32:
-        case nir_intrinsic_global_atomic_swap_2x32:
+        case nir_intrinsic_store_global:
+        case nir_intrinsic_global_atomic:
+        case nir_intrinsic_global_atomic_swap:
                 ntq_emit_tmu_general(c, instr, false, true);
                 break;
 
