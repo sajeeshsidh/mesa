@@ -1232,6 +1232,12 @@ toggle_protected(struct iris_batch *batch)
 #endif
 }
 
+#if GFX_VER >= 20
+#define _3DSTATE_DRAWING_RECTANGLE GENX(3DSTATE_DRAWING_RECTANGLE_FAST)
+#else
+#define _3DSTATE_DRAWING_RECTANGLE GENX(3DSTATE_DRAWING_RECTANGLE)
+#endif
+
 /**
  * Upload the initial GPU state for a render context.
  *
@@ -1369,6 +1375,13 @@ iris_init_render_context(struct iris_batch *batch)
    };
 #endif
 
+#if GFX_VER >= 20
+   iris_emit_cmd(batch, GENX(3DSTATE_3D_MODE), p) {
+      p.DX10OGLBorderModeforYCRCB = true;
+      p.DX10OGLBorderModeforYCRCBMask = true;
+   }
+#endif
+
    upload_pixel_hashing_tables(batch);
 
    /* 3DSTATE_DRAWING_RECTANGLE is non-pipelined, so we want to avoid
@@ -1376,7 +1389,7 @@ iris_init_render_context(struct iris_batch *batch)
     * instead include the render target dimensions in the viewport, so
     * viewport extents clipping takes care of pruning stray geometry.
     */
-   iris_emit_cmd(batch, GENX(3DSTATE_DRAWING_RECTANGLE), rect) {
+   iris_emit_cmd(batch, _3DSTATE_DRAWING_RECTANGLE, rect) {
       rect.ClippedDrawingRectangleXMax = UINT16_MAX;
       rect.ClippedDrawingRectangleYMax = UINT16_MAX;
    }
@@ -5080,6 +5093,9 @@ iris_store_tes_state(const struct intel_device_info *devinfo,
 
    iris_pack_command(GENX(3DSTATE_TE), te_state, te) {
       te.Partitioning = tes_data->partitioning;
+#if GFX_VER >= 20
+      te.NumberOfRegionsPerPatch = 2;
+#endif
       te.OutputTopology = tes_data->output_topology;
       te.TEDomain = tes_data->domain;
       te.TEEnable = true;

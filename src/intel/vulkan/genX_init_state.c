@@ -338,6 +338,12 @@ init_common_queue_state(struct anv_queue *queue, struct anv_batch *batch)
 #endif
 }
 
+#if GFX_VER >= 20
+#define _3DSTATE_DRAWING_RECTANGLE GENX(3DSTATE_DRAWING_RECTANGLE_FAST)
+#else
+#define _3DSTATE_DRAWING_RECTANGLE GENX(3DSTATE_DRAWING_RECTANGLE)
+#endif
+
 static VkResult
 init_render_queue_state(struct anv_queue *queue, bool is_companion_rcs_batch)
 {
@@ -369,7 +375,7 @@ init_render_queue_state(struct anv_queue *queue, bool is_companion_rcs_batch)
 
    anv_batch_emit(batch, GENX(3DSTATE_AA_LINE_PARAMETERS), aa);
 
-   anv_batch_emit(batch, GENX(3DSTATE_DRAWING_RECTANGLE), rect) {
+   anv_batch_emit(batch, _3DSTATE_DRAWING_RECTANGLE, rect) {
       rect.ClippedDrawingRectangleYMin = 0;
       rect.ClippedDrawingRectangleXMin = 0;
       rect.ClippedDrawingRectangleYMax = UINT16_MAX;
@@ -626,6 +632,13 @@ init_render_queue_state(struct anv_queue *queue, bool is_companion_rcs_batch)
 #endif
 
    genX(emit_pipeline_select)(batch, _3D, device);
+#endif
+
+#if GFX_VER >= 20
+   anv_batch_emit(batch, GENX(3DSTATE_3D_MODE), p) {
+      p.DX10OGLBorderModeforYCRCB = true;
+      p.DX10OGLBorderModeforYCRCBMask = true;
+   }
 #endif
 
    anv_batch_emit(batch, GENX(MI_BATCH_BUFFER_END), bbe);
