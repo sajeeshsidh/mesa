@@ -430,7 +430,7 @@ panvk_meta_copy_img2img_shader(struct panvk_device *dev,
    struct util_dynarray binary;
 
    util_dynarray_init(&binary, NULL);
-   pan_shader_preprocess(b.shader, inputs.gpu_id);
+   pan_shader_preprocess(b.shader, NULL, inputs.gpu_id);
    NIR_PASS_V(b.shader, GENX(pan_inline_rt_conversion), &dstfmt);
    GENX(pan_shader_compile)(b.shader, &inputs, &binary, shader_info);
 
@@ -973,7 +973,7 @@ panvk_meta_copy_buf2img_shader(struct panvk_device *dev,
    struct util_dynarray binary;
 
    util_dynarray_init(&binary, NULL);
-   pan_shader_preprocess(b.shader, inputs.gpu_id);
+   pan_shader_preprocess(b.shader, NULL, inputs.gpu_id);
 
    enum pipe_format rt_formats[8] = {key.imgfmt};
    NIR_PASS_V(b.shader, GENX(pan_inline_rt_conversion), rt_formats);
@@ -1435,7 +1435,7 @@ panvk_meta_copy_img2buf_shader(struct panvk_device *dev,
    struct util_dynarray binary;
 
    util_dynarray_init(&binary, NULL);
-   pan_shader_preprocess(b.shader, inputs.gpu_id);
+   pan_shader_preprocess(b.shader, NULL, inputs.gpu_id);
    GENX(pan_shader_compile)(b.shader, &inputs, &binary, shader_info);
 
    shader_info->push.count =
@@ -1667,7 +1667,7 @@ panvk_meta_copy_buf2buf_shader(struct panvk_device *dev, unsigned blksz,
    struct util_dynarray binary;
 
    util_dynarray_init(&binary, NULL);
-   pan_shader_preprocess(b.shader, inputs.gpu_id);
+   pan_shader_preprocess(b.shader, NULL, inputs.gpu_id);
    GENX(pan_shader_compile)(b.shader, &inputs, &binary, shader_info);
 
    shader_info->push.count =
@@ -1795,7 +1795,7 @@ panvk_meta_fill_buf_shader(struct panvk_device *dev,
    struct util_dynarray binary;
 
    util_dynarray_init(&binary, NULL);
-   pan_shader_preprocess(b.shader, inputs.gpu_id);
+   pan_shader_preprocess(b.shader, NULL, inputs.gpu_id);
    GENX(pan_shader_compile)(b.shader, &inputs, &binary, shader_info);
 
    shader_info->push.count =

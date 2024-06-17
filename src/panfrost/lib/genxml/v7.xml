@@ -446,6 +446,31 @@
     <value name="Check Payload Range" value="32"/>
   </enum>
 
+  <struct name="AFBC Block Info" size="2">
+    <field name="Size" size="32" start="0" type="uint"/>
+    <field name="Offset" size="32" start="32" type="uint"/>
+  </struct>
+
+  <struct name="AFBC Header" size="4">
+    <field name="Body Base Ptr" size="32" start="0" type="uint"/>
+    <field name="sublock_size_0" size="6" start="32" type="uint"/>
+    <field name="sublock_size_1" size="6" start="38" type="uint"/>
+    <field name="sublock_size_2" size="6" start="44" type="uint"/>
+    <field name="sublock_size_3" size="6" start="50" type="uint"/>
+    <field name="sublock_size_4" size="6" start="56" type="uint"/>
+    <field name="sublock_size_5" size="6" start="62" type="uint"/>
+    <field name="sublock_size_6" size="6" start="68" type="uint"/>
+    <field name="sublock_size_7" size="6" start="74" type="uint"/>
+    <field name="sublock_size_8" size="6" start="80" type="uint"/>
+    <field name="sublock_size_9" size="6" start="86" type="uint"/>
+    <field name="sublock_size_10" size="6" start="92" type="uint"/>
+    <field name="sublock_size_11" size="6" start="98" type="uint"/>
+    <field name="sublock_size_12" size="6" start="104" type="uint"/>
+    <field name="sublock_size_13" size="6" start="110" type="uint"/>
+    <field name="sublock_size_14" size="6" start="116" type="uint"/>
+    <field name="sublock_size_15" size="6" start="122" type="uint"/>
+  </struct>
+
   <enum name="Wrap Mode">
     <value name="Repeat" value="8"/>
     <value name="Clamp to Edge" value="9"/>

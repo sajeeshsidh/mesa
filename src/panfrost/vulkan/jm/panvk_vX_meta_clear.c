@@ -68,7 +68,7 @@ panvk_meta_clear_color_attachment_shader(struct panvk_device *dev,
    struct util_dynarray binary;
 
    util_dynarray_init(&binary, NULL);
-   pan_shader_preprocess(b.shader, inputs.gpu_id);
+   pan_shader_preprocess(b.shader, NULL, inputs.gpu_id);
    GENX(pan_shader_compile)(b.shader, &inputs, &binary, shader_info);
 
    shader_info->push.count = 4;

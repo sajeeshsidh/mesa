@@ -84,9 +84,40 @@ libpanfrost_lib_files = files(
   'pan_util.c',
 )
 
+libpanfrost_shader_files = files(
+  'shaders/afbc_packing.cl'
+)
+
+prepended_input_args = []
+foreach input_arg : libpanfrost_shader_files
+  prepended_input_args += ['--in', input_arg]
+endforeach
+
+libpanfrost_shaders_per_arch = []
+
+foreach ver : ['4', '5', '6', '7', '9', '10']
+  libpanfrost_shaders_per_arch += custom_target(
+    'libpanfrost_shaders_v' + ver + '.h',
+    input : libpanfrost_shader_files,
+    output : 'libpanfrost_shaders_v' + ver + '.h',
+    command : [
+      prog_panfrost_clc, '--prefix', 'libpanfrost_shaders',
+      '--arch', ver,
+      prepended_input_args, '-o', '@OUTPUT@', '--',
+      '-cl-std=cl2.0', '-D__OPENCL_VERSION__=200',
+      '-I' + join_paths(meson.current_source_dir(), '.'),
+      '-I' + join_paths(meson.current_source_dir(), 'shaders'),
+      '-I' + join_paths(meson.current_build_dir(), '.'),
+      '-I' + join_paths(meson.current_source_dir(), 'genxml'),
+      ],
+    env: ['MESA_SHADER_CACHE_DISABLE=true'],
+    depends : [prog_panfrost_clc],
+  )
+endforeach
+
 libpanfrost_lib = static_library(
   'panfrost_lib',
-  [libpanfrost_lib_files, pan_packers],
+  [libpanfrost_lib_files, libpanfrost_shaders_per_arch, pan_packers],
   include_directories : [inc_include, inc_src, inc_panfrost_hw],
   c_args : [no_override_init_args],
   gnu_symbol_visibility : 'hidden',

@@ -40,7 +40,6 @@
 
 #include "genxml/gen_macros.h"
 
-#include "pan_afbc_cso.h"
 #include "pan_blend.h"
 #include "pan_blitter.h"
 #include "pan_bo.h"
@@ -56,6 +55,7 @@
 #include "pan_shader.h"
 #include "pan_texture.h"
 #include "pan_util.h"
+#include "pan_afbc_cso.h"
 
 /* JOBX() is used to select the job backend helpers to call from generic
  * functions. */
@@ -3142,6 +3142,13 @@ panfrost_launch_afbc_shader(struct panfrost_batch *batch, void *cso,
    pctx->set_constant_buffer(pctx, PIPE_SHADER_COMPUTE, 0, true, &saved_const);
 }
 
+static inline struct pan_afbc_shader_data *
+panfrost_afbc_get_shaders(struct panfrost_context *ctx,
+                                struct panfrost_resource *rsrc, unsigned align)
+{
+   return GENX(panfrost_afbc_get_shaders)(ctx, rsrc, align);
+}
+
 #define LAUNCH_AFBC_SHADER(name, batch, rsrc, consts, nr_blocks)               \
    struct pan_afbc_shader_data *shaders =                                      \
       panfrost_afbc_get_shaders(batch->ctx, rsrc, AFBC_BLOCK_ALIGN);           \
@@ -3702,11 +3709,15 @@ context_populate_vtbl(struct pipe_context *pipe)
 static void
 context_init(struct panfrost_context *ctx)
 {
+   JOBX(init_context)(ctx);
+   GENX(panfrost_afbc_context_init)(ctx);
 }
 
 static void
 context_cleanup(struct panfrost_context *ctx)
 {
+   JOBX(cleanup_context)(ctx);
+   GENX(panfrost_afbc_context_destroy)(ctx);
 }
 
 #if PAN_ARCH <= 5
@@ -3800,8 +3811,8 @@ GENX(panfrost_cmdstream_screen_init)(struct panfrost_screen *screen)
    screen->vtbl.prepare_shader = prepare_shader;
    screen->vtbl.screen_destroy = screen_destroy;
    screen->vtbl.context_populate_vtbl = context_populate_vtbl;
-   screen->vtbl.context_init = JOBX(init_context);
-   screen->vtbl.context_cleanup = JOBX(cleanup_context);
+   screen->vtbl.context_init = context_init;
+   screen->vtbl.context_cleanup = context_cleanup;
    screen->vtbl.init_batch = JOBX(init_batch);
    screen->vtbl.cleanup_batch = JOBX(cleanup_batch);
    screen->vtbl.submit_batch = submit_batch;

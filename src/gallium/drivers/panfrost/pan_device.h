@@ -169,6 +169,8 @@ struct panfrost_device {
     * unconditionally on Bifrost, and useful for sharing with Midgard */
 
    struct panfrost_bo *sample_positions;
+
+   nir_shader *libpan;
 };
 
 static inline int

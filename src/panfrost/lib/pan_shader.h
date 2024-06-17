@@ -31,14 +31,14 @@
 
 #include "genxml/gen_macros.h"
 
-void bifrost_preprocess_nir(nir_shader *nir, unsigned gpu_id);
+void bifrost_preprocess_nir(nir_shader *nir, nir_shader *libpan, unsigned gpu_id);
 void midgard_preprocess_nir(nir_shader *nir, unsigned gpu_id);
 
 static inline void
-pan_shader_preprocess(nir_shader *nir, unsigned gpu_id)
+pan_shader_preprocess(nir_shader *nir, nir_shader *libpan, unsigned gpu_id)
 {
    if (pan_arch(gpu_id) >= 6)
-      bifrost_preprocess_nir(nir, gpu_id);
+      bifrost_preprocess_nir(nir, libpan, gpu_id);
    else
       midgard_preprocess_nir(nir, gpu_id);
 }

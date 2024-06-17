@@ -319,6 +319,13 @@ with_any_intel = [
 ].contains(true)
 with_any_nouveau = with_gallium_nouveau or with_nouveau_vk
 
+if get_option('panfrost-clc') != 'system'
+  with_panfrost_clc = get_option('panfrost-clc') == 'enabled' or \
+                      with_gallium_panfrost
+else
+  with_panfrost_clc = false
+endif
+
 # needed in the loader
 if with_nouveau_vk
   pre_args += '-DHAVE_NVK'
@@ -335,7 +342,7 @@ if with_aco_tests and not with_amd_vk
 endif
 
 with_microsoft_clc = get_option('microsoft-clc').enabled()
-with_clc = with_microsoft_clc or with_intel_clc or with_gallium_asahi
+with_clc = with_microsoft_clc or with_intel_clc or with_gallium_asahi or with_panfrost_clc
 with_spirv_to_dxil = get_option('spirv-to-dxil')
 
 if host_machine.system() == 'darwin'

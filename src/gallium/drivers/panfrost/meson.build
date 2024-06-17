@@ -21,7 +21,6 @@
 
 files_panfrost = files(
   'driinfo_panfrost.h',
-  'pan_afbc_cso.c',
   'pan_bo.c',
   'pan_device.c',
   'pan_disk_cache.c',
@@ -62,7 +61,7 @@ panfrost_versions = ['4', '5', '6', '7', '9', '10']
 libpanfrost_versions = []
 
 foreach ver : panfrost_versions
-  files_panfrost_vx = ['pan_cmdstream.c', pan_packers]
+  files_panfrost_vx = ['pan_cmdstream.c', 'pan_cl.c', 'pan_afbc_cso.c', pan_packers]
   if ver in ['4', '5', '6', '7', '9']
     files_panfrost_vx += ['pan_jm.c']
   elif ver in ['10']

@@ -657,7 +657,7 @@ pan_blitter_get_blit_shader(struct pan_blitter_cache *cache,
    for (unsigned i = 0; i < active_count; ++i)
       BITSET_SET(b.shader->info.textures_used, i);
 
-   pan_shader_preprocess(b.shader, inputs.gpu_id);
+   pan_shader_preprocess(b.shader, NULL, inputs.gpu_id);
 
    if (PAN_ARCH == 4) {
       NIR_PASS_V(b.shader, nir_shader_intrinsics_pass, lower_sampler_parameters,

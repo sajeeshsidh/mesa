@@ -352,7 +352,7 @@ panvk_per_arch(shader_create)(struct panvk_device *dev,
       nir_print_shader(nir, stderr);
    }
 
-   pan_shader_preprocess(nir, inputs.gpu_id);
+   pan_shader_preprocess(nir, NULL, inputs.gpu_id);
 
    if (stage == MESA_SHADER_VERTEX)
       NIR_PASS_V(nir, pan_lower_image_index, MAX_VS_ATTRIBS);

@@ -4873,8 +4873,25 @@ bi_lower_load_push_const_with_dyn_offset(nir_builder *b,
    return true;
 }
 
+static void
+panfrost_link_libpan(nir_shader *nir, const nir_shader *libpan) {
+   nir_link_shader_functions(nir, libpan);
+   NIR_PASS_V(nir, nir_inline_functions);
+   nir_remove_non_entrypoints(nir);
+   NIR_PASS_V(nir, nir_lower_vars_to_explicit_types,
+            nir_var_function_temp | nir_var_mem_global | nir_var_shader_temp |
+               nir_var_function_temp | nir_var_mem_shared,
+            glsl_get_cl_type_size_align);
+   NIR_PASS_V(nir, nir_opt_deref);
+   NIR_PASS_V(nir, nir_lower_vars_to_ssa);
+   NIR_PASS_V(nir, nir_lower_explicit_io,
+              nir_var_shader_temp | nir_var_function_temp | nir_var_mem_shared |
+                 nir_var_mem_global,
+              nir_address_format_62bit_generic);
+}
+
 void
-bifrost_preprocess_nir(nir_shader *nir, unsigned gpu_id)
+bifrost_preprocess_nir(nir_shader *nir, nir_shader *libpan, unsigned gpu_id)
 {
    /* Lower gl_Position pre-optimisation, but after lowering vars to ssa
     * (so we don't accidentally duplicate the epilogue since mesa/st has
@@ -4891,6 +4908,9 @@ bifrost_preprocess_nir(nir_shader *nir, unsigned gpu_id)
       if (psiz != NULL)
          psiz->data.precision = GLSL_PRECISION_MEDIUM;
    }
+
+   if (libpan)
+      panfrost_link_libpan(nir, libpan);
 
    /* lower MSAA load/stores to 3D load/stores */
    NIR_PASS_V(nir, pan_nir_lower_image_ms);
