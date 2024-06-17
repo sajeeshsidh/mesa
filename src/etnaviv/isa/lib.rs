@@ -2,4 +2,5 @@
 // SPDX-License-Identifier: MIT
 
 mod isa;
+mod parser;
 mod util;
