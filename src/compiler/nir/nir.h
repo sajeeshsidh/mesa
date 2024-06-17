@@ -3677,6 +3677,11 @@ typedef enum {
     */
    nir_io_mediump_is_32bit = BITFIELD_BIT(3),
 
+   /**
+    * Whether nir_opt_vectorize_io should ignore FS inputs.
+    */
+   nir_io_prefer_scalar_fs_inputs = BITFIELD_BIT(4),
+
    /* Options affecting the GLSL compiler are below. */
 
    /**
@@ -6636,6 +6641,7 @@ bool nir_opt_uniform_subgroup(nir_shader *shader,
 
 bool nir_opt_vectorize(nir_shader *shader, nir_vectorize_cb filter,
                        void *data);
+bool nir_opt_vectorize_io(nir_shader *shader, nir_variable_mode modes);
 
 bool nir_opt_conditional_discard(nir_shader *shader);
 bool nir_opt_move_discards_to_top(nir_shader *shader);
