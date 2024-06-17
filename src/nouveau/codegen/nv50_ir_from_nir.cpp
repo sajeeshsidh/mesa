@@ -1322,7 +1322,7 @@ Converter::parseNIR()
       info_out->prop.fp.postDepthCoverage = nir->info.fs.post_depth_coverage;
       info_out->prop.fp.readsSampleLocations =
          BITSET_TEST(nir->info.system_values_read, SYSTEM_VALUE_SAMPLE_POS);
-      info_out->prop.fp.usesDiscard = nir->info.fs.uses_discard || nir->info.fs.uses_demote;
+      info_out->prop.fp.usesDiscard = nir->info.fs.uses_discard;
       info_out->prop.fp.usesSampleMaskIn =
          BITSET_TEST(nir->info.system_values_read, SYSTEM_VALUE_SAMPLE_MASK_IN);
       break;
@@ -1860,14 +1860,12 @@ Converter::visit(nir_intrinsic_instr *insn)
       break;
    }
    case nir_intrinsic_demote:
-   case nir_intrinsic_discard:
       mkOp(OP_DISCARD, TYPE_NONE, NULL);
       break;
-   case nir_intrinsic_demote_if:
-   case nir_intrinsic_discard_if: {
+   case nir_intrinsic_demote_if: {
       Value *pred = getSSA(1, FILE_PREDICATE);
       if (insn->num_components > 1) {
-         ERROR("nir_intrinsic_discard_if only with 1 component supported!\n");
+         ERROR("nir_intrinsic_demote_if only with 1 component supported!\n");
          assert(false);
          return false;
       }
@@ -3506,6 +3504,7 @@ nvir_nir_shader_compiler_options(int chipset, uint8_t shader_type)
       ((chipset >= NVISA_GV100_CHIPSET) ? nir_lower_dsub : 0) |
       ((chipset >= NVISA_GV100_CHIPSET) ? nir_lower_ddiv : 0)
    );
+   op.discard_is_demote = true;
    return op;
 }
 

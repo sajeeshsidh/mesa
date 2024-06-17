@@ -1434,6 +1434,9 @@ zink_screen_init_compiler(struct zink_screen *screen)
        screen->info.driver_props.driverID == VK_DRIVER_ID_AMD_OPEN_SOURCE ||
        screen->info.driver_props.driverID == VK_DRIVER_ID_AMD_PROPRIETARY)
       screen->nir_options.lower_doubles_options = nir_lower_dmod;
+
+   if (screen->info.have_EXT_shader_demote_to_helper_invocation)
+      screen->nir_options.discard_is_demote = true;
 }
 
 const void *
@@ -3974,7 +3977,7 @@ compile_module(struct zink_screen *screen, struct zink_shader *zs, nir_shader *n
    }
 
    struct zink_shader_object obj = {0};
-   struct spirv_shader *spirv = nir_to_spirv(nir, sinfo, screen->spirv_version);
+   struct spirv_shader *spirv = nir_to_spirv(nir, sinfo, screen);
    if (spirv)
       obj = zink_shader_spirv_compile(screen, zs, spirv, can_shobj, pg);
 
@@ -6224,10 +6227,6 @@ zink_shader_init(struct zink_screen *screen, struct zink_shader *zs)
    if (!screen->info.feats.features.shaderStorageImageMultisample)
       NIR_PASS_V(nir, strip_tex_ms);
    NIR_PASS_V(nir, nir_lower_frexp); /* TODO: Use the spirv instructions for this. */
-
-   if (screen->info.have_EXT_shader_demote_to_helper_invocation) {
-      NIR_PASS_V(nir, nir_lower_discard_or_demote, true);
-   }
 
    if (screen->need_2D_zs)
       NIR_PASS_V(nir, lower_1d_shadow, screen);
