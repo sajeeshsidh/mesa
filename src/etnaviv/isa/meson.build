@@ -155,6 +155,7 @@ if with_tools.contains('etnaviv')
     gnu_symbol_visibility : 'hidden',
     rust_abi : 'c',
     dependencies: [dep_roxmltree],
+    link_with: [_libetnaviv_isa_bindings_gen],
   )
 
   if with_tests
