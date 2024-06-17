@@ -10,16 +10,19 @@
 #error "PAN_ARCH must be defined"
 #endif
 
-#include "util/u_dynarray.h"
-
 #include "util/pan_ir.h"
 
 #include "pan_desc.h"
 
 #include "panvk_descriptor_set.h"
 #include "panvk_macros.h"
+#include "panvk_mempool.h"
 
 #include "vk_pipeline_layout.h"
+
+#include "vk_shader.h"
+
+extern const struct vk_device_shader_ops panvk_per_arch(device_shader_ops);
 
 #define MAX_VS_ATTRIBS 16
 
@@ -96,48 +99,70 @@ enum panvk_bifrost_desc_table_type {
 };
 
 #define COPY_DESC_HANDLE(table, idx)           ((table << 28) | (idx))
-#define COPY_DESC_HANDLE_EXTRACT_INDEX(handle) ((handle)&BITFIELD_MASK(28))
+#define COPY_DESC_HANDLE_EXTRACT_INDEX(handle) ((handle) & BITFIELD_MASK(28))
 #define COPY_DESC_HANDLE_EXTRACT_TABLE(handle) ((handle) >> 28)
 
-struct panvk_shader_desc_map {
-   /* The index of the map serves as the table offset, the value of the
-    * entry is a COPY_DESC_HANDLE() encoding the source set, and the
-    * index of the descriptor in the set. */
-   uint32_t *map;
-
-   /* Number of entries in the map array. */
-   uint32_t count;
-};
-
-struct panvk_shader_desc_info {
-   uint32_t used_set_mask;
-   struct panvk_shader_desc_map dyn_ubos;
-   struct panvk_shader_desc_map dyn_ssbos;
-   struct panvk_shader_desc_map others[PANVK_BIFROST_DESC_TABLE_COUNT];
-};
-
 struct panvk_shader {
+   struct vk_shader vk;
    struct pan_shader_info info;
-   struct util_dynarray binary;
    struct pan_compute_dim local_size;
-   struct panvk_shader_desc_info desc_info;
+
+   struct {
+      uint32_t used_set_mask;
+
+      struct {
+         uint32_t map[MAX_DYNAMIC_UNIFORM_BUFFERS];
+         uint32_t count;
+      } dyn_ubos;
+      struct {
+         uint32_t map[MAX_DYNAMIC_STORAGE_BUFFERS];
+         uint32_t count;
+      } dyn_ssbos;
+      struct {
+         struct panvk_priv_mem map;
+         uint32_t count[PANVK_BIFROST_DESC_TABLE_COUNT];
+      } others;
+   } desc_info;
+
+   const void *bin_ptr;
+   uint32_t bin_size;
+
+   struct panvk_priv_mem code_mem;
+   struct panvk_priv_mem rsd;
+
+   const char *nir_str;
+   const char *asm_str;
 };
 
-bool panvk_per_arch(blend_needs_lowering)(const struct panvk_device *dev,
-                                          const struct pan_blend_state *state,
-                                          unsigned rt);
+struct panvk_shader_link {
+   struct {
+      struct panvk_priv_mem attribs;
+   } vs, fs;
+   unsigned buf_strides[PANVK_VARY_BUF_MAX];
+};
 
-struct panvk_shader *panvk_per_arch(shader_create)(
-   struct panvk_device *dev, const VkPipelineShaderStageCreateInfo *stage_info,
-   const struct vk_pipeline_layout *layout, const VkAllocationCallbacks *alloc);
+static inline mali_ptr
+panvk_shader_get_dev_addr(const struct panvk_shader *shader)
+{
+   return shader != NULL ? panvk_priv_mem_dev_addr(shader->code_mem) : 0;
+}
 
-void panvk_per_arch(shader_destroy)(struct panvk_device *dev,
-                                    struct panvk_shader *shader,
-                                    const VkAllocationCallbacks *alloc);
+void panvk_per_arch(link_shaders)(struct panvk_pool *desc_pool,
+                                  struct panvk_shader *vs,
+                                  struct panvk_shader *fs,
+                                  struct panvk_shader_link *link);
+
+static inline void
+panvk_shader_link_cleanup(struct panvk_pool *desc_pool,
+                          struct panvk_shader_link *link)
+{
+   panvk_pool_free_mem(desc_pool, link->vs.attribs);
+   panvk_pool_free_mem(desc_pool, link->fs.attribs);
+}
 
 bool panvk_per_arch(nir_lower_descriptors)(
-   nir_shader *nir, struct panvk_device *dev,
-   const struct vk_pipeline_layout *layout,
-   struct panvk_shader_desc_info *shader_desc_info);
+   nir_shader *nir, struct panvk_device *dev, uint32_t set_layout_count,
+   struct vk_descriptor_set_layout *const *set_layouts,
+   struct panvk_shader *shader);
 
 #endif

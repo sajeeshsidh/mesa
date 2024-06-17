@@ -14,7 +14,6 @@
 #include "panvk_buffer.h"
 #include "panvk_cmd_desc_state.h"
 #include "panvk_entrypoints.h"
-#include "panvk_pipeline.h"
 
 #include "pan_pool.h"
 
@@ -119,10 +118,11 @@ panvk_per_arch(cmd_push_descriptors)(struct vk_command_buffer *cmdbuf,
 void
 panvk_per_arch(cmd_prepare_dyn_ssbos)(
    struct pan_pool *desc_pool, const struct panvk_descriptor_state *desc_state,
-   const struct panvk_pipeline_shader *shader,
+   const struct panvk_shader *shader,
    struct panvk_shader_desc_state *shader_desc_state)
 {
-   if (!shader->desc_info.dyn_ssbos.count || shader_desc_state->dyn_ssbos)
+   if (!shader || !shader->desc_info.dyn_ssbos.count ||
+       shader_desc_state->dyn_ssbos)
       return;
 
    struct panfrost_ptr ptr = pan_pool_alloc_aligned(
@@ -152,7 +152,7 @@ panvk_per_arch(cmd_prepare_dyn_ssbos)(
 
 static void
 panvk_cmd_fill_dyn_ubos(const struct panvk_descriptor_state *desc_state,
-                        const struct panvk_pipeline_shader *shader,
+                        const struct panvk_shader *shader,
                         struct mali_uniform_buffer_packed *ubos,
                         uint32_t ubo_count)
 {
@@ -180,9 +180,12 @@ panvk_cmd_fill_dyn_ubos(const struct panvk_descriptor_state *desc_state,
 void
 panvk_per_arch(cmd_prepare_shader_desc_tables)(
    struct pan_pool *desc_pool, const struct panvk_descriptor_state *desc_state,
-   const struct panvk_pipeline_shader *shader,
+   const struct panvk_shader *shader,
    struct panvk_shader_desc_state *shader_desc_state)
 {
+   if (!shader)
+      return;
+
    for (uint32_t i = 0; i < ARRAY_SIZE(shader->desc_info.others.count); i++) {
       uint32_t desc_count =
          shader->desc_info.others.count[i] +
@@ -229,14 +232,13 @@ panvk_per_arch(cmd_prepare_shader_desc_tables)(
 void
 panvk_per_arch(cmd_prepare_push_descs)(struct pan_pool *desc_pool,
                                        struct panvk_descriptor_state *desc_state,
-                                       const struct panvk_pipeline *pipeline)
+                                       uint32_t used_set_mask)
 {
-   const struct vk_pipeline_layout *playout = pipeline->layout;
-
-   for (unsigned i = 0; i < playout->set_count; i++) {
+   for (unsigned i = 0; i < ARRAY_SIZE(desc_state->push_sets); i++) {
       struct panvk_descriptor_set *push_set = desc_state->push_sets[i];
 
-      if (!push_set || desc_state->sets[i] != push_set || push_set->descs.dev)
+      if (!(used_set_mask & BITFIELD_BIT(i)) || !push_set ||
+          desc_state->sets[i] != push_set || push_set->descs.dev)
          continue;
 
       push_set->descs.dev = pan_pool_upload_aligned(

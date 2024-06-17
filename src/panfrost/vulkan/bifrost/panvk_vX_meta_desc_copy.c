@@ -17,7 +17,6 @@
 
 #include "panvk_cmd_buffer.h"
 #include "panvk_device.h"
-#include "panvk_pipeline.h"
 #include "panvk_shader.h"
 
 struct pan_nir_desc_copy_info {
@@ -297,11 +296,14 @@ panvk_per_arch(meta_desc_copy_init)(struct panvk_device *dev)
 struct panfrost_ptr
 panvk_per_arch(meta_get_copy_desc_job)(
    struct panvk_device *dev, struct pan_pool *desc_pool,
-   const struct panvk_pipeline_shader *shader,
+   const struct panvk_shader *shader,
    const struct panvk_descriptor_state *desc_state,
    const struct panvk_shader_desc_state *shader_desc_state)
 {
-   mali_ptr copy_table = shader->desc_info.others.map;
+   if (!shader)
+      return (struct panfrost_ptr){0};
+
+   mali_ptr copy_table = panvk_priv_mem_dev_addr(shader->desc_info.others.map);
    if (!copy_table)
       return (struct panfrost_ptr){0};
 

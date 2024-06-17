@@ -19,6 +19,7 @@
 #include "vk_format.h"
 #include "vk_limits.h"
 #include "vk_log.h"
+#include "vk_shader_module.h"
 #include "vk_util.h"
 
 #include "panvk_device.h"
@@ -58,19 +59,6 @@ get_cache_uuid(uint16_t family, void *uuid)
 }
 
 static void
-get_driver_uuid(void *uuid)
-{
-   memset(uuid, 0, VK_UUID_SIZE);
-   snprintf(uuid, VK_UUID_SIZE, "panfrost");
-}
-
-static void
-get_device_uuid(void *uuid)
-{
-   memset(uuid, 0, VK_UUID_SIZE);
-}
-
-static void
 get_device_extensions(const struct panvk_physical_device *device,
                       struct vk_device_extension_table *ext)
 {
@@ -81,6 +69,8 @@ get_device_extensions(const struct panvk_physical_device *device,
       .KHR_storage_buffer_storage_class = true,
       .KHR_descriptor_update_template = true,
       .KHR_driver_properties = true,
+      .KHR_pipeline_executable_properties = true,
+      .KHR_pipeline_library = true,
       .KHR_push_descriptor = true,
 #ifdef PANVK_USE_WSI_PLATFORM
       .KHR_swapchain = true,
@@ -89,7 +79,11 @@ get_device_extensions(const struct panvk_physical_device *device,
       .KHR_variable_pointers = true,
       .EXT_buffer_device_address = true,
       .EXT_custom_border_color = true,
+      .EXT_graphics_pipeline_library = true,
       .EXT_index_type_uint8 = true,
+      .EXT_pipeline_creation_cache_control = true,
+      .EXT_pipeline_creation_feedback = true,
+      .EXT_shader_module_identifier = true,
       .EXT_vertex_attribute_divisor = true,
    };
 }
@@ -184,7 +178,7 @@ get_features(const struct panvk_physical_device *device,
       .robustImageAccess = false,
       .inlineUniformBlock = false,
       .descriptorBindingInlineUniformBlockUpdateAfterBind = false,
-      .pipelineCreationCacheControl = false,
+      .pipelineCreationCacheControl = true,
       .privateData = true,
       .shaderDemoteToHelperInvocation = false,
       .shaderTerminateInvocation = false,
@@ -196,6 +190,9 @@ get_features(const struct panvk_physical_device *device,
       .dynamicRendering = false,
       .shaderIntegerDotProduct = false,
       .maintenance4 = false,
+
+      /* VK_EXT_graphics_pipeline_library */
+      .graphicsPipelineLibrary = true,
 
       /* VK_EXT_index_type_uint8 */
       .indexTypeUint8 = true,
@@ -221,13 +218,17 @@ get_features(const struct panvk_physical_device *device,
        */
       .customBorderColorWithoutFormat = arch != 7,
 
+      /* VK_KHR_pipeline_executable_properties */
+      .pipelineExecutableInfo = true,
+
       /* VK_KHR_shader_expect_assume */
       .shaderExpectAssume = true,
    };
 }
 
 static void
-get_device_properties(const struct panvk_physical_device *device,
+get_device_properties(const struct panvk_instance *instance,
+                      const struct panvk_physical_device *device,
                       struct vk_properties *properties)
 {
    /* HW supports MSAA 4, 8 and 16, but we limit ourselves to MSAA 4 for now. */
@@ -567,6 +568,10 @@ get_device_properties(const struct panvk_physical_device *device,
       /* VK_EXT_custom_border_color */
       .maxCustomBorderColorSamplers = 32768,
 
+      /* VK_EXT_graphics_pipeline_library */
+      .graphicsPipelineLibraryFastLinking = true,
+      .graphicsPipelineLibraryIndependentInterpolationDecoration = true,
+
       /* VK_KHR_vertex_attribute_divisor */
       /* We will have to restrict this a bit for multiview */
       .maxVertexAttribDivisor = UINT32_MAX,
@@ -581,12 +586,30 @@ get_device_properties(const struct panvk_physical_device *device,
 
    memcpy(properties->pipelineCacheUUID, device->cache_uuid, VK_UUID_SIZE);
 
-   memcpy(properties->driverUUID, device->driver_uuid, VK_UUID_SIZE);
-   memcpy(properties->deviceUUID, device->device_uuid, VK_UUID_SIZE);
+   const struct {
+      uint16_t vendor_id;
+      uint32_t device_id;
+      uint8_t pad[8];
+   } dev_uuid = {
+      .vendor_id = ARM_VENDOR_ID,
+      .device_id = device->model->gpu_id,
+   };
+
+   STATIC_ASSERT(sizeof(dev_uuid) == VK_UUID_SIZE);
+   memcpy(properties->deviceUUID, &dev_uuid, VK_UUID_SIZE);
+   STATIC_ASSERT(sizeof(instance->driver_build_sha) >= VK_UUID_SIZE);
+   memcpy(properties->driverUUID, instance->driver_build_sha, VK_UUID_SIZE);
 
    snprintf(properties->driverName, VK_MAX_DRIVER_NAME_SIZE, "panvk");
    snprintf(properties->driverInfo, VK_MAX_DRIVER_INFO_SIZE,
             "Mesa " PACKAGE_VERSION MESA_GIT_SHA1);
+
+   /* VK_EXT_shader_module_identifier */
+   STATIC_ASSERT(sizeof(vk_shaderModuleIdentifierAlgorithmUUID) ==
+                 sizeof(properties->shaderModuleIdentifierAlgorithmUUID));
+   memcpy(properties->shaderModuleIdentifierAlgorithmUUID,
+          vk_shaderModuleIdentifierAlgorithmUUID,
+          sizeof(properties->shaderModuleIdentifierAlgorithmUUID));
 }
 
 void
@@ -683,9 +706,6 @@ panvk_physical_device_init(struct panvk_physical_device *device,
 
    vk_warn_non_conformant_implementation("panvk");
 
-   get_driver_uuid(&device->driver_uuid);
-   get_device_uuid(&device->device_uuid);
-
    device->drm_syncobj_type = vk_drm_syncobj_get_type(device->kmod.dev->fd);
    /* We don't support timelines in the uAPI yet and we don't want it getting
     * suddenly turned on by vk_drm_syncobj_get_type() without us adding panvk
@@ -700,7 +720,7 @@ panvk_physical_device_init(struct panvk_physical_device *device,
    get_features(device, &supported_features);
 
    struct vk_properties properties;
-   get_device_properties(device, &properties);
+   get_device_properties(instance, device, &properties);
 
    struct vk_physical_device_dispatch_table dispatch_table;
    vk_physical_device_dispatch_table_from_entrypoints(
