@@ -169,6 +169,14 @@ if with_tools.contains('etnaviv')
     # triggers a Meson bug :/
     # rust.test('isa_proc', _libetnaviv_isa_proc_rs, suite : ['etnaviv'])
   endif
+
+  etnaviv_assembler = executable(
+    'etnaviv-assembler',
+    ['assembler.c'],
+    gnu_symbol_visibility: 'hidden',
+    dependencies: [ idep_libetnaviv_decode ],
+    link_with: [libetnaviv_encode, libetnaviv_isa_rs],
+  )
 endif
 
 subdir('tests')
