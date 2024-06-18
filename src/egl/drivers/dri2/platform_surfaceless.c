@@ -43,9 +43,12 @@ static __DRIimage *
 surfaceless_alloc_image(struct dri2_egl_display *dri2_dpy,
                         struct dri2_egl_surface *dri2_surf)
 {
-   return dri2_dpy->image->createImage(
-      dri2_dpy->dri_screen_render_gpu, dri2_surf->base.Width,
-      dri2_surf->base.Height, dri2_surf->visual, 0, NULL);
+   if (dri2_dpy->image->createImage)
+      return dri2_dpy->image->createImage(
+            dri2_dpy->dri_screen_render_gpu, dri2_surf->base.Width,
+            dri2_surf->base.Height, dri2_surf->visual, 0, NULL);
+   else
+      return NULL;
 }
 
 static void
@@ -95,6 +98,9 @@ surfaceless_image_get_buffers(__DRIdrawable *driDrawable, unsigned int format,
 
       if (!dri2_surf->front)
          dri2_surf->front = surfaceless_alloc_image(dri2_dpy, dri2_surf);
+
+      if (!dri2_surf->front)
+         return 0;
 
       buffers->image_mask |= __DRI_IMAGE_BUFFER_FRONT;
       buffers->front = dri2_surf->front;
