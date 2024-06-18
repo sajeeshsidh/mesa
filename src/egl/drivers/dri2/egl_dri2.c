@@ -660,13 +660,8 @@ static const __DRIextension **
 dri2_open_driver(_EGLDisplay *disp)
 {
    struct dri2_egl_display *dri2_dpy = dri2_egl_display(disp);
-   static const char *search_path_vars[] = {
-      "LIBGL_DRIVERS_PATH",
-      NULL,
-   };
 
-   return loader_open_driver(dri2_dpy->driver_name, &dri2_dpy->driver,
-                             search_path_vars, disp->Options.FallbackZink);
+   return loader_get_extensions(dri2_dpy->driver_name, disp->Options.FallbackZink);
 }
 
 static EGLBoolean
@@ -683,8 +678,6 @@ dri2_load_driver_common(_EGLDisplay *disp,
 
    if (!loader_bind_extensions(dri2_dpy, driver_extensions, num_matches,
                                extensions)) {
-      dlclose(dri2_dpy->driver);
-      dri2_dpy->driver = NULL;
       return EGL_FALSE;
    }
    dri2_dpy->driver_extensions = extensions;
@@ -1147,14 +1140,6 @@ dri2_display_destroy(_EGLDisplay *disp)
       close(dri2_dpy->fd_display_gpu);
    if (dri2_dpy->fd_render_gpu >= 0)
       close(dri2_dpy->fd_render_gpu);
-
-      /* Don't dlclose the driver when building with the address sanitizer, so
-       * you get good symbols from the leak reports.
-       */
-#if !BUILT_WITH_ASAN || defined(NDEBUG)
-   if (dri2_dpy->driver)
-      dlclose(dri2_dpy->driver);
-#endif
 
    free(dri2_dpy->driver_name);
 
