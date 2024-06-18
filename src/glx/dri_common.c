@@ -70,21 +70,14 @@
  * file not found.
  */
 _X_HIDDEN const __DRIextension **
-driOpenDriver(const char *driverName, void **out_driver_handle, bool driver_name_is_inferred)
+driOpenDriver(const char *driverName, bool driver_name_is_inferred)
 {
    void *glhandle;
 
    /* Attempt to make sure libGL symbols will be visible to the driver */
    glhandle = dlopen(GL_LIB_NAME, RTLD_NOW | RTLD_GLOBAL);
 
-   static const char *search_path_vars[] = {
-      "LIBGL_DRIVERS_PATH",
-      "LIBGL_DRIVERS_DIR", /* deprecated */
-      NULL
-   };
-
-   const __DRIextension **extensions =
-      loader_open_driver(driverName, out_driver_handle, search_path_vars, driver_name_is_inferred);
+   const __DRIextension **extensions = loader_get_extensions(driverName, driver_name_is_inferred);
 
    if (glhandle)
       dlclose(glhandle);
@@ -742,9 +735,8 @@ clear_driver_config_cache()
 static char *
 get_driver_config(const char *driverName)
 {
-   void *handle;
    char *config = NULL;
-   const __DRIextension **extensions = driOpenDriver(driverName, &handle, false);
+   const __DRIextension **extensions = driOpenDriver(driverName, false);
    if (extensions) {
       for (int i = 0; extensions[i]; i++) {
          if (strcmp(extensions[i]->name, __DRI_CONFIG_OPTIONS) != 0)
@@ -759,8 +751,6 @@ get_driver_config(const char *driverName)
          break;
       }
    }
-
-   dlclose(handle);
 
    return config;
 }

@@ -132,7 +132,7 @@ libglx = static_library(
   gnu_symbol_visibility : 'hidden',
   link_with : [
     libloader, libloader_dri3_helper,
-    extra_libs_libglx,
+    extra_libs_libglx, libgallium_dri
   ],
   dependencies : [
     idep_mesautil, idep_xmlconfig,

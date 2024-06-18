@@ -100,6 +100,8 @@ typedef void loader_logger(int level, const char *fmt, ...);
 void
 loader_set_logger(loader_logger *logger);
 
+const __DRIextension **
+loader_get_extensions(const char *driver_name, bool warn_on_fail);
 char *
 loader_get_extensions_name(const char *driver_name);
 
