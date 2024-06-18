@@ -194,15 +194,13 @@ process_live_temps_per_block(Program* program, Block* block, unsigned& worklist,
 
    /* handle phi definitions */
    uint16_t linear_phi_defs = 0;
-   int phi_idx = idx;
-   while (phi_idx >= 0) {
+   for (int phi_idx = 0; phi_idx <= idx; phi_idx++) {
       register_demand[phi_idx] = new_demand;
       Instruction* insn = block->instructions[phi_idx].get();
 
       assert(is_phi(insn) && insn->definitions.size() == 1);
       if (!insn->definitions[0].isTemp()) {
          assert(insn->definitions[0].isFixed() && insn->definitions[0].physReg() == exec);
-         phi_idx--;
          continue;
       }
       Definition& definition = insn->definitions[0];
@@ -211,17 +209,15 @@ process_live_temps_per_block(Program* program, Block* block, unsigned& worklist,
       const Temp temp = definition.getTemp();
       const size_t n = live.erase(temp.id());
 
-      if (n)
+      if (n) {
          definition.setKill(false);
-      else
+         if (insn->opcode == aco_opcode::p_linear_phi) {
+            assert(definition.getTemp().type() == RegType::sgpr);
+            linear_phi_defs += definition.size();
+         }
+      } else {
          definition.setKill(true);
-
-      if (insn->opcode == aco_opcode::p_linear_phi) {
-         assert(definition.getTemp().type() == RegType::sgpr);
-         linear_phi_defs += definition.size();
       }
-
-      phi_idx--;
    }
 
    for (unsigned pred_idx : block->linear_preds)
@@ -262,10 +258,12 @@ process_live_temps_per_block(Program* program, Block* block, unsigned& worklist,
    }
 
    /* handle phi operands */
-   phi_idx = idx;
-   while (phi_idx >= 0) {
+   for (int phi_idx = 0; phi_idx <= idx; phi_idx++) {
       Instruction* insn = block->instructions[phi_idx].get();
       assert(is_phi(insn));
+      /* Ignore dead phis. */
+      if (insn->definitions[0].isKill())
+         continue;
       /* directly insert into the predecessors live-out set */
       Block::edge_vec& preds =
          insn->opcode == aco_opcode::p_phi ? block->logical_preds : block->linear_preds;
@@ -290,7 +288,6 @@ process_live_temps_per_block(Program* program, Block* block, unsigned& worklist,
          /* set if the operand is killed by this (or another) phi instruction */
          operand.setKill(!live.count(operand.tempId()));
       }
-      phi_idx--;
    }
 
    assert(!block->linear_preds.empty() || (new_demand == RegisterDemand() && live.empty()));
