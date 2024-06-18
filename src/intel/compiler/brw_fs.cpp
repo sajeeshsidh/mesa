@@ -2175,6 +2175,7 @@ void
 fs_visitor::dump_instructions_to_file(FILE *file) const
 {
    if (cfg && grf_used == 0) {
+      const brw::def_analysis &defs = def_analysis.require();
       const register_pressure *rp =
          INTEL_DEBUG(DEBUG_REG_PRESSURE) ? &regpressure_analysis.require() : NULL;
 
@@ -2191,7 +2192,7 @@ fs_visitor::dump_instructions_to_file(FILE *file) const
 
          for (unsigned i = 0; i < cf_count; i++)
             fprintf(file, "  ");
-         dump_instruction(inst, file);
+         dump_instruction(inst, file, &defs);
          ip++;
 
          if (inst->is_control_flow_begin())
@@ -2464,6 +2465,8 @@ brw_instruction_name(const struct brw_isa_info *isa, enum opcode op)
       return "btd_retire_logical";
    case SHADER_OPCODE_READ_ARCH_REG:
       return "read_arch_reg";
+   case SHADER_OPCODE_LOAD_SUBGROUP_INVOCATION:
+      return "load_subgroup_invocation";
    }
 
    unreachable("not reached");
@@ -2471,7 +2474,7 @@ brw_instruction_name(const struct brw_isa_info *isa, enum opcode op)
 
 
 void
-fs_visitor::dump_instruction_to_file(const fs_inst *inst, FILE *file) const
+fs_visitor::dump_instruction_to_file(const fs_inst *inst, FILE *file, const brw::def_analysis *defs) const
 {
    if (inst->predicate) {
       fprintf(file, "(%cf%d.%d) ",
@@ -2510,7 +2513,10 @@ fs_visitor::dump_instruction_to_file(const fs_inst *inst, FILE *file) const
 
    switch (inst->dst.file) {
    case VGRF:
-      fprintf(file, "v%d", inst->dst.nr);
+      if (defs && defs->get(inst->dst))
+         fprintf(file, "%%%d", inst->dst.nr);
+      else
+         fprintf(file, "v%d", inst->dst.nr);
       break;
    case FIXED_GRF:
       fprintf(file, "g%d", inst->dst.nr);
@@ -2574,7 +2580,10 @@ fs_visitor::dump_instruction_to_file(const fs_inst *inst, FILE *file) const
          fprintf(file, "|");
       switch (inst->src[i].file) {
       case VGRF:
-         fprintf(file, "v%d", inst->src[i].nr);
+         if (defs && defs->get(inst->src[i]))
+            fprintf(file, "%%%d", inst->src[i].nr);
+         else
+            fprintf(file, "v%d", inst->src[i].nr);
          break;
       case FIXED_GRF:
          fprintf(file, "g%d", inst->src[i].nr);
@@ -2737,6 +2746,7 @@ fs_visitor::invalidate_analysis(brw::analysis_dependency_class c)
    live_analysis.invalidate(c);
    regpressure_analysis.invalidate(c);
    idom_analysis.invalidate(c);
+   def_analysis.invalidate(c);
 }
 
 void
