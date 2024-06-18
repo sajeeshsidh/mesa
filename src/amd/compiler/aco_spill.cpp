@@ -318,14 +318,6 @@ get_live_in_demand(spill_ctx& ctx, unsigned block_idx)
       if (!is_phi(phi))
          break;
       idx++;
-
-      /* Killed phi definitions increase pressure in the predecessor but not
-       * the block they're in. Since the loops below are both to control
-       * pressure of the start of this block and the ends of it's
-       * predecessors, we need to count killed unspilled phi definitions here. */
-      if (phi->definitions[0].isTemp() && phi->definitions[0].isKill() &&
-          !ctx.spills_entry[block_idx].count(phi->definitions[0].getTemp()))
-         reg_pressure += phi->definitions[0].getTemp();
    }
 
    reg_pressure += get_demand_before(ctx, block_idx, idx);
