@@ -393,6 +393,9 @@ iris_memobj_create_from_handle(struct pipe_screen *pscreen,
    memobj->format = whandle->format;
    memobj->stride = whandle->stride;
 
+   /* Set mmap_mode for iris_bo_map. */
+   bo->real.mmap_mode = IRIS_MMAP_WB;
+
    return &memobj->b;
 }
 
