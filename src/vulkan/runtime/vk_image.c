@@ -1056,3 +1056,24 @@ vk_image_layout_to_usage_flags(VkImageLayout layout,
 
    unreachable("Invalid image layout.");
 }
+
+VkExtent3D
+vk_image_view_mip_level_extent(const struct vk_image_view *view,
+                               uint32_t mip_level)
+{
+   VkExtent3D extent =
+      vk_image_mip_level_extent(view->image, view->base_mip_level + mip_level);
+
+   if (view->format == view->image->format)
+      return extent;
+
+   const struct util_format_description *fmt =
+      vk_format_description(view->format);
+
+   extent = vk_image_extent_to_elements(view->image, extent);
+   extent.width *= fmt->block.width;
+   extent.height *= fmt->block.height;
+   extent.depth *= fmt->block.depth;
+
+   return extent;
+}
