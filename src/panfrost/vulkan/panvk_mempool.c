@@ -75,6 +75,9 @@ panvk_pool_alloc_backing(struct panvk_pool *pool, size_t sz)
                                 VK_SYSTEM_ALLOCATION_SCOPE_DEVICE);
    }
 
+   if (bo == NULL)
+      return NULL;
+
    if (pool->props.owns_bos) {
       if (pan_kmod_bo_size(bo->bo) == pool->base.slab_size)
          list_addtail(&bo->node, &pool->bos);
@@ -123,7 +126,7 @@ panvk_pool_alloc_mem(struct panvk_pool *pool, struct panvk_pool_alloc_info info)
       offset = 0;
    }
 
-   if (pool->transient_bo == bo) {
+   if (bo != NULL && pool->transient_bo == bo) {
       pool->transient_offset = offset + info.size;
       if (!pool->props.owns_bos)
          panvk_priv_bo_ref(bo);
@@ -196,6 +199,9 @@ panvk_pool_reset(struct panvk_pool *pool)
       list_del(&bo->node);
       panvk_priv_bo_unref(bo);
    }
+
+   if (!pool->props.owns_bos)
+      panvk_priv_bo_unref(pool->transient_bo);
 
    pool->bo_count = 0;
    pool->transient_bo = NULL;
