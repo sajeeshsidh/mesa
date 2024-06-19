@@ -502,88 +502,10 @@ lower_intrinsic(nir_builder *b, nir_intrinsic_instr *instr,
    }
 }
 
-static void
-lower_tex_ycbcr(const struct tu_pipeline_layout *layout,
-                nir_builder *builder,
-                nir_tex_instr *tex)
-{
-   int deref_src_idx = nir_tex_instr_src_index(tex, nir_tex_src_texture_deref);
-   assert(deref_src_idx >= 0);
-   nir_deref_instr *deref = nir_src_as_deref(tex->src[deref_src_idx].src);
-
-   nir_variable *var = nir_deref_instr_get_variable(deref);
-   const struct tu_descriptor_set_layout *set_layout =
-      layout->set[var->data.descriptor_set].layout;
-   const struct tu_descriptor_set_binding_layout *binding =
-      &set_layout->binding[var->data.binding];
-   const struct vk_ycbcr_conversion_state *ycbcr_samplers =
-      tu_immutable_ycbcr_samplers(set_layout, binding);
-
-   if (!ycbcr_samplers)
-      return;
-
-   /* For the following instructions, we don't apply any change */
-   if (tex->op == nir_texop_txs ||
-       tex->op == nir_texop_query_levels ||
-       tex->op == nir_texop_lod)
-      return;
-
-   assert(tex->texture_index == 0);
-   unsigned array_index = 0;
-   if (deref->deref_type != nir_deref_type_var) {
-      assert(deref->deref_type == nir_deref_type_array);
-      if (!nir_src_is_const(deref->arr.index))
-         return;
-      array_index = nir_src_as_uint(deref->arr.index);
-      array_index = MIN2(array_index, binding->array_size - 1);
-   }
-   const struct vk_ycbcr_conversion_state *ycbcr_sampler = ycbcr_samplers + array_index;
-
-   if (ycbcr_sampler->ycbcr_model == VK_SAMPLER_YCBCR_MODEL_CONVERSION_RGB_IDENTITY)
-      return;
-
-   /* Skip if not actually a YCbCr format.  CtsGraphics, for example, tries to create
-    * YcbcrConversions for RGB formats.
-    */
-   if (!vk_format_get_ycbcr_info(ycbcr_sampler->format))
-      return;
-
-   builder->cursor = nir_after_instr(&tex->instr);
-
-   uint8_t bits = vk_format_get_component_bits(ycbcr_sampler->format,
-                                               UTIL_FORMAT_COLORSPACE_RGB,
-                                               PIPE_SWIZZLE_X);
-
-   switch (ycbcr_sampler->format) {
-   case VK_FORMAT_G8B8G8R8_422_UNORM:
-   case VK_FORMAT_B8G8R8G8_422_UNORM:
-   case VK_FORMAT_G8_B8R8_2PLANE_420_UNORM:
-   case VK_FORMAT_G8_B8_R8_3PLANE_420_UNORM:
-      /* util_format_get_component_bits doesn't return what we want */
-      bits = 8;
-      break;
-   default:
-      break;
-   }
-
-   uint32_t bpcs[3] = {bits, bits, bits}; /* TODO: use right bpc for each channel ? */
-   nir_def *result = nir_convert_ycbcr_to_rgb(builder,
-                                                  ycbcr_sampler->ycbcr_model,
-                                                  ycbcr_sampler->ycbcr_range,
-                                                  &tex->def,
-                                                  bpcs);
-   nir_def_rewrite_uses_after(&tex->def, result,
-                                  result->parent_instr);
-
-   builder->cursor = nir_before_instr(&tex->instr);
-}
-
 static bool
 lower_tex(nir_builder *b, nir_tex_instr *tex, struct tu_device *dev,
           struct tu_shader *shader, const struct tu_pipeline_layout *layout)
 {
-   lower_tex_ycbcr(layout, b, tex);
-
    int sampler_src_idx = nir_tex_instr_src_index(tex, nir_tex_src_sampler_deref);
    if (sampler_src_idx >= 0) {
       nir_deref_instr *deref = nir_src_as_deref(tex->src[sampler_src_idx].src);
@@ -602,6 +524,11 @@ lower_tex(nir_builder *b, nir_tex_instr *tex, struct tu_device *dev,
       /* for the input attachment case: */
       if (bindless->parent_instr->type != nir_instr_type_intrinsic)
          tex->src[tex_src_idx].src_type = nir_tex_src_texture_offset;
+   }
+
+   int plane_src_idx = nir_tex_instr_src_index(tex, nir_tex_src_plane);
+   if (plane_src_idx >= 0) {
+      //TODO
    }
 
    return true;
@@ -1003,6 +930,26 @@ tu_nir_lower_fdm(nir_shader *shader, const struct lower_fdm_options *options)
 {
    return nir_shader_lower_instructions(shader, lower_fdm_filter,
                                         lower_fdm_instr, (void *)options);
+}
+
+static const struct vk_ycbcr_conversion_state *
+lookup_ycbcr_conversion(const void *data,
+                        uint32_t set,
+                        uint32_t binding,
+                        uint32_t array_index)
+{
+   const struct tu_pipeline_layout *layout = (const tu_pipeline_layout *)data;
+
+   const struct tu_descriptor_set_layout *set_layout = layout->set[set].layout;
+   const struct tu_descriptor_set_binding_layout *bind_layout =
+      &set_layout->binding[binding];
+   const struct vk_ycbcr_conversion_state *ycbcr_samplers =
+      tu_immutable_ycbcr_samplers(set_layout, bind_layout);
+
+   if (!ycbcr_samplers)
+      return NULL;
+
+   return ycbcr_samplers + array_index;
 }
 
 static void
@@ -2401,6 +2348,8 @@ tu_lower_nir(struct tu_device *dev,
             var->data.sample = true;
       }
    }
+
+   NIR_PASS_V(nir, nir_vk_lower_ycbcr_tex, lookup_ycbcr_conversion, layout);
 
    NIR_PASS_V(nir, nir_lower_explicit_io, nir_var_mem_push_const,
               nir_address_format_32bit_offset);
