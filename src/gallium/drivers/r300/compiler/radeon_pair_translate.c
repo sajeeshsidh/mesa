@@ -15,7 +15,8 @@
  * Finally rewrite ADD, MOV, MUL as the appropriate native instruction
  * and reverse the order of arguments for CMP.
  */
-static void final_rewrite(struct rc_sub_instruction *inst)
+static void final_rewrite(struct r300_fragment_program_compiler *c, 
+	struct rc_sub_instruction *inst)
 {
 	struct rc_src_register tmp;
 
@@ -33,7 +34,7 @@ static void final_rewrite(struct rc_sub_instruction *inst)
 		inst->SrcReg[0] = tmp;
 		break;
 	case RC_OPCODE_MOV:
-		/* AMD say we should use CMP.
+		/* AMD say we should use CMP/CND/MIN/MAX.
 		 * However, when we transform
 		 *  KIL -r0;
 		 * into
@@ -42,12 +43,22 @@ static void final_rewrite(struct rc_sub_instruction *inst)
 		 * we get incorrect behaviour on R500 when r0 == 0.0.
 		 * It appears that the R500 KIL hardware treats -0.0 as less
 		 * than zero.
+		 * 
+		 * Even though writing to output is safe and should cover most cases
+		 * when we care about precision, this code could be further improved.
 		 */
-		inst->SrcReg[1].File = RC_FILE_NONE;
-		inst->SrcReg[1].Swizzle = RC_SWIZZLE_1111;
-		inst->SrcReg[2].File = RC_FILE_NONE;
-		inst->SrcReg[2].Swizzle = RC_SWIZZLE_0000;
-		inst->Opcode = RC_OPCODE_MAD;
+		if(c->Base.is_r500 && inst->SaturateMode == RC_SATURATE_NONE &&
+                inst->DstReg.File == RC_FILE_OUTPUT) {
+			inst->SrcReg[1] = inst->SrcReg[0];
+			inst->Opcode = RC_OPCODE_MAX;
+			inst->Omod = RC_OMOD_DISABLE;
+		} else {
+			inst->SrcReg[1].File = RC_FILE_NONE;
+			inst->SrcReg[1].Swizzle = RC_SWIZZLE_1111;
+			inst->SrcReg[2].File = RC_FILE_NONE;
+			inst->SrcReg[2].Swizzle = RC_SWIZZLE_0000;
+			inst->Opcode = RC_OPCODE_MAD;
+		}
 		break;
 	case RC_OPCODE_MUL:
 		inst->SrcReg[2].File = RC_FILE_NONE;
@@ -369,7 +380,7 @@ void rc_pair_translate(struct radeon_compiler *cc, void *user)
 
 		check_opcode_support(c, &copy);
 
-		final_rewrite(&copy);
+		final_rewrite(c, &copy);
 		inst->Type = RC_INSTRUCTION_PAIR;
 		set_pair_instruction(c, &inst->U.P, &copy);
 	}
