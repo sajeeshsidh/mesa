@@ -328,10 +328,14 @@ impl<N> CFG<N> {
     pub fn pred_indices(&self, idx: usize) -> &[usize] {
         &self.nodes[idx].pred[..]
     }
+}
 
-    pub fn drain(&mut self) -> impl Iterator<Item = N> + '_ {
-        self.has_loop = false;
-        self.nodes.drain(..).map(|n| n.node)
+impl<N> Default for CFG<N> {
+    fn default() -> Self {
+        CFG {
+            has_loop: false,
+            nodes: Vec::new(),
+        }
     }
 }
 
@@ -346,6 +350,12 @@ impl<N> Index<usize> for CFG<N> {
 impl<N> IndexMut<usize> for CFG<N> {
     fn index_mut(&mut self, idx: usize) -> &mut N {
         &mut self.nodes[idx].node
+    }
+}
+
+impl<N> From<CFG<N>> for Vec<N> {
+    fn from(cfg: CFG<N>) -> Self {
+        cfg.nodes.into_iter().map(|x| x.node).collect()
     }
 }
 

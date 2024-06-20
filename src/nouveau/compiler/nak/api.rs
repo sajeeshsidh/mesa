@@ -270,6 +270,11 @@ pub extern "C" fn nak_compile_shader(
         eprintln!("NAK IR:\n{}", &s);
     }
 
+    s.merge_blocks();
+    if DEBUG.print() {
+        eprintln!("NAK IR after merge_blocks:\n{}", &s);
+    }
+
     s.opt_bar_prop();
     if DEBUG.print() {
         eprintln!("NAK IR after opt_bar_prop:\n{}", &s);
