@@ -3846,9 +3846,7 @@ zink_flush(struct pipe_context *pctx,
    }
 
    if (flags & PIPE_FLUSH_END_OF_FRAME) {
-#ifdef HAVE_RENDERDOC_APP_H
       p_atomic_inc(&screen->renderdoc_frame);
-#endif
       if (ctx->needs_present && ctx->needs_present->obj->dt_idx != UINT32_MAX &&
           zink_is_swapchain(ctx->needs_present)) {
          zink_kopper_readback_update(ctx, ctx->needs_present);
@@ -5214,6 +5212,8 @@ zink_context_create(struct pipe_screen *pscreen, void *priv, unsigned flags)
       ctx->blitter = util_blitter_create(&ctx->base);
       if (!ctx->blitter)
          goto fail;
+      if (screen->driver_workarounds.inconsistent_interpolation)
+         ctx->blitter->draw_rectangle = zink_draw_rectangle;
    }
 
    zink_set_last_vertex_key(ctx)->last_vertex_stage = true;

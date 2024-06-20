@@ -1559,10 +1559,8 @@ zink_destroy_screen(struct pipe_screen *pscreen)
 {
    struct zink_screen *screen = zink_screen(pscreen);
 
-#ifdef HAVE_RENDERDOC_APP_H
    if (screen->renderdoc_capture_all && p_atomic_dec_zero(&num_screens))
       screen->renderdoc_api->EndFrameCapture(RENDERDOC_DEVICEPOINTER_FROM_VKINSTANCE(screen->instance), NULL);
-#endif
 
    hash_table_foreach(&screen->dts, entry)
       zink_kopper_deinit_displaytarget(screen, entry->data);
@@ -2303,7 +2301,7 @@ retry:
 static void
 setup_renderdoc(struct zink_screen *screen)
 {
-#ifdef HAVE_RENDERDOC_APP_H
+#ifndef _WIN32
    const char *capture_id = debug_get_option("ZINK_RENDERDOC", NULL);
    if (!capture_id)
       return;
@@ -3054,6 +3052,8 @@ init_driver_workarounds(struct zink_screen *screen)
    case VK_DRIVER_ID_AMD_PROPRIETARY:
       /* this has bad perf on AMD */
       screen->info.have_KHR_push_descriptor = false;
+      /* Interpolation is not consistent between two triangles of a rectangle. */
+      screen->driver_workarounds.inconsistent_interpolation = true;
       break;
    default:
       break;
