@@ -60,6 +60,9 @@ static bool do_winsys_init(struct amdgpu_winsys *aws,
    aws->zero_all_vram_allocs = strstr(debug_get_option("R600_DEBUG", ""), "zerovram") != NULL ||
                               driQueryOptionb(config->options, "radeonsi_zerovram");
 
+   for (unsigned i = 0; i < ARRAY_SIZE(aws->queues); i++)
+      simple_mtx_init(&aws->queues[i].userq.lock, mtx_plain);
+
    return true;
 
 fail:
@@ -76,6 +79,10 @@ static void do_winsys_deinit(struct amdgpu_winsys *aws)
    for (unsigned i = 0; i < ARRAY_SIZE(aws->queues); i++) {
       for (unsigned j = 0; j < ARRAY_SIZE(aws->queues[i].fences); j++)
          amdgpu_fence_reference(&aws->queues[i].fences[j], NULL);
+
+      if (aws->queues[i].userq.init_once)
+         amdgpu_userq_free(aws, &aws->queues[i].userq);
+      simple_mtx_destroy(&aws->queues[i].userq.lock);
 
       amdgpu_ctx_reference(&aws->queues[i].last_ctx, NULL);
    }

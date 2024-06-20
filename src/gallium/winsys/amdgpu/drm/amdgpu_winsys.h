@@ -14,6 +14,7 @@
 #include "util/simple_mtx.h"
 #include "util/u_queue.h"
 #include <amdgpu.h>
+#include "amdgpu_userq.h"
 
 struct amdgpu_cs;
 
@@ -166,6 +167,7 @@ struct amdgpu_queue {
 
    /* The last context using this queue. */
    struct amdgpu_ctx *last_ctx;
+   struct amdgpu_userq userq;
 };
 
 /* This is part of every BO. */

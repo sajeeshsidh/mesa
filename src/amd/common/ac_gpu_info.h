@@ -297,6 +297,8 @@ struct radeon_info {
    bool spi_cu_en_has_effect;
    uint32_t spi_cu_en;
 
+   bool has_userq;
+
    struct {
       uint32_t shadow_size;
       uint32_t shadow_alignment;

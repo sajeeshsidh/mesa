@@ -26,7 +26,7 @@ struct amdgpu_ctx {
    struct pipe_reference reference;
    struct amdgpu_winsys *aws;
    amdgpu_context_handle ctx;
-   amdgpu_bo_handle user_fence_bo;
+   struct pb_buffer_lean *user_fence_bo;
    uint64_t *user_fence_cpu_address_base;
 
    /* If true, report lost contexts and skip command submission.
@@ -191,9 +191,8 @@ static inline void amdgpu_ctx_reference(struct amdgpu_ctx **dst, struct amdgpu_c
 
    if (pipe_reference(old_dst ? &old_dst->reference : NULL,
                       src ? &src->reference : NULL)) {
+      radeon_bo_reference(&old_dst->aws->dummy_sws.base, &old_dst->user_fence_bo, NULL);
       amdgpu_cs_ctx_free(old_dst->ctx);
-      amdgpu_bo_cpu_unmap(old_dst->user_fence_bo);
-      amdgpu_bo_free(old_dst->user_fence_bo);
       FREE(old_dst);
    }
    *dst = src;
