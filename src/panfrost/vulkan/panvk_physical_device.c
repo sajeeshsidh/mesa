@@ -225,6 +225,9 @@ get_features(const struct panvk_physical_device *device,
 
       /* VK_KHR_shader_expect_assume */
       .shaderExpectAssume = true,
+
+      /* VK_EXT_shader_module_identifier */
+      .shaderModuleIdentifier = true,
    };
 }
 
@@ -436,7 +439,7 @@ get_device_properties(const struct panvk_instance *instance,
       .maxClipDistances = 0,
       .maxCullDistances = 0,
       .maxCombinedClipAndCullDistances = 0,
-      .discreteQueuePriorities = 1,
+      .discreteQueuePriorities = 2,
       .pointSizeRange = {0.125, 4095.9375},
       .lineWidthRange = {0.0, 7.9921875},
       .pointSizeGranularity = (1.0 / 16.0),
