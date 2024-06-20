@@ -851,6 +851,9 @@ iris_screen_create(int fd, const struct pipe_screen_config *config)
 
    isl_device_init(&screen->isl_dev, screen->devinfo);
 
+   screen->isl_dev.sampler_route_to_lsc =
+      driQueryOptionb(config->options, "intel_sampler_route_to_lsc");
+
    iris_compiler_init(screen);
 
    screen->l3_config_3d = iris_get_default_l3_config(screen->devinfo, false);
