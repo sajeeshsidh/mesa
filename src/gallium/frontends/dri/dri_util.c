@@ -247,6 +247,7 @@ static void driDestroyScreen(__DRIscreen *psp)
          * stream open to the X-server anymore.
          */
 
+	dri_release_screen(dri_screen(psp));
         dri_destroy_screen(dri_screen(psp));
     }
 }

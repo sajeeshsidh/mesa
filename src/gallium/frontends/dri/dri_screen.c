@@ -574,8 +574,6 @@ dri_release_screen(struct dri_screen * screen)
 void
 dri_destroy_screen(struct dri_screen *screen)
 {
-   dri_release_screen(screen);
-
    free(screen->options.force_gl_vendor);
    free(screen->options.force_gl_renderer);
    free(screen->options.mesa_extension_override);
