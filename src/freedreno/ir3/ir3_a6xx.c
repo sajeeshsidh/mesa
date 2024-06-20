@@ -69,7 +69,24 @@ emit_intrinsic_load_ssbo(struct ir3_context *ctx, nir_intrinsic_instr *intr,
    ldib->dsts[0]->wrmask = MASK(intr->num_components);
    ldib->cat6.iim_val = intr->num_components;
    ldib->cat6.d = 1;
-   ldib->cat6.type = intr->def.bit_size == 16 ? TYPE_U16 : TYPE_U32;
+   switch (intr->def.bit_size) {
+   case 8:
+      /* This encodes the 8-bit SSBO load and matches blob's encoding of
+       * imageBuffer access using VK_FORMAT_R8 and the dedicated 8-bit
+       * descriptor. No vectorization is possible.
+       */
+      assert(intr->num_components == 1);
+
+      ldib->cat6.type = TYPE_U16;
+      ldib->cat6.typed = true;
+      break;
+   case 16:
+      ldib->cat6.type = TYPE_U16;
+      break;
+   default:
+      ldib->cat6.type = TYPE_U32;
+      break;
+   }
    ldib->barrier_class = IR3_BARRIER_BUFFER_R;
    ldib->barrier_conflict = IR3_BARRIER_BUFFER_W;
 
@@ -107,7 +124,26 @@ emit_intrinsic_store_ssbo(struct ir3_context *ctx, nir_intrinsic_instr *intr)
                    imm_offset, 0, val, 0);
    stib->cat6.iim_val = ncomp;
    stib->cat6.d = 1;
-   stib->cat6.type = intr->src[0].ssa->bit_size == 16 ? TYPE_U16 : TYPE_U32;
+   switch (intr->src[0].ssa->bit_size) {
+   case 8:
+      /* As with ldib, this encodes the 8-bit SSBO store and matches blob's
+       * encoding of imageBuffer access using VK_FORMAT_R8 and the extra 8-bit
+       * descriptor. No vectorization is possible and we have to override the
+       * relevant field anyway.
+       */
+      assert(ncomp == 1);
+
+      stib->cat6.type = TYPE_U16;
+      stib->cat6.iim_val = 4;
+      stib->cat6.typed = true;
+      break;
+   case 16:
+      stib->cat6.type = TYPE_U16;
+      break;
+   default:
+      stib->cat6.type = TYPE_U32;
+      break;
+   }
    stib->barrier_class = IR3_BARRIER_BUFFER_W;
    stib->barrier_conflict = IR3_BARRIER_BUFFER_R | IR3_BARRIER_BUFFER_W;
 

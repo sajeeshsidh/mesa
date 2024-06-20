@@ -287,13 +287,20 @@ lower_ssbo_ubo_intrinsic(struct tu_device *dev,
       }
    }
 
-   /* For isam, we need to use the appropriate descriptor if 16-bit storage is
-    * enabled. Descriptor 0 is the 16-bit one, descriptor 1 is the 32-bit one.
+   /* Descriptor index has to be adjusted in the following cases:
+    *  - isam loads, when the 16-bit descriptor cannot also be used for 32-bit
+    *    loads -- next-index descriptor will be able to do that;
+    *  - 8-bit SSBO loads and stores -- next-index descriptor is dedicated to
+    *    storage accesses of that size.
     */
-   if (dev->physical_device->info->a6xx.storage_16bit &&
-       intrin->intrinsic == nir_intrinsic_load_ssbo &&
-       (nir_intrinsic_access(intrin) & ACCESS_CAN_REORDER) &&
-       intrin->def.bit_size > 16) {
+   if ((dev->physical_device->info->a6xx.storage_16bit &&
+        !dev->physical_device->info->a6xx.has_isam_v &&
+        intrin->intrinsic == nir_intrinsic_load_ssbo &&
+        (nir_intrinsic_access(intrin) & ACCESS_CAN_REORDER) &&
+        intrin->def.bit_size > 16) ||
+       (dev->physical_device->info->a7xx.storage_8bit &&
+        ((intrin->intrinsic == nir_intrinsic_load_ssbo && intrin->def.bit_size == 8) ||
+         (intrin->intrinsic == nir_intrinsic_store_ssbo && intrin->src[0].ssa->bit_size == 8)))) {
       descriptor_idx = nir_iadd_imm(b, descriptor_idx, 1);
    }
 
