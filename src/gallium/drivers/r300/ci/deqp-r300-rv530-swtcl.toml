@@ -1,0 +1,7 @@
+[[deqp]]
+deqp = "/deqp/modules/gles2/deqp-gles2"
+caselists = ["/deqp/mustpass/gles2-main.txt"]
+deqp_args = [
+    "--deqp-surface-width=256", "--deqp-surface-height=256",
+    "--deqp-surface-type=window",
+]
