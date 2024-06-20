@@ -38,6 +38,8 @@ variables:
    KERNEL_TAG: "v6.6.21-mesa-f8ea"
    KERNEL_REPO: "gfx-ci/linux"
    PKG_REPO_REV: "3cc12a2a"
+   FORCE_KERNEL_TAG: "v6.6.21-mesa-19fc"
+   HWCI_SMOKE_TEST: 1
 
    WINDOWS_X64_MSVC_PATH: "windows/x86_64_msvc"
    WINDOWS_X64_MSVC_TAG: "20231222-msvc"

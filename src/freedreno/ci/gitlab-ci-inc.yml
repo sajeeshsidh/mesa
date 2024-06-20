@@ -314,6 +314,7 @@
     - .google-freedreno-test
   variables:
     BM_KERNEL: Image.gz
+    BM_CMDLINE: "ip=dhcp console=ttyMSM0,115200n8 $BM_KERNEL_EXTRA_ARGS root=/dev/nfs rw nfsrootdebug nfsroot=,tcp,nfsvers=4.2 init=/init $BM_KERNELARGS earlycon"
     BM_DTB: apq8096-db820c
     DEVICE_TYPE: apq8096-db820c
     GPU_VERSION: freedreno-a530
