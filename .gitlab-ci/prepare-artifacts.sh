@@ -7,6 +7,15 @@ section_switch prepare-artifacts "artifacts: prepare"
 set -e
 set -o xtrace
 
+_STRIPPED=
+
+strip_debug () {
+    if [ -z "$_STRIPPED" ]; then
+      find ./install -name "*.so" -exec $STRIP {} \;
+    fi
+}
+
+
 CROSS_FILE=/cross_file-"$CROSS".txt
 
 # Delete unused bin and includes from artifacts to save space.
@@ -22,9 +31,8 @@ if [ -n "$CROSS" ]; then
 else
     STRIP="strip"
 fi
-if [ -z "$ARTIFACTS_DEBUG_SYMBOLS" ]; then
-    find install -name \*.so -exec $STRIP --strip-debug {} \;
-fi
+
+[ -z "$ARTIFACTS_DEBUG_SYMBOLS" ] && strip_debug
 
 # Test runs don't pull down the git tree, so put the dEQP helper
 # script and associated bits there.
@@ -51,16 +59,29 @@ find . -path \*/ci/\*.txt \
 # Tar up the install dir so that symlinks and hardlinks aren't each
 # packed separately in the zip file.
 mkdir -p artifacts/
-tar -cf artifacts/install.tar install
+
 cp -Rp .gitlab-ci/common artifacts/ci-common
 cp -Rp .gitlab-ci/lava artifacts/
 cp -Rp .gitlab-ci/b2c artifacts/
 
 if [ -n "$S3_ARTIFACT_NAME" ]; then
     # Pass needed files to the test stage
-    S3_ARTIFACT_NAME="$S3_ARTIFACT_NAME.tar.zst"
+    S3_ARTIFACT_NAME_UN="$S3_ARTIFACT_NAME-unstripped.tar.zst"
+    S3_ARTIFACT_NAME_STR="$S3_ARTIFACT_NAME.tar.zst"
     zstd artifacts/install.tar -o ${S3_ARTIFACT_NAME}
-    ci-fairy s3cp --token-file "${S3_JWT_FILE}" ${S3_ARTIFACT_NAME} https://${PIPELINE_ARTIFACTS_BASE}/${S3_ARTIFACT_NAME}
+
+    if [[ -n "$ARTIFACTS_DEBUG_SYMBOLS" ]] && [[ "${BUILDTYPE:-debug}" == *"debug"* ]]; then
+	pushd _build
+	find ./src -name '*.dwo' -print0 | xargs -0 dwp -o debug.dwp
+	ci-fairy s3cp --token-file "${S3_JWT_FILE}" debug.dwp https://${PIPELINE_ARTIFACTS_BASE}/debug.dwp
+	popd
+    fi
+
+    strip_debug  # never distribute debug symbols to the runners
+    tar --zstd -cf "${S3_ARTIFACT_NAME_STR}" install
+    ci-fairy s3cp --token-file "${S3_JWT_FILE}" ${S3_ARTIFACT_NAME} https://${PIPELINE_ARTIFACTS_BASE}/${S3_ARTIFACT_NAME_STR}
+else
+    tar -cf artifacts/install.tar install
 fi
 
 section_end prepare-artifacts

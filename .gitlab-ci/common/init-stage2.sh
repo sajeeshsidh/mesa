@@ -151,6 +151,10 @@ if [ -n "$FREEDRENO_HANGCHECK_MS" ]; then
     echo $FREEDRENO_HANGCHECK_MS | tee -a /sys/kernel/debug/dri/128/hangcheck_period_ms
 fi
 
+# Set capturing coredump
+ulimit -c unlimited
+echo "/results/coredump-%e.%t" > /proc/sys/kernel/core_pattern
+
 # Start a little daemon to capture the first devcoredump we encounter.  (They
 # expire after 5 minutes, so we poll for them).
 if [ -x /capture-devcoredump.sh ]; then

@@ -49,6 +49,12 @@ if [ -n "$CROSS" ]; then
     fi
 fi
 
+if [ -n "$ARTIFACTS_DEBUG_SYMBOLS" ]; then
+  SPLIT_DEBUG="enabled"
+else
+  SPLIT_DEBUG="disabled"
+fi
+
 if [ -n "$HOST_BUILD_OPTIONS" ]; then
     section_switch meson-host-configure "meson: host configure"
 
@@ -123,6 +129,7 @@ meson setup _build \
       -D vulkan-drivers=${VULKAN_DRIVERS:-[]} \
       -D video-codecs=all \
       -D werror=true \
+      -D split-debug=${SPLIT_DEBUG} \
       ${EXTRA_OPTION}
 cd _build
 meson configure
