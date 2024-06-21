@@ -790,11 +790,17 @@ add_aux_surface_if_supported(struct anv_device *device,
             return result;
       }
    } else if ((aspect & VK_IMAGE_ASPECT_ANY_COLOR_BIT_ANV) && image->vk.samples == 1) {
-      ok = isl_surf_get_ccs_surf(&device->isl_dev,
-                                 &image->planes[plane].primary_surface.isl,
-                                 NULL,
-                                 &image->planes[plane].aux_surface.isl,
-                                 stride);
+
+      if (device->info->has_flat_ccs || device->info->has_aux_map) {
+         ok = isl_surf_supports_ccs(&device->isl_dev,
+                                    &image->planes[plane].primary_surface.isl,
+                                    NULL);
+      } else {
+         ok = isl_surf_get_ccs_surf(&device->isl_dev,
+                                    &image->planes[plane].primary_surface.isl,
+                                    &image->planes[plane].aux_surface.isl,
+                                    stride);
+      }
       if (!ok)
          return VK_SUCCESS;
 
@@ -1548,6 +1554,8 @@ anv_image_init(struct anv_device *device, struct anv_image *image,
    image->vk.stencil_usage =
       anv_image_create_usage(pCreateInfo, image->vk.stencil_usage);
 
+   isl_surf_usage_flags_t isl_extra_usage_flags =
+      create_info->isl_extra_usage_flags;
    if (pCreateInfo->tiling == VK_IMAGE_TILING_DRM_FORMAT_MODIFIER_EXT) {
       assert(!image->vk.wsi_legacy_scanout);
       mod_explicit_info =
@@ -1567,6 +1575,9 @@ anv_image_init(struct anv_device *device, struct anv_image *image,
       assert(isl_mod_info);
       assert(image->vk.drm_format_mod == DRM_FORMAT_MOD_INVALID);
       image->vk.drm_format_mod = isl_mod_info->modifier;
+
+      if (isl_drm_modifier_needs_display_layout(image->vk.drm_format_mod))
+         isl_extra_usage_flags |= ISL_SURF_USAGE_DISPLAY_BIT;
    }
 
    for (int i = 0; i < ANV_IMAGE_MEMORY_BINDING_END; ++i) {
@@ -1598,7 +1609,6 @@ anv_image_init(struct anv_device *device, struct anv_image *image,
    image->disjoint = image->n_planes > 1 &&
                      (pCreateInfo->flags & VK_IMAGE_CREATE_DISJOINT_BIT);
 
-   isl_surf_usage_flags_t isl_extra_usage_flags = create_info->isl_extra_usage_flags;
    if (anv_is_format_emulated(device->physical, pCreateInfo->format)) {
       assert(image->n_planes == 1 &&
              vk_format_is_compressed(image->vk.format));
@@ -3473,6 +3483,17 @@ anv_can_fast_clear_color_view(struct anv_device *device,
           anv_surf->isl.logical_level0_px.w <= 256 &&
           anv_surf->isl.logical_level0_px.h <= 256)
          return false;
+   }
+
+   /* On gfx12.0, CCS fast clears don't seem to cover the correct portion of
+    * the aux buffer when the pitch is not 512B-aligned.
+    */
+   if (device->info->verx10 == 120 &&
+       iview->image->planes->primary_surface.isl.samples == 1 &&
+       iview->image->planes->primary_surface.isl.row_pitch_B % 512) {
+      anv_perf_warn(VK_LOG_OBJS(&iview->image->vk.base),
+                    "Pitch not 512B-aligned. Slow clearing surface.");
+      return false;
    }
 
    /* Disable sRGB fast-clears for non-0/1 color values on Gfx9. For texturing

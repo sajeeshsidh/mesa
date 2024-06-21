@@ -591,7 +591,6 @@ tiling_max_mip_tail(enum isl_tiling tiling,
    case ISL_TILING_W:
    case ISL_TILING_HIZ:
    case ISL_TILING_CCS:
-   case ISL_TILING_GFX12_CCS:
       /* There is no miptail for those tilings */
       return 0;
 
@@ -974,29 +973,6 @@ isl_tiling_get_info(enum isl_tiling tiling,
       phys_B = isl_extent2d(128, 32);
       break;
 
-   case ISL_TILING_GFX12_CCS:
-      /* From the Bspec, Gen Graphics > Gfx12 > Memory Data Formats > Memory
-       * Compression > Memory Compression - Gfx12:
-       *
-       *    4 bits of auxiliary plane data are required for 2 cachelines of
-       *    main surface data. This results in a single cacheline of auxiliary
-       *    plane data mapping to 4 4K pages of main surface data for the 4K
-       *    pages (tile Y ) and 1 64K Tile Ys page.
-       *
-       * The Y-tiled pairing bit of 9 shown in the table below that Bspec
-       * section expresses that the 2 cachelines of main surface data are
-       * horizontally adjacent.
-       *
-       * TODO: Handle Ys, Yf and their pairing bits.
-       *
-       * Therefore, each CCS cacheline represents a 512Bx32 row area and each
-       * element represents a 32Bx4 row area.
-       */
-      assert(format_bpb == 4);
-      logical_el = isl_extent4d(16, 8, 1, 1);
-      phys_B = isl_extent2d(64, 1);
-      break;
-
    default:
       unreachable("not reached");
    } /* end switch */
@@ -1078,11 +1054,7 @@ isl_surf_choose_tiling(const struct isl_device *dev,
    /* CCS surfaces always use the CCS tiling */
    if (info->usage & ISL_SURF_USAGE_CCS_BIT) {
       assert(isl_format_get_layout(info->format)->txc == ISL_TXC_CCS);
-      UNUSED bool ivb_ccs = ISL_GFX_VER(dev) < 12 &&
-                            tiling_flags == ISL_TILING_CCS_BIT;
-      UNUSED bool tgl_ccs = ISL_GFX_VER(dev) >= 12 &&
-                            tiling_flags == ISL_TILING_GFX12_CCS_BIT;
-      assert(ivb_ccs != tgl_ccs);
+      assert(tiling_flags == ISL_TILING_CCS_BIT);
       *tiling = isl_tiling_flag_to_enum(tiling_flags);
       return true;
    }
@@ -1848,8 +1820,7 @@ isl_calc_array_pitch_el_rows_gfx4_2d(
    assert(pitch_sa_rows % fmtl->bh == 0);
    uint32_t pitch_el_rows = pitch_sa_rows / fmtl->bh;
 
-   if (ISL_GFX_VER(dev) >= 9 && ISL_GFX_VER(dev) <= 11 &&
-       fmtl->txc == ISL_TXC_CCS) {
+   if (ISL_GFX_VER(dev) >= 9 && fmtl->txc == ISL_TXC_CCS) {
       /*
        * From the Sky Lake PRM Vol 7, "MCS Buffer for Render Target(s)" (p. 632):
        *
@@ -1867,8 +1838,6 @@ isl_calc_array_pitch_el_rows_gfx4_2d(
        * The first restriction is already handled by isl_choose_image_alignment_el
        * but the second restriction, which is an extension of the first, only
        * applies to qpitch and must be applied here.
-       *
-       * The second restriction disappears on Gfx12.
        */
       assert(fmtl->bh == 4);
       pitch_el_rows = isl_align(pitch_el_rows, 256 / 4);
@@ -2249,22 +2218,44 @@ isl_calc_row_pitch_alignment(const struct isl_device *dev,
                              const struct isl_tile_info *tile_info)
 {
    if (tile_info->tiling != ISL_TILING_LINEAR) {
-      /* According to BSpec: 44930, Gfx12's CCS-compressed surface pitches must
-       * be 512B-aligned. CCS is only support on Y tilings.
-       *
-       * Only consider 512B alignment when :
-       *    - AUX is not explicitly disabled
-       *    - the caller has specified no pitch
-       *
-       * isl_surf_get_ccs_surf() will check that the main surface alignment
-       * matches CCS expectations.
-       */
-      if (ISL_GFX_VER(dev) >= 12 &&
+
+      /* On gfx12, aligning to 512B may be wanted or needed for CCS_E. */
+      if (ISL_GFX_VER(dev) == 12 && surf_info->samples == 1 &&
+          !isl_surf_usage_is_depth_or_stencil(surf_info->usage) &&
           _isl_surf_info_supports_ccs(dev, surf_info->format,
                                       surf_info->usage) &&
           tile_info->tiling != ISL_TILING_X &&
           surf_info->row_pitch_B == 0) {
-         return isl_align(tile_info->phys_extent_B.width, 512);
+
+         /* From Bspec 49252, Render Decompression:
+          *
+          *    "Compressed displayable surfaces must be 16KB aligned and have
+          *    pitches padded to multiple of 4 tiles."
+          *
+          * Only consider padding the pitch when the caller has specified no
+          * pitch. isl_surf_supports_ccs() will confirm that the main surface
+          * pitch matches CCS expectations.
+          */
+         if (isl_surf_usage_is_display(surf_info->usage)) {
+            assert(tile_info->phys_extent_B.width == 128);
+            return 512;
+         }
+
+         /* On gfx12.0, CCS fast clears don't seem to cover the correct
+          * portion of the aux buffer when the pitch is not 512B-aligned. Pad
+          * the pitch unless Wa_18020603990 applies (slow clear surfaces up
+          * to 256x256, 32bpp). isl_surf_supports_ccs() won't confirm this
+          * alignment, so drivers must fall back to slow clears as needed.
+          */
+         if (ISL_GFX_VERX10(dev) == 120) {
+            assert(intel_needs_workaround(dev->info, 18020603990));
+            if (tile_info->format_bpb > 32 ||
+                surf_info->width > 256 ||
+                surf_info->height > 256) {
+               assert(tile_info->phys_extent_B.width == 128);
+               return 512;
+            }
+         }
       }
 
       return tile_info->phys_extent_B.width;
@@ -2415,7 +2406,7 @@ _isl_notify_failure(const struct isl_surf_init_info *surf_info,
    snprintf(msg + ret, sizeof(msg) - ret,
             " extent=%ux%ux%u dim=%s msaa=%ux levels=%u rpitch=%u fmt=%s "
             "usages=%s%s%s%s%s%s%s%s%s%s%s%s%s%s%s%s "
-            "tiling_flags=%s%s%s%s%s%s%s%s%s%s%s%s%s",
+            "tiling_flags=%s%s%s%s%s%s%s%s%s%s%s%s",
             surf_info->width, surf_info->height,
             surf_info->dim == ISL_SURF_DIM_3D ?
             surf_info->depth : surf_info->array_len,
@@ -2453,8 +2444,7 @@ _isl_notify_failure(const struct isl_surf_init_info *surf_info,
             PRINT_TILING(4,              "4"),
             PRINT_TILING(64,             "64"),
             PRINT_TILING(HIZ,            "hiz"),
-            PRINT_TILING(CCS,            "ccs"),
-            PRINT_TILING(GFX12_CCS,      "ccs12"));
+            PRINT_TILING(CCS,            "ccs"));
 
 #undef PRINT_USAGE
 #undef PRINT_TILING
@@ -2698,15 +2688,6 @@ isl_calc_base_alignment(const struct isl_device *dev,
                                    tile_info->phys_extent_B.height;
       assert(isl_is_pow2(info->min_alignment_B) && isl_is_pow2(tile_size_B));
       base_alignment_B = MAX(info->min_alignment_B, tile_size_B);
-
-      /* The diagram in the Bspec section Memory Compression - Gfx12, shows
-       * that the CCS is indexed in 256B chunks. However, the
-       * PLANE_AUX_DIST::Auxiliary Surface Distance field is in units of 4K
-       * pages. We currently don't assign the usage field like we do for main
-       * surfaces, so just use 4K for now.
-       */
-      if (tile_info->tiling == ISL_TILING_GFX12_CCS)
-         base_alignment_B = MAX(base_alignment_B, 4096);
 
       if (_isl_surf_info_supports_ccs(dev, info->format, info->usage)) {
          /* Wa_22015614752:
@@ -3035,12 +3016,6 @@ isl_surf_supports_ccs(const struct isl_device *dev,
     *
     *     - Support is limited to tiled render targets.
     *
-    * From the Skylake documentation, it is made clear that X-tiling is no
-    * longer supported:
-    *
-    *     - MCS and Lossless compression is supported for
-    *       TiledY/TileYs/TileYf non-MSRTs only.
-    *
     * From the BSpec (44930) for Gfx12:
     *
     *    Linear CCS is only allowed for Untyped Buffers but only via HDC
@@ -3050,6 +3025,22 @@ isl_surf_supports_ccs(const struct isl_device *dev,
     * this means linear is out on Gfx12+ as well.
     */
    if (surf->tiling == ISL_TILING_LINEAR)
+      return false;
+
+   /* From the SKL PRMs, Volume 7: MCS Buffer for Render Target(s),
+    *
+    *    - Note: Lossless Color Compression can only be applied to Surfaces
+    *    which are TileY, TileYs, or TileYf.
+    *
+    * From the ACM PRMs, Volume 9: MCS/CCS Buffers for Render Target(s),
+    *
+    *    - Note: Lossless Color Compression can only be applied to Surfaces
+    *    which are Linear, Tile4, or Tile64. (TileY/TileYF/TileYS on older
+    *    devices)
+    *
+    * It is made clear that X-tiling is no longer supported on SKL+.
+    */
+   if (ISL_GFX_VER(dev) >= 9 && surf->tiling == ISL_TILING_X)
       return false;
 
    /* SKL PRMs, Volume 5: Memory Views, Tiling and Mip Tails for 2D Surfaces:
@@ -3160,13 +3151,22 @@ isl_surf_supports_ccs(const struct isl_device *dev,
           */
          if (dev->info->verx10 == 120 && surf->dim == ISL_SURF_DIM_3D)
             return false;
-      }
 
-      /* On Gfx12, all CCS-compressed surface pitches must be multiples of
-       * 512B.
-       */
-      if (surf->row_pitch_B % 512 != 0)
-         return false;
+         /* From Bspec 49252, Render Decompression:
+          *
+          *    "Compressed displayable surfaces must be 16KB aligned and have
+          *    pitches padded to multiple of 4 tiles."
+          *
+          * The drm_fourcc.h header doesn't require the aligned address for
+          * compressed dmabufs, but it does require the aligned pitch.
+          */
+         if (isl_surf_usage_is_display(surf->usage)) {
+            assert(surf->tiling == ISL_TILING_4 ||
+                   surf->tiling == ISL_TILING_Y0);
+            if (surf->row_pitch_B % 512 != 0)
+               return false;
+         }
+      }
 
       if (intel_needs_workaround(dev->info, 22015614752) &&
           (surf->usage & ISL_SURF_USAGE_MULTI_ENGINE_PAR_BIT) &&
@@ -3199,12 +3199,6 @@ isl_surf_supports_ccs(const struct isl_device *dev,
           (surf->tiling == ISL_TILING_ICL_Ys ||
            isl_tiling_is_64(surf->tiling)) &&
           (format_bpb == 64 || format_bpb == 128))
-         return false;
-
-      /* TODO: Handle the other tiling formats */
-      if (surf->tiling != ISL_TILING_Y0 &&
-          surf->tiling != ISL_TILING_4 &&
-          !isl_tiling_is_64(surf->tiling))
          return false;
    } else {
       /* ISL_GFX_VER(dev) < 12 */
@@ -3241,15 +3235,6 @@ isl_surf_supports_ccs(const struct isl_device *dev,
       if (ISL_GFX_VER(dev) <= 7 &&
           (surf->levels > 1 || surf->logical_level0_px.array_len > 1))
          return false;
-
-      /* From the Skylake documentation, it is made clear that X-tiling is no
-       * longer supported:
-       *
-       *     - MCS and Lossless compression is supported for
-       *     TiledY/TileYs/TileYf non-MSRTs only.
-       */
-      if (ISL_GFX_VER(dev) >= 9 && !isl_tiling_is_any_y(surf->tiling))
-         return false;
    }
 
    return true;
@@ -3258,84 +3243,50 @@ isl_surf_supports_ccs(const struct isl_device *dev,
 bool
 isl_surf_get_ccs_surf(const struct isl_device *dev,
                       const struct isl_surf *surf,
-                      const struct isl_surf *hiz_or_mcs_surf,
                       struct isl_surf *ccs_surf,
                       uint32_t row_pitch_B)
 {
-   if (!isl_surf_supports_ccs(dev, surf, hiz_or_mcs_surf))
+   if (!isl_surf_supports_ccs(dev, surf, NULL))
       return false;
 
-   if (ISL_GFX_VER(dev) >= 12) {
-      enum isl_format ccs_format;
+   enum isl_format ccs_format;
+   if (ISL_GFX_VER(dev) >= 9 && ISL_GFX_VER(dev) <= 11) {
       switch (isl_format_get_layout(surf->format)->bpb) {
-      case 8:     ccs_format = ISL_FORMAT_GFX12_CCS_8BPP_Y0;    break;
-      case 16:    ccs_format = ISL_FORMAT_GFX12_CCS_16BPP_Y0;   break;
-      case 32:    ccs_format = ISL_FORMAT_GFX12_CCS_32BPP_Y0;   break;
-      case 64:    ccs_format = ISL_FORMAT_GFX12_CCS_64BPP_Y0;   break;
-      case 128:   ccs_format = ISL_FORMAT_GFX12_CCS_128BPP_Y0;  break;
-      default:
-         return false;
+      case 32:    ccs_format = ISL_FORMAT_GFX9_CCS_32BPP;   break;
+      case 64:    ccs_format = ISL_FORMAT_GFX9_CCS_64BPP;   break;
+      case 128:   ccs_format = ISL_FORMAT_GFX9_CCS_128BPP;  break;
+      default:    unreachable("Unsupported CCS format");
       }
-
-      /* On Gfx12, the CCS is a scaled-down version of the main surface. We
-       * model this as the CCS compressing a 2D-view of the entire surface.
-       */
-      const bool ok =
-         isl_surf_init(dev, ccs_surf,
-                       .dim = ISL_SURF_DIM_2D,
-                       .format = ccs_format,
-                       .width = isl_surf_get_row_pitch_el(surf),
-                       .height = surf->size_B / surf->row_pitch_B,
-                       .depth = 1,
-                       .levels = 1,
-                       .array_len = 1,
-                       .samples = 1,
-                       .row_pitch_B = row_pitch_B,
-                       .usage = ISL_SURF_USAGE_CCS_BIT,
-                       .tiling_flags = ISL_TILING_GFX12_CCS_BIT);
-      assert(!ok || ccs_surf->size_B == surf->size_B / 256);
-      return ok;
+   } else if (surf->tiling == ISL_TILING_Y0) {
+      switch (isl_format_get_layout(surf->format)->bpb) {
+      case 32:    ccs_format = ISL_FORMAT_GFX7_CCS_32BPP_Y;    break;
+      case 64:    ccs_format = ISL_FORMAT_GFX7_CCS_64BPP_Y;    break;
+      case 128:   ccs_format = ISL_FORMAT_GFX7_CCS_128BPP_Y;   break;
+      default:    unreachable("Unsupported CCS format");
+      }
+   } else if (surf->tiling == ISL_TILING_X) {
+      switch (isl_format_get_layout(surf->format)->bpb) {
+      case 32:    ccs_format = ISL_FORMAT_GFX7_CCS_32BPP_X;    break;
+      case 64:    ccs_format = ISL_FORMAT_GFX7_CCS_64BPP_X;    break;
+      case 128:   ccs_format = ISL_FORMAT_GFX7_CCS_128BPP_X;   break;
+      default:    unreachable("Unsupported CCS format");
+      }
    } else {
-      enum isl_format ccs_format;
-      if (ISL_GFX_VER(dev) >= 9) {
-         switch (isl_format_get_layout(surf->format)->bpb) {
-         case 32:    ccs_format = ISL_FORMAT_GFX9_CCS_32BPP;   break;
-         case 64:    ccs_format = ISL_FORMAT_GFX9_CCS_64BPP;   break;
-         case 128:   ccs_format = ISL_FORMAT_GFX9_CCS_128BPP;  break;
-         default:    unreachable("Unsupported CCS format");
-            return false;
-         }
-      } else if (surf->tiling == ISL_TILING_Y0) {
-         switch (isl_format_get_layout(surf->format)->bpb) {
-         case 32:    ccs_format = ISL_FORMAT_GFX7_CCS_32BPP_Y;    break;
-         case 64:    ccs_format = ISL_FORMAT_GFX7_CCS_64BPP_Y;    break;
-         case 128:   ccs_format = ISL_FORMAT_GFX7_CCS_128BPP_Y;   break;
-         default:    unreachable("Unsupported CCS format");
-         }
-      } else if (surf->tiling == ISL_TILING_X) {
-         switch (isl_format_get_layout(surf->format)->bpb) {
-         case 32:    ccs_format = ISL_FORMAT_GFX7_CCS_32BPP_X;    break;
-         case 64:    ccs_format = ISL_FORMAT_GFX7_CCS_64BPP_X;    break;
-         case 128:   ccs_format = ISL_FORMAT_GFX7_CCS_128BPP_X;   break;
-         default:    unreachable("Unsupported CCS format");
-         }
-      } else {
-         unreachable("Invalid tiling format");
-      }
-
-      return isl_surf_init(dev, ccs_surf,
-                           .dim = surf->dim,
-                           .format = ccs_format,
-                           .width = surf->logical_level0_px.width,
-                           .height = surf->logical_level0_px.height,
-                           .depth = surf->logical_level0_px.depth,
-                           .levels = surf->levels,
-                           .array_len = surf->logical_level0_px.array_len,
-                           .samples = 1,
-                           .row_pitch_B = row_pitch_B,
-                           .usage = ISL_SURF_USAGE_CCS_BIT,
-                           .tiling_flags = ISL_TILING_CCS_BIT);
+      unreachable("Invalid tiling format");
    }
+
+   return isl_surf_init(dev, ccs_surf,
+                        .dim = surf->dim,
+                        .format = ccs_format,
+                        .width = surf->logical_level0_px.width,
+                        .height = surf->logical_level0_px.height,
+                        .depth = surf->logical_level0_px.depth,
+                        .levels = surf->levels,
+                        .array_len = surf->logical_level0_px.array_len,
+                        .samples = 1,
+                        .row_pitch_B = row_pitch_B,
+                        .usage = ISL_SURF_USAGE_CCS_BIT,
+                        .tiling_flags = ISL_TILING_CCS_BIT);
 }
 
 #define isl_genX_call(dev, func, ...)              \
@@ -4624,7 +4575,6 @@ isl_tiling_to_name(enum isl_tiling tiling)
       [ISL_TILING_64_XE2]    = "64-Xe2",
       [ISL_TILING_HIZ]       = "hiz",
       [ISL_TILING_CCS]       = "ccs",
-      [ISL_TILING_GFX12_CCS] = "gfx12-ccs",
    };
    assert(tiling < ARRAY_SIZE(names));
    return names[tiling];
