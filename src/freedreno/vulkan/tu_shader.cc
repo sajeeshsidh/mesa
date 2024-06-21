@@ -495,88 +495,10 @@ lower_intrinsic(nir_builder *b, nir_intrinsic_instr *instr,
    }
 }
 
-static void
-lower_tex_ycbcr(const struct tu_pipeline_layout *layout,
-                nir_builder *builder,
-                nir_tex_instr *tex)
-{
-   int deref_src_idx = nir_tex_instr_src_index(tex, nir_tex_src_texture_deref);
-   assert(deref_src_idx >= 0);
-   nir_deref_instr *deref = nir_src_as_deref(tex->src[deref_src_idx].src);
-
-   nir_variable *var = nir_deref_instr_get_variable(deref);
-   const struct tu_descriptor_set_layout *set_layout =
-      layout->set[var->data.descriptor_set].layout;
-   const struct tu_descriptor_set_binding_layout *binding =
-      &set_layout->binding[var->data.binding];
-   const struct tu_sampler_ycbcr_conversion *ycbcr_samplers =
-      tu_immutable_ycbcr_samplers(set_layout, binding);
-
-   if (!ycbcr_samplers)
-      return;
-
-   /* For the following instructions, we don't apply any change */
-   if (tex->op == nir_texop_txs ||
-       tex->op == nir_texop_query_levels ||
-       tex->op == nir_texop_lod)
-      return;
-
-   assert(tex->texture_index == 0);
-   unsigned array_index = 0;
-   if (deref->deref_type != nir_deref_type_var) {
-      assert(deref->deref_type == nir_deref_type_array);
-      if (!nir_src_is_const(deref->arr.index))
-         return;
-      array_index = nir_src_as_uint(deref->arr.index);
-      array_index = MIN2(array_index, binding->array_size - 1);
-   }
-   const struct tu_sampler_ycbcr_conversion *ycbcr_sampler = ycbcr_samplers + array_index;
-
-   if (ycbcr_sampler->ycbcr_model == VK_SAMPLER_YCBCR_MODEL_CONVERSION_RGB_IDENTITY)
-      return;
-
-   /* Skip if not actually a YCbCr format.  CtsGraphics, for example, tries to create
-    * YcbcrConversions for RGB formats.
-    */
-   if (!vk_format_get_ycbcr_info(ycbcr_sampler->format))
-      return;
-
-   builder->cursor = nir_after_instr(&tex->instr);
-
-   uint8_t bits = vk_format_get_component_bits(ycbcr_sampler->format,
-                                               UTIL_FORMAT_COLORSPACE_RGB,
-                                               PIPE_SWIZZLE_X);
-
-   switch (ycbcr_sampler->format) {
-   case VK_FORMAT_G8B8G8R8_422_UNORM:
-   case VK_FORMAT_B8G8R8G8_422_UNORM:
-   case VK_FORMAT_G8_B8R8_2PLANE_420_UNORM:
-   case VK_FORMAT_G8_B8_R8_3PLANE_420_UNORM:
-      /* util_format_get_component_bits doesn't return what we want */
-      bits = 8;
-      break;
-   default:
-      break;
-   }
-
-   uint32_t bpcs[3] = {bits, bits, bits}; /* TODO: use right bpc for each channel ? */
-   nir_def *result = nir_convert_ycbcr_to_rgb(builder,
-                                                  ycbcr_sampler->ycbcr_model,
-                                                  ycbcr_sampler->ycbcr_range,
-                                                  &tex->def,
-                                                  bpcs);
-   nir_def_rewrite_uses_after(&tex->def, result,
-                                  result->parent_instr);
-
-   builder->cursor = nir_before_instr(&tex->instr);
-}
-
 static bool
 lower_tex(nir_builder *b, nir_tex_instr *tex, struct tu_device *dev,
           struct tu_shader *shader, const struct tu_pipeline_layout *layout)
 {
-   lower_tex_ycbcr(layout, b, tex);
-
    int sampler_src_idx = nir_tex_instr_src_index(tex, nir_tex_src_sampler_deref);
    if (sampler_src_idx >= 0) {
       nir_deref_instr *deref = nir_src_as_deref(tex->src[sampler_src_idx].src);
@@ -595,6 +517,11 @@ lower_tex(nir_builder *b, nir_tex_instr *tex, struct tu_device *dev,
       /* for the input attachment case: */
       if (bindless->parent_instr->type != nir_instr_type_intrinsic)
          tex->src[tex_src_idx].src_type = nir_tex_src_texture_offset;
+   }
+
+   int plane_src_idx = nir_tex_instr_src_index(tex, nir_tex_src_plane);
+   if (plane_src_idx >= 0) {
+      //TODO
    }
 
    return true;
@@ -995,6 +922,26 @@ tu_nir_lower_fdm(nir_shader *shader, const struct lower_fdm_options *options)
 {
    return nir_shader_lower_instructions(shader, lower_fdm_filter,
                                         lower_fdm_instr, (void *)options);
+}
+
+static const struct vk_ycbcr_conversion_state *
+lookup_ycbcr_conversion(const void *data,
+                        uint32_t set,
+                        uint32_t binding,
+                        uint32_t array_index)
+{
+   const struct tu_pipeline_layout *layout = (const tu_pipeline_layout *)data;
+
+   const struct tu_descriptor_set_layout *set_layout = layout->set[set].layout;
+   const struct tu_descriptor_set_binding_layout *bind_layout =
+      &set_layout->binding[binding];
+   const struct vk_ycbcr_conversion_state *ycbcr_samplers =
+      tu_immutable_ycbcr_samplers(set_layout, bind_layout);
+
+   if (!ycbcr_samplers)
+      return NULL;
+
+   return ycbcr_samplers + array_index;
 }
 
 static void
@@ -2337,22 +2284,15 @@ tu_shader_deserialize(struct vk_pipeline_cache *cache,
    return &shader->base;
 }
 
-VkResult
-tu_shader_create(struct tu_device *dev,
-                 struct tu_shader **shader_out,
-                 nir_shader *nir,
-                 const struct tu_shader_key *key,
-                 const struct ir3_shader_key *ir3_key,
-                 const void *key_data,
-                 size_t key_size,
-                 struct tu_pipeline_layout *layout,
-                 bool executable_info)
+static void
+tu_lower_nir(struct tu_device *dev,
+             nir_shader *nir,
+             const struct tu_shader_key *key,
+             struct tu_shader *shader,
+             struct tu_pipeline_layout *layout,
+             struct ir3_stream_output_info *so_info,
+             unsigned *reserved_consts_vec4)
 {
-   struct tu_shader *shader = tu_shader_init(dev, key_data, key_size);
-
-   if (!shader)
-      return VK_ERROR_OUT_OF_HOST_MEMORY;
-
    const nir_opt_access_options access_options = {
       .is_vulkan = true,
    };
@@ -2401,6 +2341,8 @@ tu_shader_create(struct tu_device *dev,
       }
    }
 
+   NIR_PASS_V(nir, nir_vk_lower_ycbcr_tex, lookup_ycbcr_conversion, layout);
+
    NIR_PASS_V(nir, nir_lower_explicit_io, nir_var_mem_push_const,
               nir_address_format_32bit_offset);
 
@@ -2439,17 +2381,16 @@ tu_shader_create(struct tu_device *dev,
    nir_assign_io_var_locations(nir, nir_var_shader_in, &nir->num_inputs, nir->info.stage);
    nir_assign_io_var_locations(nir, nir_var_shader_out, &nir->num_outputs, nir->info.stage);
 
-  /* Gather information for transform feedback. This should be called after:
+   /* Gather information for transform feedback. This should be called after:
     * - nir_split_per_member_structs.
     * - nir_remove_dead_variables with varyings, so that we could align
     *   stream outputs correctly.
     * - nir_assign_io_var_locations - to have valid driver_location
     */
-   struct ir3_stream_output_info so_info = {};
    if (nir->info.stage == MESA_SHADER_VERTEX ||
          nir->info.stage == MESA_SHADER_TESS_EVAL ||
          nir->info.stage == MESA_SHADER_GEOMETRY)
-      tu_gather_xfb_info(nir, &so_info);
+      tu_gather_xfb_info(nir, so_info);
 
    for (unsigned i = 0; i < layout->num_sets; i++) {
       if (layout->set[i].layout) {
@@ -2460,12 +2401,33 @@ tu_shader_create(struct tu_device *dev,
       }
    }
 
-   unsigned reserved_consts_vec4 = 0;
-   NIR_PASS_V(nir, tu_lower_io, dev, shader, layout, &reserved_consts_vec4);
+   NIR_PASS_V(nir, tu_lower_io, dev, shader, layout, reserved_consts_vec4);
 
    nir_shader_gather_info(nir, nir_shader_get_entrypoint(nir));
 
    ir3_finalize_nir(dev->compiler, nir);
+}
+
+VkResult
+tu_shader_create(struct tu_device *dev,
+                 struct tu_shader **shader_out,
+                 nir_shader *nir,
+                 const struct tu_shader_key *key,
+                 const struct ir3_shader_key *ir3_key,
+                 const void *key_data,
+                 size_t key_size,
+                 struct tu_pipeline_layout *layout,
+                 bool executable_info)
+{
+   struct tu_shader *shader = tu_shader_init(dev, key_data, key_size);
+
+   if (!shader)
+      return VK_ERROR_OUT_OF_HOST_MEMORY;
+
+   struct ir3_stream_output_info so_info = {};
+   unsigned reserved_consts_vec4 = 0;
+
+   tu_lower_nir(dev, nir, key, shader, layout, &so_info, &reserved_consts_vec4);
 
    const struct ir3_shader_options options = {
       .num_reserved_user_consts = reserved_consts_vec4,
