@@ -666,12 +666,13 @@ set_image_compressed_bit(struct anv_cmd_buffer *cmd_buffer,
                          bool compressed)
 {
    const uint32_t plane = anv_image_aspect_to_plane(image, aspect);
+   struct anv_device *device = cmd_buffer->device;
 
-   /* We only have compression tracking for CCS_E */
-   if (!isl_aux_usage_has_ccs_e(image->planes[plane].aux_usage))
+   /* We only have compression tracking for CCS_E on pre-Xe2 platforms. */
+   if (device->info->ver >= 20 ||
+       !isl_aux_usage_has_ccs_e(image->planes[plane].aux_usage))
       return;
 
-   struct anv_device *device = cmd_buffer->device;
    struct mi_builder b;
    mi_builder_init(&b, device->info, &cmd_buffer->batch);
    mi_builder_set_mocs(&b, isl_mocs(&device->isl_dev, 0, false));
@@ -709,6 +710,9 @@ set_image_fast_clear_state(struct anv_cmd_buffer *cmd_buffer,
                            enum anv_fast_clear_type fast_clear)
 {
    struct anv_device *device = cmd_buffer->device;
+   if (device->info->ver >= 20)
+      return;
+
    struct mi_builder b;
    mi_builder_init(&b, device->info, &cmd_buffer->batch);
    mi_builder_set_mocs(&b, isl_mocs(&device->isl_dev, 0, false));
@@ -725,7 +729,7 @@ set_image_fast_clear_state(struct anv_cmd_buffer *cmd_buffer,
 }
 
 /* This is only really practical on haswell and above because it requires
- * MI math in order to get it correct.
+ * MI math in order to get it correct. It is not needed on Xe2+.
  */
 static void
 anv_cmd_compute_resolve_predicate(struct anv_cmd_buffer *cmd_buffer,
@@ -736,6 +740,9 @@ anv_cmd_compute_resolve_predicate(struct anv_cmd_buffer *cmd_buffer,
                                   enum anv_fast_clear_type fast_clear_supported)
 {
    struct anv_device *device = cmd_buffer->device;
+   if (device->info->ver >= 20)
+      return;
+
    struct anv_address addr =
       anv_image_get_fast_clear_type_addr(device, image, aspect);
    struct mi_builder b;
