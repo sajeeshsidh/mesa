@@ -2087,6 +2087,8 @@ radv_prepare_dgc_graphics(struct radv_cmd_buffer *cmd_buffer, const VkGeneratedC
    params->draw_mesh_tasks = layout->draw_mesh_tasks;
 
    if (layout->bind_vbo_mask) {
+      const struct radv_vs_input_state *vs_state =
+         vs->info.vs.dynamic_inputs ? &cmd_buffer->state.dynamic_vs_input : NULL;
       uint32_t mask = vs->info.vs.vb_desc_usage_mask;
       unsigned vb_desc_alloc_size = util_bitcount(mask) * 16;
 
@@ -2097,8 +2099,11 @@ radv_prepare_dgc_graphics(struct radv_cmd_buffer *cmd_buffer, const VkGeneratedC
       unsigned idx = 0;
       while (mask) {
          unsigned i = u_bit_scan(&mask);
-         unsigned binding = vs->info.vs.use_per_attribute_vb_descs ? graphics_pipeline->attrib_bindings[i] : i;
-         uint32_t attrib_end = graphics_pipeline->attrib_ends[i];
+         unsigned binding = vs_state
+                               ? cmd_buffer->state.dynamic_vs_input.bindings[i]
+                               : (vs->info.vs.use_per_attribute_vb_descs ? graphics_pipeline->attrib_bindings[i] : i);
+         uint32_t attrib_end =
+            vs_state ? vs_state->offsets[i] + vs_state->format_sizes[i] : graphics_pipeline->attrib_ends[i];
 
          params->vbo_bind_mask |= ((layout->bind_vbo_mask >> binding) & 1u) << idx;
          vbo_info[2 * idx] = ((vs->info.vs.use_per_attribute_vb_descs ? 1u : 0u) << 31) | layout->vbo_offsets[binding];
