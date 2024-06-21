@@ -2161,41 +2161,15 @@ tu_CreateDevice(VkPhysicalDevice physicalDevice,
    VK_FROM_HANDLE(tu_physical_device, physical_device, physicalDevice);
    VkResult result;
    struct tu_device *device;
-   bool custom_border_colors = false;
-   bool perf_query_pools = false;
-   bool robust_buffer_access2 = false;
    bool border_color_without_format = false;
-   bool global_priority_query = false;
 
-   vk_foreach_struct_const(ext, pCreateInfo->pNext) {
+   vk_foreach_struct_const (ext, pCreateInfo->pNext) {
       switch (ext->sType) {
-      case VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_CUSTOM_BORDER_COLOR_FEATURES_EXT: {
-         const VkPhysicalDeviceCustomBorderColorFeaturesEXT
-            *border_color_features =
-               (const VkPhysicalDeviceCustomBorderColorFeaturesEXT *) ext;
-         custom_border_colors = border_color_features->customBorderColors;
+      case VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_CUSTOM_BORDER_COLOR_FEATURES_EXT:
          border_color_without_format =
-            border_color_features->customBorderColorWithoutFormat;
+            ((const VkPhysicalDeviceCustomBorderColorFeaturesEXT *) ext)
+               ->customBorderColorWithoutFormat;
          break;
-      }
-      case VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_PERFORMANCE_QUERY_FEATURES_KHR: {
-         const VkPhysicalDevicePerformanceQueryFeaturesKHR *feature =
-            (VkPhysicalDevicePerformanceQueryFeaturesKHR *)ext;
-         perf_query_pools = feature->performanceCounterQueryPools;
-         break;
-      }
-      case VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_ROBUSTNESS_2_FEATURES_EXT: {
-         VkPhysicalDeviceRobustness2FeaturesEXT *features =
-            (VkPhysicalDeviceRobustness2FeaturesEXT *) ext;
-         robust_buffer_access2 = features->robustBufferAccess2;
-         break;
-      }
-      case VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_GLOBAL_PRIORITY_QUERY_FEATURES_KHR: {
-         VkPhysicalDeviceGlobalPriorityQueryFeaturesKHR *features =
-            (VkPhysicalDeviceGlobalPriorityQueryFeaturesKHR *) ext;
-         global_priority_query = features->globalPriorityQuery;
-         break;
-      }
       default:
          break;
       }
@@ -2308,8 +2282,8 @@ tu_CreateDevice(VkPhysicalDevice physicalDevice,
       device->queue_count[qfi] = queue_create->queueCount;
 
       for (unsigned q = 0; q < queue_create->queueCount; q++) {
-         result = tu_queue_init(device, &device->queues[qfi][q], q,
-                                queue_create, global_priority_query);
+         result = tu_queue_init(device, &device->queues[qfi][q], q, queue_create,
+                                device->vk.enabled_features.globalPriorityQuery);
          if (result != VK_SUCCESS) {
             device->queue_count[qfi] = q;
             goto fail_queues;
@@ -2319,7 +2293,7 @@ tu_CreateDevice(VkPhysicalDevice physicalDevice,
 
    {
       struct ir3_compiler_options ir3_options = {
-         .robust_buffer_access2 = robust_buffer_access2,
+         .robust_buffer_access2 = device->vk.enabled_features.robustBufferAccess2,
          .push_ubo_with_preamble = true,
          .disable_cache = true,
          .bindless_fb_read_descriptor = -1,
@@ -2355,7 +2329,7 @@ tu_CreateDevice(VkPhysicalDevice physicalDevice,
    device->vsc_draw_strm_pitch = 0x1000 + VSC_PAD;
    device->vsc_prim_strm_pitch = 0x4000 + VSC_PAD;
 
-   if (custom_border_colors)
+   if (device->vk.enabled_features.customBorderColors)
       global_size += TU_BORDER_COLOR_COUNT * sizeof(struct bcolor_entry);
 
    tu_bo_suballocator_init(
@@ -2429,7 +2403,7 @@ tu_CreateDevice(VkPhysicalDevice physicalDevice,
       goto fail_pipeline_cache;
    }
 
-   if (perf_query_pools) {
+   if (device->vk.enabled_features.performanceCounterQueryPools) {
       /* Prepare command streams setting pass index to the PERF_CNTRS_REG
        * from 0 to 31. One of these will be picked up at cmd submit time
        * when the perf query is executed.
@@ -2519,8 +2493,7 @@ tu_CreateDevice(VkPhysicalDevice physicalDevice,
    device->use_z24uint_s8uint =
       physical_device->info->a6xx.has_z24uint_s8uint &&
       !border_color_without_format;
-   device->use_lrz =
-      !TU_DEBUG(NOLRZ);
+   device->use_lrz = !TU_DEBUG(NOLRZ);
 
    tu_gpu_tracepoint_config_variable();
 
@@ -3196,140 +3169,6 @@ tu_DestroyFramebuffer(VkDevice _device,
       return;
 
    vk_object_free(&device->vk, pAllocator, fb);
-}
-
-static void
-tu_init_sampler(struct tu_device *device,
-                struct tu_sampler *sampler,
-                const VkSamplerCreateInfo *pCreateInfo)
-{
-   const struct VkSamplerReductionModeCreateInfo *reduction =
-      vk_find_struct_const(pCreateInfo->pNext, SAMPLER_REDUCTION_MODE_CREATE_INFO);
-   const struct VkSamplerYcbcrConversionInfo *ycbcr_conversion =
-      vk_find_struct_const(pCreateInfo->pNext,  SAMPLER_YCBCR_CONVERSION_INFO);
-   const VkSamplerCustomBorderColorCreateInfoEXT *custom_border_color =
-      vk_find_struct_const(pCreateInfo->pNext, SAMPLER_CUSTOM_BORDER_COLOR_CREATE_INFO_EXT);
-   /* for non-custom border colors, the VK enum is translated directly to an offset in
-    * the border color buffer. custom border colors are located immediately after the
-    * builtin colors, and thus an offset of TU_BORDER_COLOR_BUILTIN is added.
-    */
-   uint32_t border_color = (unsigned) pCreateInfo->borderColor;
-   if (pCreateInfo->borderColor == VK_BORDER_COLOR_FLOAT_CUSTOM_EXT ||
-       pCreateInfo->borderColor == VK_BORDER_COLOR_INT_CUSTOM_EXT) {
-      mtx_lock(&device->mutex);
-      border_color = BITSET_FFS(device->custom_border_color) - 1;
-      assert(border_color < TU_BORDER_COLOR_COUNT);
-      BITSET_CLEAR(device->custom_border_color, border_color);
-      mtx_unlock(&device->mutex);
-
-      VkClearColorValue color = custom_border_color->customBorderColor;
-      if (custom_border_color->format == VK_FORMAT_D24_UNORM_S8_UINT &&
-          pCreateInfo->borderColor == VK_BORDER_COLOR_INT_CUSTOM_EXT &&
-          device->use_z24uint_s8uint) {
-         /* When sampling stencil using the special Z24UINT_S8UINT format, the
-          * border color is in the second component. Note: if
-          * customBorderColorWithoutFormat is enabled, we may miss doing this
-          * here if the format isn't specified, which is why we don't use that
-          * format.
-          */
-         color.uint32[1] = color.uint32[0];
-      }
-
-      tu6_pack_border_color(
-         &device->global_bo_map->bcolor[border_color], &color,
-         pCreateInfo->borderColor == VK_BORDER_COLOR_INT_CUSTOM_EXT);
-      border_color += TU_BORDER_COLOR_BUILTIN;
-   }
-
-   unsigned aniso = pCreateInfo->anisotropyEnable ?
-      util_last_bit(MIN2((uint32_t)pCreateInfo->maxAnisotropy >> 1, 8)) : 0;
-   bool miplinear = (pCreateInfo->mipmapMode == VK_SAMPLER_MIPMAP_MODE_LINEAR);
-   float min_lod = CLAMP(pCreateInfo->minLod, 0.0f, 4095.0f / 256.0f);
-   float max_lod = CLAMP(pCreateInfo->maxLod, 0.0f, 4095.0f / 256.0f);
-
-   sampler->descriptor[0] =
-      COND(miplinear, A6XX_TEX_SAMP_0_MIPFILTER_LINEAR_NEAR) |
-      A6XX_TEX_SAMP_0_XY_MAG(tu6_tex_filter(pCreateInfo->magFilter, aniso)) |
-      A6XX_TEX_SAMP_0_XY_MIN(tu6_tex_filter(pCreateInfo->minFilter, aniso)) |
-      A6XX_TEX_SAMP_0_ANISO((enum a6xx_tex_aniso) aniso) |
-      A6XX_TEX_SAMP_0_WRAP_S(tu6_tex_wrap(pCreateInfo->addressModeU)) |
-      A6XX_TEX_SAMP_0_WRAP_T(tu6_tex_wrap(pCreateInfo->addressModeV)) |
-      A6XX_TEX_SAMP_0_WRAP_R(tu6_tex_wrap(pCreateInfo->addressModeW)) |
-      A6XX_TEX_SAMP_0_LOD_BIAS(pCreateInfo->mipLodBias);
-   sampler->descriptor[1] =
-      COND(pCreateInfo->flags & VK_SAMPLER_CREATE_NON_SEAMLESS_CUBE_MAP_BIT_EXT,
-           A6XX_TEX_SAMP_1_CUBEMAPSEAMLESSFILTOFF) |
-      COND(pCreateInfo->unnormalizedCoordinates, A6XX_TEX_SAMP_1_UNNORM_COORDS) |
-      A6XX_TEX_SAMP_1_MIN_LOD(min_lod) |
-      A6XX_TEX_SAMP_1_MAX_LOD(max_lod) |
-      COND(pCreateInfo->compareEnable,
-           A6XX_TEX_SAMP_1_COMPARE_FUNC(tu6_compare_func(pCreateInfo->compareOp)));
-   sampler->descriptor[2] = A6XX_TEX_SAMP_2_BCOLOR(border_color);
-   sampler->descriptor[3] = 0;
-
-   if (reduction) {
-      sampler->descriptor[2] |= A6XX_TEX_SAMP_2_REDUCTION_MODE(
-         tu6_reduction_mode(reduction->reductionMode));
-   }
-
-   sampler->ycbcr_sampler = ycbcr_conversion ?
-      tu_sampler_ycbcr_conversion_from_handle(ycbcr_conversion->conversion) : NULL;
-
-   if (sampler->ycbcr_sampler &&
-       sampler->ycbcr_sampler->chroma_filter == VK_FILTER_LINEAR) {
-      sampler->descriptor[2] |= A6XX_TEX_SAMP_2_CHROMA_LINEAR;
-   }
-
-   /* TODO:
-    * A6XX_TEX_SAMP_1_MIPFILTER_LINEAR_FAR disables mipmapping, but vk has no NONE mipfilter?
-    */
-}
-
-VKAPI_ATTR VkResult VKAPI_CALL
-tu_CreateSampler(VkDevice _device,
-                 const VkSamplerCreateInfo *pCreateInfo,
-                 const VkAllocationCallbacks *pAllocator,
-                 VkSampler *pSampler)
-{
-   VK_FROM_HANDLE(tu_device, device, _device);
-   struct tu_sampler *sampler;
-
-   assert(pCreateInfo->sType == VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO);
-
-   sampler = (struct tu_sampler *) vk_object_alloc(
-      &device->vk, pAllocator, sizeof(*sampler), VK_OBJECT_TYPE_SAMPLER);
-   if (!sampler)
-      return vk_error(device, VK_ERROR_OUT_OF_HOST_MEMORY);
-
-   tu_init_sampler(device, sampler, pCreateInfo);
-   *pSampler = tu_sampler_to_handle(sampler);
-
-   return VK_SUCCESS;
-}
-
-VKAPI_ATTR void VKAPI_CALL
-tu_DestroySampler(VkDevice _device,
-                  VkSampler _sampler,
-                  const VkAllocationCallbacks *pAllocator)
-{
-   VK_FROM_HANDLE(tu_device, device, _device);
-   VK_FROM_HANDLE(tu_sampler, sampler, _sampler);
-   uint32_t border_color;
-
-   if (!sampler)
-      return;
-
-   border_color = (sampler->descriptor[2] & A6XX_TEX_SAMP_2_BCOLOR__MASK) >> A6XX_TEX_SAMP_2_BCOLOR__SHIFT;
-   if (border_color >= TU_BORDER_COLOR_BUILTIN) {
-      border_color -= TU_BORDER_COLOR_BUILTIN;
-      /* if the sampler had a custom border color, free it. TODO: no lock */
-      mtx_lock(&device->mutex);
-      assert(!BITSET_TEST(device->custom_border_color, border_color));
-      BITSET_SET(device->custom_border_color, border_color);
-      mtx_unlock(&device->mutex);
-   }
-
-   vk_object_free(&device->vk, pAllocator, sampler);
 }
 
 VKAPI_ATTR VkResult VKAPI_CALL
