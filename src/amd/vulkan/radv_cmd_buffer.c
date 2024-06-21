@@ -12144,10 +12144,9 @@ radv_trace_trace_rays(struct radv_cmd_buffer *cmd_buffer, const VkTraceRaysIndir
 
    util_dynarray_append(&cmd_buffer->ray_history, struct radv_rra_ray_history_data *, data);
 
-   cmd_buffer->state.flush_bits |=
-      RADV_CMD_FLAG_INV_SCACHE | RADV_CMD_FLAG_CS_PARTIAL_FLUSH |
-      radv_src_access_flush(cmd_buffer, VK_ACCESS_2_SHADER_READ_BIT | VK_ACCESS_2_SHADER_WRITE_BIT, NULL) |
-      radv_dst_access_flush(cmd_buffer, VK_ACCESS_2_SHADER_READ_BIT | VK_ACCESS_2_SHADER_WRITE_BIT, NULL);
+   cmd_buffer->state.flush_bits |= RADV_CMD_FLAG_INV_SCACHE | RADV_CMD_FLAG_CS_PARTIAL_FLUSH |
+                                   radv_src_access_flush(cmd_buffer, VK_ACCESS_2_SHADER_WRITE_BIT, NULL) |
+                                   radv_dst_access_flush(cmd_buffer, VK_ACCESS_2_SHADER_READ_BIT, NULL);
 
    radv_update_buffer_cp(cmd_buffer,
                          device->rra_trace.ray_history_addr + offsetof(struct radv_ray_history_header, dispatch_index),
@@ -12776,26 +12775,29 @@ radv_barrier(struct radv_cmd_buffer *cmd_buffer, uint32_t dep_count, const VkDep
       const VkDependencyInfo *dep_info = &dep_infos[dep_idx];
 
       for (uint32_t i = 0; i < dep_info->memoryBarrierCount; i++) {
-         src_stage_mask |= dep_info->pMemoryBarriers[i].srcStageMask;
-         src_flush_bits |= radv_src_access_flush(cmd_buffer, dep_info->pMemoryBarriers[i].srcAccessMask, NULL);
-         dst_stage_mask |= dep_info->pMemoryBarriers[i].dstStageMask;
-         dst_flush_bits |= radv_dst_access_flush(cmd_buffer, dep_info->pMemoryBarriers[i].dstAccessMask, NULL);
+         const VkMemoryBarrier2 *barrier = &dep_info->pMemoryBarriers[i];
+         src_stage_mask |= barrier->srcStageMask;
+         src_flush_bits |= radv_src_access_flush(cmd_buffer, barrier->srcAccessMask, NULL);
+         dst_stage_mask |= barrier->dstStageMask;
+         dst_flush_bits |= radv_dst_access_flush(cmd_buffer, barrier->dstAccessMask, NULL);
       }
 
       for (uint32_t i = 0; i < dep_info->bufferMemoryBarrierCount; i++) {
-         src_stage_mask |= dep_info->pBufferMemoryBarriers[i].srcStageMask;
-         src_flush_bits |= radv_src_access_flush(cmd_buffer, dep_info->pBufferMemoryBarriers[i].srcAccessMask, NULL);
-         dst_stage_mask |= dep_info->pBufferMemoryBarriers[i].dstStageMask;
-         dst_flush_bits |= radv_dst_access_flush(cmd_buffer, dep_info->pBufferMemoryBarriers[i].dstAccessMask, NULL);
+         const VkBufferMemoryBarrier2 *barrier = &dep_info->pBufferMemoryBarriers[i];
+         src_stage_mask |= barrier->srcStageMask;
+         src_flush_bits |= radv_src_access_flush(cmd_buffer, barrier->srcAccessMask, NULL);
+         dst_stage_mask |= barrier->dstStageMask;
+         dst_flush_bits |= radv_dst_access_flush(cmd_buffer, barrier->dstAccessMask, NULL);
       }
 
       for (uint32_t i = 0; i < dep_info->imageMemoryBarrierCount; i++) {
-         VK_FROM_HANDLE(radv_image, image, dep_info->pImageMemoryBarriers[i].image);
+         const VkImageMemoryBarrier2 *barrier = &dep_info->pImageMemoryBarriers[i];
+         VK_FROM_HANDLE(radv_image, image, barrier->image);
 
-         src_stage_mask |= dep_info->pImageMemoryBarriers[i].srcStageMask;
-         src_flush_bits |= radv_src_access_flush(cmd_buffer, dep_info->pImageMemoryBarriers[i].srcAccessMask, image);
-         dst_stage_mask |= dep_info->pImageMemoryBarriers[i].dstStageMask;
-         dst_flush_bits |= radv_dst_access_flush(cmd_buffer, dep_info->pImageMemoryBarriers[i].dstAccessMask, image);
+         src_stage_mask |= barrier->srcStageMask;
+         src_flush_bits |= radv_src_access_flush(cmd_buffer, barrier->srcAccessMask, image);
+         dst_stage_mask |= barrier->dstStageMask;
+         dst_flush_bits |= radv_dst_access_flush(cmd_buffer, barrier->dstAccessMask, image);
       }
    }
 
