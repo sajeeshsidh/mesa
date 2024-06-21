@@ -1373,7 +1373,7 @@ intrinsic("preamble_start_ir3", [], dest_comp=1, flags=[CAN_ELIMINATE, CAN_REORD
 barrier("preamble_end_ir3")
 
 # IR3-specific intrinsic for stc. Should be used in the shader preamble.
-store("uniform_ir3", [], indices=[BASE])
+store("const_ir3", [], indices=[BASE])
 
 # IR3-specific intrinsic for loading from a const reg.
 load("const_ir3", [1], indices=[BASE], flags=[CAN_ELIMINATE, CAN_REORDER])
