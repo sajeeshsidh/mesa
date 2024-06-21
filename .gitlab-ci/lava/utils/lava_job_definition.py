@@ -189,6 +189,12 @@ class LAVAJobDefinition:
             f"tar --zstd -x -C {self.job_submitter.ci_project_dir}",
         ]
 
+        if self.job_submitter.fluster_vectors_url:
+            download_steps += [
+                "curl -L --retry 4 -f --retry-all-errors --retry-delay 60 "
+                f"{self.job_submitter.fluster_vectors_url} | tar --zstd -x -C /usr/local/",
+            ]
+
         # If the JWT file is provided, we will use it to authenticate with the cloud
         # storage provider and will hide it from the job output in Gitlab.
         if self.job_submitter.jwt_file:

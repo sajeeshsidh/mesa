@@ -15,6 +15,22 @@ if [ "$CI_PROJECT_PATH" != "$FDO_UPSTREAM_REPO" ]; then
     fi
 fi
 
+if [ -n "${FLUSTER_VECTORS_MAINLINE_HOST_PATH}" ]; then
+    # Do the same for fluster vectors
+    FLUSTER_VECTORS_HOST_PATH="${FLUSTER_VECTORS_MAINLINE_HOST_PATH}"
+    if [ "$CI_PROJECT_PATH" != "$FDO_UPSTREAM_REPO" ]; then
+        if ! curl -s -X HEAD -L --retry 4 -f --retry-delay 60 \
+          "https://${FLUSTER_VECTORS_MAINLINE_HOST_PATH}/done"; then
+	    echo "Using Fluster vectors from the fork, cached from mainline is unavailable."
+	    FLUSTER_VECTORS_HOST_PATH="${FLUSTER_VECTORS_FORK_HOST_PATH}"
+        else
+	    echo "Using the cached Fluster vectors."
+        fi
+    fi
+
+    FLUSTER_VECTORS_HOST_PATH="${FDO_HTTP_CACHE_URI:-}https://${FLUSTER_VECTORS_HOST_PATH}/vectors.tar.zst"
+fi
+
 rm -rf results
 mkdir -p results/job-rootfs-overlay/
 
@@ -61,4 +77,5 @@ PYTHONPATH=artifacts/ artifacts/lava/lava_job_submitter.py \
 	--structured-log-file "results/lava_job_detail.json" \
 	--ssh-client-image "${LAVA_SSH_CLIENT_IMAGE}" \
 	--project-name "${CI_PROJECT_NAME}" \
+        --fluster-vectors-url "${FLUSTER_VECTORS_HOST_PATH}" \
 	>> results/lava.log

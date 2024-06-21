@@ -5,6 +5,10 @@
 # When changing this file, you need to bump the following
 # .gitlab-ci/image-tags.yml tags:
 # KERNEL_ROOTFS_TAG
+# If you need to update the fluster vectors cache without updating the fluster revision,
+# you can update the FLUSTER_VECTORS_VERSION tag in .gitlab-ci/image-tags.yml.
+# When changing FLUSTER_REVISION, KERNEL_ROOTFS_TAG needs to be updated as well to rebuild
+# the rootfs.
 
 set -e
 set -o xtrace
@@ -22,8 +26,21 @@ check_minio()
     fi
 }
 
+check_fluster()
+{
+    S3_PATH_FLUSTER="${S3_HOST}/mesa-lava/$1/fluster-vectors/${FLUSTER_REVISION}/${FLUSTER_VECTORS_VERSION}"
+    if curl -L --retry 4 -f --retry-delay 60 -s -X HEAD \
+      "https://${S3_PATH_FLUSTER}/done"; then
+        echo "Fluster vectors are up-to-date, skip downloading them."
+        SKIP_UPDATE_FLUSTER_VECTORS=1
+    fi
+}
+
 check_minio "${FDO_UPSTREAM_REPO}"
 check_minio "${CI_PROJECT_PATH}"
+
+check_fluster "${FDO_UPSTREAM_REPO}"
+check_fluster "${CI_PROJECT_PATH}"
 
 . .gitlab-ci/container/container_pre_build.sh
 
@@ -181,6 +198,7 @@ PKG_CI=(
   initramfs-tools jq netcat-openbsd dropbear openssh-server
   libasan8
   git
+  gstreamer1.0-plugins-bad gstreamer1.0-plugins-base gstreamer1.0-plugins-good gstreamer1.0-plugins-ugly gstreamer1.0-tools gstreamer1.0-vaapi libgstreamer1.0-0 # Fluster
   python3-dev python3-pip python3-setuptools python3-wheel
   weston # Wayland
   xinit xserver-xorg-core xwayland # X11
@@ -192,6 +210,7 @@ PKG_MESA_DEP=(
 )
 PKG_DEP=(
   libpng16-16
+  libva-wayland2
   libwaffle-1-0
   libpython3.11 python3 python3-lxml python3-mako python3-numpy python3-packaging python3-pil python3-renderdoc python3-requests python3-simplejson python3-yaml # Python
   sntp
@@ -297,6 +316,7 @@ if [[ "$DEBIAN_ARCH" = "amd64" ]]; then
 fi
 
 ############### Build dEQP runner
+export DEQP_RUNNER_GIT_REV=6c94906bb91e243ef57ae0d30133bb2b349100eb
 . .gitlab-ci/container/build-deqp-runner.sh
 mkdir -p $ROOTFS/usr/bin
 mv /usr/local/bin/*-runner $ROOTFS/usr/bin/.
@@ -363,6 +383,11 @@ section_start kdl "Prepare a venv for kdl"
 . .gitlab-ci/container/build-kdl.sh
 mv ci-kdl.venv $ROOTFS
 section_end kdl
+
+############### Install fluster
+section_start fluster "Install fluster"
+. .gitlab-ci/container/build-fluster.sh
+section_end fluster
 
 ############### Build local stuff for use by igt and kernel testing, which
 ############### will reuse most of our container build process from a specific

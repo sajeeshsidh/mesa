@@ -1,0 +1,5 @@
+# Makes the GPU hang
+gstreamer-h.265-vaapi-gst1.0@SLPPLP_A_VIDYO_2
+gstreamer-h.265-vaapi-gst1.0@TSCL_A_VIDYO_5
+gstreamer-h.265-vaapi-gst1.0@TSCL_B_VIDYO_4
+gstreamer-h.265-vaapi-gst1.0@VPSID_A_VIDYO_2

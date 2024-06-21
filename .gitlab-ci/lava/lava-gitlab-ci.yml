@@ -155,3 +155,15 @@ variables:
   extends:
     - .lava-test:arm64
     - .lava-piglit
+
+.lava-fluster:
+  variables:
+    FLUSTER_VECTORS_MAINLINE_HOST_PATH: "${BASE_SYSTEM_HOST_PREFIX}/${FDO_UPSTREAM_REPO}/fluster-vectors/${FLUSTER_REVISION}/${FLUSTER_VECTORS_VERSION}"
+    FLUSTER_VECTORS_FORK_HOST_PATH: "${BASE_SYSTEM_HOST_PREFIX}/${CI_PROJECT_PATH}/fluster-vectors/${FLUSTER_REVISION}/${FLUSTER_VECTORS_VERSION}"
+    FLUSTER_RESULTS: "${GPU_VERSION}-${FLUSTER_CODEC}"
+    HWCI_TEST_SCRIPT: "/install/fluster/fluster-runner.sh"
+
+.lava-fluster:x86_64:
+  extends:
+    - .lava-fluster
+

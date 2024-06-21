@@ -406,6 +406,7 @@ class LAVAJobSubmitter(PathResolver):
     validate_only: bool = False  # Whether to only validate the job, not execute it
     visibility_group: str = None  # Only affects LAVA farm maintainers
     job_rootfs_overlay_url: str = None
+    fluster_vectors_url: str = None
     structured_log_file: pathlib.Path = None  # Log file path with structured LAVA log
     ssh_client_image: str = None  # x86_64 SSH client image to follow the job's output
     project_name: str = None  # Project name to be used in the job name

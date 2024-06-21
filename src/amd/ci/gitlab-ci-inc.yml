@@ -397,3 +397,17 @@
     - .radv-valve-manual-rules
   variables:
     VKD3D_PROTON_RESULTS: radv-kabini
+
+############### Fluster tests ###############
+.radeonsi-raven-vaapi-fluster:x86_64:
+  extends:
+    - radeonsi-raven-va:x86_64
+    - .lava-fluster:x86_64
+  rules:
+    - !reference [.radeonsi-vaapi-rules, rules]
+    - changes:
+      - .gitlab-ci/fluster/*
+      - src/amd/ci/$GPU_VERSION-*-fluster-fails.txt
+      - src/amd/ci/$GPU_VERSION-*-fluster-flakes.txt
+      - src/amd/ci/$GPU_VERSION-*-fluster-skips.txt
+      when: on_success
