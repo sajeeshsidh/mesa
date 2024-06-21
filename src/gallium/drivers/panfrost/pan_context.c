@@ -867,6 +867,12 @@ panfrost_fence_server_sync(struct pipe_context *pctx,
    close(fd);
 }
 
+static enum pipe_reset_status
+panfrost_get_device_reset_status(struct pipe_context *pipe)
+{
+   return PIPE_NO_RESET;
+}
+
 struct pipe_context *
 panfrost_create_context(struct pipe_screen *screen, void *priv, unsigned flags)
 {
@@ -883,6 +889,7 @@ panfrost_create_context(struct pipe_screen *screen, void *priv, unsigned flags)
 
    gallium->create_fence_fd = panfrost_create_fence_fd;
    gallium->fence_server_sync = panfrost_fence_server_sync;
+   gallium->get_device_reset_status = panfrost_get_device_reset_status;
 
    gallium->flush = panfrost_flush;
    gallium->clear = panfrost_clear;
