@@ -57,7 +57,7 @@ struct nir_to_brw_state {
    fs_reg *ssa_values;
    fs_inst **resource_insts;
    struct brw_fs_bind_info *ssa_bind_infos;
-   fs_reg *resource_values;
+   fs_reg *uniform_values;
    fs_reg *system_values;
 };
 
@@ -395,7 +395,7 @@ fs_nir_emit_impl(nir_to_brw_state &ntb, nir_function_impl *impl)
    ntb.ssa_values = rzalloc_array(ntb.mem_ctx, fs_reg, impl->ssa_alloc);
    ntb.resource_insts = rzalloc_array(ntb.mem_ctx, fs_inst *, impl->ssa_alloc);
    ntb.ssa_bind_infos = rzalloc_array(ntb.mem_ctx, struct brw_fs_bind_info, impl->ssa_alloc);
-   ntb.resource_values = rzalloc_array(ntb.mem_ctx, fs_reg, impl->ssa_alloc);
+   ntb.uniform_values = rzalloc_array(ntb.mem_ctx, fs_reg, impl->ssa_alloc);
 
    fs_nir_emit_cf_list(ntb, &impl->body);
 }
@@ -1863,7 +1863,7 @@ get_resource_nir_src(nir_to_brw_state &ntb, const nir_src &src)
 {
    if (!is_resource_src(src))
       return fs_reg();
-   return ntb.resource_values[src.ssa->index];
+   return ntb.uniform_values[src.ssa->index];
 }
 
 static fs_reg
@@ -4540,6 +4540,28 @@ struct rebuild_resource {
 };
 
 static bool
+skip_rebuild_instr(nir_instr *instr)
+{
+   if (instr->type != nir_instr_type_intrinsic)
+      return false;
+
+   nir_intrinsic_instr *intrin = nir_instr_as_intrinsic(instr);
+   switch (intrin->intrinsic) {
+   case nir_intrinsic_load_ubo_uniform_block_intel:
+   case nir_intrinsic_load_ssbo_uniform_block_intel:
+   case nir_intrinsic_load_global_constant_uniform_block_intel:
+      /* Those intrinsic are generated using NoMask so we can trust their
+       * destination registers are fully populated. No need to rematerialize
+       * further.
+       */
+      return true;
+
+   default:
+      return false;
+   }
+}
+
+static bool
 add_rebuild_src(nir_src *src, void *state)
 {
    struct rebuild_resource *res = (struct rebuild_resource *) state;
@@ -4549,13 +4571,15 @@ add_rebuild_src(nir_src *src, void *state)
          return true;
    }
 
-   nir_foreach_src(src->ssa->parent_instr, add_rebuild_src, state);
+   if (!skip_rebuild_instr(src->ssa->parent_instr))
+      nir_foreach_src(src->ssa->parent_instr, add_rebuild_src, state);
    res->array.push_back(src->ssa);
    return true;
 }
 
 static fs_reg
-try_rebuild_resource(nir_to_brw_state &ntb, const brw::fs_builder &bld, nir_def *resource_def)
+try_rebuild_source(nir_to_brw_state &ntb, const brw::fs_builder &bld,
+                   nir_def *resource_def, bool a64 = false)
 {
    /* Create a build at the location of the resource_intel intrinsic */
    fs_builder ubld8 = bld.exec_all().group(8, 0);
@@ -4576,19 +4600,36 @@ try_rebuild_resource(nir_to_brw_state &ntb, const brw::fs_builder &bld, nir_def 
             nir_instr_as_load_const(def->parent_instr);
          return brw_imm_ud(load_const->value[0].i32);
       } else {
-         assert(def->parent_instr->type == nir_instr_type_intrinsic &&
-                (nir_instr_as_intrinsic(def->parent_instr)->intrinsic ==
-                 nir_intrinsic_load_uniform ||
-                 nir_instr_as_intrinsic(def->parent_instr)->intrinsic ==
-                 nir_intrinsic_load_reloc_const_intel));
          nir_intrinsic_instr *intrin = nir_instr_as_intrinsic(def->parent_instr);
          switch (intrin->intrinsic) {
          case nir_intrinsic_load_uniform: {
             unsigned base_offset = nir_intrinsic_base(intrin);
             unsigned load_offset = nir_src_as_uint(intrin->src[0]);
-            fs_reg src(UNIFORM, base_offset / 4, BRW_TYPE_UD);
+            fs_reg src(UNIFORM, base_offset / 4,
+                       brw_type_with_size(BRW_TYPE_D, intrin->def.bit_size));
             src.offset = load_offset + base_offset % 4;
             return src;
+         }
+
+         case nir_intrinsic_load_mesh_inline_data_intel: {
+            assert(ntb.s.stage == MESA_SHADER_MESH ||
+                   ntb.s.stage == MESA_SHADER_TASK);
+            const task_mesh_thread_payload &payload = ntb.s.task_mesh_payload();
+            fs_reg data = offset(payload.inline_parameter, 1,
+                                 nir_intrinsic_align_offset(intrin));
+            return retype(data, brw_type_with_size(BRW_TYPE_D, intrin->def.bit_size));
+         }
+
+         case nir_intrinsic_load_btd_local_arg_addr_intel: {
+            assert(brw_shader_stage_is_bindless(ntb.s.stage));
+            const bs_thread_payload &payload = ntb.s.bs_payload();
+            return retype(payload.local_arg_ptr, BRW_TYPE_Q);
+         }
+
+         case nir_intrinsic_load_btd_global_arg_addr_intel: {
+            assert(brw_shader_stage_is_bindless(ntb.s.stage));
+            const bs_thread_payload &payload = ntb.s.bs_payload();
+            return retype(payload.global_arg_ptr, BRW_TYPE_Q);
          }
 
          default:
@@ -4600,6 +4641,15 @@ try_rebuild_resource(nir_to_brw_state &ntb, const brw::fs_builder &bld, nir_def 
       }
    }
 
+#if 0
+   fprintf(stderr, "Trying remat :\n");
+   for (unsigned i = 0; i < resources.array.size(); i++) {
+      fprintf(stderr, "   ");
+      nir_print_instr(resources.array[i]->parent_instr, stderr);
+      fprintf(stderr, "\n");
+   }
+#endif
+
    for (unsigned i = 0; i < resources.array.size(); i++) {
       nir_def *def = resources.array[i];
 
@@ -4608,7 +4658,7 @@ try_rebuild_resource(nir_to_brw_state &ntb, const brw::fs_builder &bld, nir_def 
       case nir_instr_type_load_const: {
          nir_load_const_instr *load_const =
             nir_instr_as_load_const(instr);
-         ubld8.MOV(brw_imm_ud(load_const->value[0].i32),
+         ubld8.MOV(brw_imm_d(load_const->value[0].i32),
                    &ntb.resource_insts[def->index]);
          break;
       }
@@ -4616,66 +4666,80 @@ try_rebuild_resource(nir_to_brw_state &ntb, const brw::fs_builder &bld, nir_def 
       case nir_instr_type_alu: {
          nir_alu_instr *alu = nir_instr_as_alu(instr);
 
-         if (nir_op_infos[alu->op].num_inputs == 2) {
-            if (alu->src[0].swizzle[0] != 0 ||
-                alu->src[1].swizzle[0] != 0)
-               break;
-         } else if (nir_op_infos[alu->op].num_inputs == 3) {
-            if (alu->src[0].swizzle[0] != 0 ||
-                alu->src[1].swizzle[0] != 0 ||
-                alu->src[2].swizzle[0] != 0)
-               break;
-         } else {
-            /* Not supported ALU input count */
+         /* Not supported ALU source count */
+         if (nir_op_infos[alu->op].num_inputs > 3)
             break;
+
+         fs_reg srcs[3];
+         for (unsigned s = 0; s < nir_op_infos[alu->op].num_inputs; s++) {
+            srcs[s] = offset(
+               ntb.resource_insts[alu->src[s].src.ssa->index]->dst,
+               ubld8, alu->src[s].swizzle[0]);
+            assert(srcs[s].file != BAD_FILE);
          }
 
          switch (alu->op) {
-         case nir_op_iadd: {
-            fs_reg src0 = ntb.resource_insts[alu->src[0].src.ssa->index]->dst;
-            fs_reg src1 = ntb.resource_insts[alu->src[1].src.ssa->index]->dst;
-            assert(src0.file != BAD_FILE && src1.file != BAD_FILE);
-            assert(src0.type == BRW_TYPE_UD);
-            assert(src1.type == BRW_TYPE_UD);
-            ubld8.ADD(src0.file != IMM ? src0 : src1,
-                      src0.file != IMM ? src1 : src0,
+         case nir_op_iadd:
+            ubld8.ADD(srcs[0].file != IMM ? srcs[0] : srcs[1],
+                      srcs[0].file != IMM ? srcs[1] : srcs[0],
                       &ntb.resource_insts[def->index]);
             break;
-         }
          case nir_op_iadd3: {
-            fs_reg dst = ubld8.vgrf(BRW_TYPE_UD);
-            fs_reg src0 = ntb.resource_insts[alu->src[0].src.ssa->index]->dst;
-            fs_reg src1 = ntb.resource_insts[alu->src[1].src.ssa->index]->dst;
-            fs_reg src2 = ntb.resource_insts[alu->src[2].src.ssa->index]->dst;
-            assert(src0.file != BAD_FILE && src1.file != BAD_FILE && src2.file != BAD_FILE);
-            assert(src0.type == BRW_TYPE_UD);
+            fs_reg dst = ubld8.vgrf(srcs[0].type);
             ntb.resource_insts[def->index] =
                ubld8.ADD3(dst,
-                          src1.file == IMM ? src1 : src0,
-                          src1.file == IMM ? src0 : src1,
-                          src2);
+                          srcs[1].file == IMM ? srcs[1] : srcs[0],
+                          srcs[1].file == IMM ? srcs[0] : srcs[1],
+                          srcs[2]);
             break;
          }
          case nir_op_ushr: {
-            fs_reg src0 = ntb.resource_insts[alu->src[0].src.ssa->index]->dst;
-            fs_reg src1 = ntb.resource_insts[alu->src[1].src.ssa->index]->dst;
-            assert(src0.file != BAD_FILE && src1.file != BAD_FILE);
-            assert(src0.type == BRW_TYPE_UD);
-            assert(src1.type == BRW_TYPE_UD);
-            ubld8.SHR(src0, src1, &ntb.resource_insts[def->index]);
+            enum brw_reg_type utype =
+               brw_type_with_size(srcs[0].type,
+                                  brw_type_size_bits(srcs[0].type));
+            ubld8.SHR(retype(srcs[0], utype),
+                      retype(srcs[1], utype),
+                      &ntb.resource_insts[def->index]);
             break;
          }
-         case nir_op_ishl: {
-            fs_reg src0 = ntb.resource_insts[alu->src[0].src.ssa->index]->dst;
-            fs_reg src1 = ntb.resource_insts[alu->src[1].src.ssa->index]->dst;
-            assert(src0.file != BAD_FILE && src1.file != BAD_FILE);
-            assert(src0.type == BRW_TYPE_UD);
-            assert(src1.type == BRW_TYPE_UD);
-            ubld8.SHL(src0, src1, &ntb.resource_insts[def->index]);
+         case nir_op_iand:
+            ubld8.AND(srcs[0], srcs[1], &ntb.resource_insts[def->index]);
+            break;
+         case nir_op_ishl:
+            ubld8.SHL(srcs[0], srcs[1], &ntb.resource_insts[def->index]);
+            break;
+         case nir_op_mov:
+            break;
+         case nir_op_ult32: {
+            if (brw_type_size_bits(srcs[0].type) != 32)
+               break;
+            fs_reg dst = ubld8.vgrf(srcs[0].type);
+            enum brw_reg_type utype =
+               brw_type_with_size(srcs[0].type,
+                                  brw_type_size_bits(srcs[0].type));
+            ntb.resource_insts[def->index] =
+               ubld8.CMP(dst,
+                         retype(srcs[0], utype),
+                         retype(srcs[1], utype),
+                         brw_cmod_for_nir_comparison(alu->op));
             break;
          }
-         case nir_op_mov: {
+         case nir_op_b2i32:
+            ubld8.MOV(negate(retype(srcs[0], BRW_TYPE_D)),
+                      &ntb.resource_insts[def->index]);
             break;
+         case nir_op_unpack_64_2x32_split_x:
+            ubld8.MOV(subscript(srcs[0], BRW_TYPE_D, 0),
+                      &ntb.resource_insts[def->index]);
+            break;
+         case nir_op_unpack_64_2x32_split_y:
+            ubld8.MOV(subscript(srcs[0], BRW_TYPE_D, 1),
+                      &ntb.resource_insts[def->index]);
+            break;
+         case nir_op_pack_64_2x32_split: {
+            fs_reg dst = ubld8.vgrf(BRW_TYPE_Q);
+            ntb.resource_insts[def->index] =
+               ubld8.emit(FS_OPCODE_PACK, dst, srcs[0], srcs[1]);
          }
          default:
             break;
@@ -4697,18 +4761,64 @@ try_rebuild_resource(nir_to_brw_state &ntb, const brw::fs_builder &bld, nir_def 
 
             unsigned base_offset = nir_intrinsic_base(intrin);
             unsigned load_offset = nir_src_as_uint(intrin->src[0]);
-            fs_reg src(UNIFORM, base_offset / 4, BRW_TYPE_UD);
+            fs_reg src(UNIFORM, base_offset / 4,
+                       brw_type_with_size(BRW_TYPE_D, intrin->def.bit_size));
             src.offset = load_offset + base_offset % 4;
             ubld8.MOV(src, &ntb.resource_insts[def->index]);
             break;
          }
 
+         case nir_intrinsic_load_mesh_inline_data_intel: {
+            assert(ntb.s.stage == MESA_SHADER_MESH ||
+                   ntb.s.stage == MESA_SHADER_TASK);
+            const task_mesh_thread_payload &payload = ntb.s.task_mesh_payload();
+            fs_reg data = retype(
+               offset(payload.inline_parameter, 1,
+                      nir_intrinsic_align_offset(intrin)),
+               brw_type_with_size(BRW_TYPE_D, intrin->def.bit_size));
+            ubld8.MOV(data, &ntb.resource_insts[def->index]);
+            break;
+         }
+
+         case nir_intrinsic_load_btd_local_arg_addr_intel: {
+            assert(brw_shader_stage_is_bindless(ntb.s.stage));
+            const bs_thread_payload &payload = ntb.s.bs_payload();
+            ubld8.MOV(retype(payload.local_arg_ptr, BRW_TYPE_Q),
+                      &ntb.resource_insts[def->index]);
+            break;
+         }
+
+         case nir_intrinsic_load_btd_global_arg_addr_intel: {
+            assert(brw_shader_stage_is_bindless(ntb.s.stage));
+            const bs_thread_payload &payload = ntb.s.bs_payload();
+            ubld8.MOV(retype(payload.global_arg_ptr, BRW_TYPE_Q),
+                      &ntb.resource_insts[def->index]);
+            break;
+         }
+
          case nir_intrinsic_load_reloc_const_intel: {
             uint32_t id = nir_intrinsic_param_idx(intrin);
-            fs_reg dst = ubld8.vgrf(BRW_TYPE_UD);
+            fs_reg dst = ubld8.vgrf(BRW_TYPE_D);
             ntb.resource_insts[def->index] =
                ubld8.emit(SHADER_OPCODE_MOV_RELOC_IMM, dst,
                           brw_imm_ud(id), brw_imm_ud(0));
+            break;
+         }
+
+         case nir_intrinsic_load_ubo_uniform_block_intel:
+         case nir_intrinsic_load_ssbo_uniform_block_intel: {
+            enum brw_reg_type type =
+               brw_type_with_size(BRW_TYPE_D, intrin->def.bit_size);
+            fs_reg src_data = retype(ntb.ssa_values[def->index], type);
+            unsigned n_components = ntb.s.alloc.sizes[src_data.nr] /
+                                    (bld.dispatch_width() / 8);
+            fs_reg dst_data = ubld8.vgrf(type, n_components);
+            ntb.resource_insts[def->index] = ubld8.MOV(dst_data, src_data);
+            for (unsigned i = 1; i < n_components; i++) {
+               ubld8.MOV(offset(dst_data, ubld8, i),
+                         offset(src_data, bld, i));
+            }
+            break;
          }
 
          default:
@@ -4721,8 +4831,22 @@ try_rebuild_resource(nir_to_brw_state &ntb, const brw::fs_builder &bld, nir_def 
          break;
       }
 
-      if (ntb.resource_insts[def->index] == NULL)
+      if (ntb.resource_insts[def->index] == NULL) {
+#if 0
+         if (a64) {
+         fprintf(stderr, "Tried remat :\n");
+         for (unsigned i = 0; i < resources.array.size(); i++) {
+            fprintf(stderr, "   ");
+            nir_print_instr(resources.array[i]->parent_instr, stderr);
+            fprintf(stderr, "\n");
+         }
+         fprintf(stderr, "failed at! : ");
+         nir_print_instr(instr, stderr);
+         fprintf(stderr, "\n");
+         }
+#endif
          return fs_reg();
+      }
    }
 
    assert(ntb.resource_insts[resource_def->index] != NULL);
@@ -4747,7 +4871,7 @@ get_nir_image_intrinsic_image(nir_to_brw_state &ntb, const brw::fs_builder &bld,
 
 static fs_reg
 get_nir_buffer_intrinsic_index(nir_to_brw_state &ntb, const brw::fs_builder &bld,
-                               nir_intrinsic_instr *instr)
+                               nir_intrinsic_instr *instr, bool *no_mask_handle = NULL)
 {
    /* SSBO stores are weird in that their index is in src[1] */
    const bool is_store =
@@ -4755,12 +4879,20 @@ get_nir_buffer_intrinsic_index(nir_to_brw_state &ntb, const brw::fs_builder &bld
       instr->intrinsic == nir_intrinsic_store_ssbo_block_intel;
    nir_src src = is_store ? instr->src[1] : instr->src[0];
 
+   if (no_mask_handle)
+      *no_mask_handle = false;
+
    if (nir_src_is_const(src)) {
+      if (no_mask_handle)
+         *no_mask_handle = true;
       return brw_imm_ud(nir_src_as_uint(src));
    } else if (is_resource_src(src)) {
       fs_reg surf_index = get_resource_nir_src(ntb, src);
-      if (surf_index.file != BAD_FILE)
+      if (surf_index.file != BAD_FILE) {
+         if (no_mask_handle)
+            *no_mask_handle = true;
          return surf_index;
+      }
    }
    return bld.emit_uniformize(get_nir_src(ntb, src));
 }
@@ -4860,18 +4992,26 @@ choose_oword_block_size_dwords(const struct intel_device_info *devinfo,
    return block;
 }
 
-static void
-increment_a64_address(const fs_builder &bld, fs_reg address, uint32_t v)
+static fs_reg
+increment_a64_address(const fs_builder &_bld, fs_reg address, uint32_t v, bool use_no_mask)
 {
+   const fs_builder bld = use_no_mask ? _bld.exec_all().group(8, 0) : _bld;
+
    if (bld.shader->devinfo->has_64bit_int) {
-      bld.ADD(address, address, brw_imm_ud(v));
+      struct brw_reg imm = brw_imm_reg(address.type);
+      imm.u64 = v;
+      return bld.ADD(address, imm);
    } else {
-      fs_reg low = retype(address, BRW_TYPE_UD);
-      fs_reg high = offset(low, bld, 1);
+      fs_reg dst = bld.vgrf(BRW_TYPE_UQ);
+      fs_reg dst_low = subscript(dst, BRW_TYPE_UD, 0);
+      fs_reg dst_high = subscript(dst, BRW_TYPE_UD, 1);
+      fs_reg src_low = subscript(address, BRW_TYPE_UD, 0);
+      fs_reg src_high = subscript(address, BRW_TYPE_UD, 1);
 
       /* Add low and if that overflows, add carry to high. */
-      bld.ADD(low, low, brw_imm_ud(v))->conditional_mod = BRW_CONDITIONAL_O;
-      bld.ADD(high, high, brw_imm_ud(0x1))->predicate = BRW_PREDICATE_NORMAL;
+      bld.ADD(dst_low, src_low, brw_imm_ud(v))->conditional_mod = BRW_CONDITIONAL_O;
+      bld.ADD(dst_high, src_high, brw_imm_ud(0x1))->predicate = BRW_PREDICATE_NORMAL;
+      return dst_low;
    }
 }
 
@@ -5672,10 +5812,10 @@ fs_nir_emit_intrinsic(nir_to_brw_state &ntb,
 
       if (nir_intrinsic_resource_access_intel(instr) &
            nir_resource_intel_non_uniform) {
-         ntb.resource_values[instr->def.index] = fs_reg();
+         ntb.uniform_values[instr->def.index] = fs_reg();
       } else {
-         ntb.resource_values[instr->def.index] =
-            try_rebuild_resource(ntb, bld, instr->src[1].ssa);
+         ntb.uniform_values[instr->def.index] =
+            try_rebuild_source(ntb, bld, instr->src[1].ssa);
       }
       ntb.ssa_values[instr->def.index] =
          ntb.ssa_values[instr->src[1].ssa->index];
@@ -6172,11 +6312,12 @@ fs_nir_emit_intrinsic(nir_to_brw_state &ntb,
    case nir_intrinsic_load_ubo:
    case nir_intrinsic_load_ubo_uniform_block_intel: {
       fs_reg surface, surface_handle;
+      bool no_mask_handle = false;
 
       if (get_nir_src_bindless(ntb, instr->src[0]))
-         surface_handle = get_nir_buffer_intrinsic_index(ntb, bld, instr);
+         surface_handle = get_nir_buffer_intrinsic_index(ntb, bld, instr, &no_mask_handle);
       else
-         surface = get_nir_buffer_intrinsic_index(ntb, bld, instr);
+         surface = get_nir_buffer_intrinsic_index(ntb, bld, instr, &no_mask_handle);
 
       if (!nir_src_is_const(instr->src[1])) {
          if (instr->intrinsic == nir_intrinsic_load_ubo) {
@@ -6234,10 +6375,12 @@ fs_nir_emit_intrinsic(nir_to_brw_state &ntb,
                srcs[SURFACE_LOGICAL_SRC_IMM_ARG] = brw_imm_ud(block);
 
                const fs_builder &ubld = block <= 8 ? ubld8 : ubld16;
-               ubld.emit(SHADER_OPCODE_UNALIGNED_OWORD_BLOCK_READ_LOGICAL,
-                         retype(byte_offset(packed_consts, loaded_dwords * 4), BRW_TYPE_UD),
-                         srcs, SURFACE_LOGICAL_NUM_SRCS)->size_written =
-                  align(block_bytes, REG_SIZE * reg_unit(devinfo));
+               fs_inst *inst =
+                  ubld.emit(SHADER_OPCODE_UNALIGNED_OWORD_BLOCK_READ_LOGICAL,
+                            retype(byte_offset(packed_consts, loaded_dwords * 4), BRW_TYPE_UD),
+                            srcs, SURFACE_LOGICAL_NUM_SRCS);
+               inst->size_written = align(block_bytes, REG_SIZE * reg_unit(devinfo));
+               inst->has_no_mask_send_params = no_mask_handle;
 
                loaded_dwords += block;
 
@@ -6474,9 +6617,16 @@ fs_nir_emit_intrinsic(nir_to_brw_state &ntb,
       const fs_builder ubld8 = bld.exec_all().group(8, 0);
       const fs_builder ubld16 = bld.exec_all().group(16, 0);
 
+      ntb.uniform_values[instr->src[0].ssa->index] =
+         try_rebuild_source(ntb, bld, instr->src[0].ssa, true);
+      bool no_mask = ntb.uniform_values[instr->src[0].ssa->index].file != BAD_FILE;
+      fs_reg address =
+         ntb.uniform_values[instr->src[0].ssa->index].file != BAD_FILE ?
+         ntb.uniform_values[instr->src[0].ssa->index] :
+         bld.emit_uniformize(get_nir_src(ntb, instr->src[0]));
+
       const fs_reg packed_consts =
          ubld1.vgrf(BRW_TYPE_UD, total_dwords);
-      fs_reg address = bld.emit_uniformize(get_nir_src(ntb, instr->src[0]));
 
       while (loaded_dwords < total_dwords) {
          const unsigned block =
@@ -6491,12 +6641,15 @@ fs_nir_emit_intrinsic(nir_to_brw_state &ntb,
          srcs[A64_LOGICAL_SRC] = fs_reg(); /* No source data */
          srcs[A64_LOGICAL_ARG] = brw_imm_ud(block);
          srcs[A64_LOGICAL_ENABLE_HELPERS] = brw_imm_ud(0);
-         ubld.emit(SHADER_OPCODE_A64_UNALIGNED_OWORD_BLOCK_READ_LOGICAL,
-                   retype(byte_offset(packed_consts, loaded_dwords * 4), BRW_TYPE_UD),
-                   srcs, A64_LOGICAL_NUM_SRCS)->size_written =
+         fs_inst *inst =
+            ubld.emit(SHADER_OPCODE_A64_UNALIGNED_OWORD_BLOCK_READ_LOGICAL,
+                      retype(byte_offset(packed_consts, loaded_dwords * 4), BRW_TYPE_UD),
+                      srcs, A64_LOGICAL_NUM_SRCS);
+         inst->size_written =
             align(block_bytes, REG_SIZE * reg_unit(devinfo));
+         inst->has_no_mask_send_params = no_mask;
 
-         increment_a64_address(ubld1, address, block_bytes);
+         address = increment_a64_address(ubld1, address, block_bytes, no_mask);
          loaded_dwords += block;
       }
 
@@ -6588,16 +6741,18 @@ fs_nir_emit_intrinsic(nir_to_brw_state &ntb,
 
       const bool is_ssbo =
          instr->intrinsic == nir_intrinsic_load_ssbo_uniform_block_intel;
+      bool no_mask_handle = false;
       if (is_ssbo) {
          srcs[get_nir_src_bindless(ntb, instr->src[0]) ?
               SURFACE_LOGICAL_SRC_SURFACE_HANDLE :
               SURFACE_LOGICAL_SRC_SURFACE] =
-            get_nir_buffer_intrinsic_index(ntb, bld, instr);
+            get_nir_buffer_intrinsic_index(ntb, bld, instr, &no_mask_handle);
       } else {
          srcs[SURFACE_LOGICAL_SRC_SURFACE] = fs_reg(brw_imm_ud(GFX7_BTI_SLM));
 
          /* SLM has to use aligned OWord Block Read messages on pre-LSC HW. */
          assert(devinfo->has_lsc || nir_intrinsic_align(instr) >= 16);
+         no_mask_handle = true;
       }
 
       const unsigned total_dwords = ALIGN(instr->num_components,
@@ -6630,10 +6785,12 @@ fs_nir_emit_intrinsic(nir_to_brw_state &ntb,
          srcs[SURFACE_LOGICAL_SRC_IMM_ARG] = brw_imm_ud(block);
 
          const fs_builder &ubld = block <= 8 ? ubld8 : ubld16;
-         ubld.emit(SHADER_OPCODE_UNALIGNED_OWORD_BLOCK_READ_LOGICAL,
-                   retype(byte_offset(packed_consts, loaded_dwords * 4), BRW_TYPE_UD),
-                   srcs, SURFACE_LOGICAL_NUM_SRCS)->size_written =
-            align(block_bytes, REG_SIZE * reg_unit(devinfo));
+         fs_inst *inst =
+            ubld.emit(SHADER_OPCODE_UNALIGNED_OWORD_BLOCK_READ_LOGICAL,
+                      retype(byte_offset(packed_consts, loaded_dwords * 4), BRW_TYPE_UD),
+                      srcs, SURFACE_LOGICAL_NUM_SRCS);
+         inst->size_written = align(block_bytes, REG_SIZE * reg_unit(devinfo));
+         inst->has_no_mask_send_params = no_mask_handle;
 
          loaded_dwords += block;
 
@@ -7338,7 +7495,7 @@ fs_nir_emit_intrinsic(nir_to_brw_state &ntb,
                    retype(byte_offset(dest, loaded * 4), BRW_TYPE_UD),
                    srcs, A64_LOGICAL_NUM_SRCS)->size_written = block_bytes;
 
-         increment_a64_address(ubld1, address, block_bytes);
+         address = increment_a64_address(ubld1, address, block_bytes, false);
          loaded += block;
       }
 
@@ -7375,7 +7532,7 @@ fs_nir_emit_intrinsic(nir_to_brw_state &ntb,
                    srcs, A64_LOGICAL_NUM_SRCS);
 
          const unsigned block_bytes = block * 4;
-         increment_a64_address(ubld1, address, block_bytes);
+         address = increment_a64_address(ubld1, address, block_bytes, false);
          written += block;
       }
 
@@ -7391,10 +7548,15 @@ fs_nir_emit_intrinsic(nir_to_brw_state &ntb,
          instr->intrinsic == nir_intrinsic_load_ssbo_block_intel;
       fs_reg address = bld.emit_uniformize(get_nir_src(ntb, instr->src[is_ssbo ? 1 : 0]));
 
+      bool no_mask_handle = false;
       fs_reg srcs[SURFACE_LOGICAL_NUM_SRCS];
-      srcs[SURFACE_LOGICAL_SRC_SURFACE] = is_ssbo ?
-         get_nir_buffer_intrinsic_index(ntb, bld, instr) :
-         fs_reg(brw_imm_ud(GFX7_BTI_SLM));
+      if (is_ssbo) {
+         srcs[SURFACE_LOGICAL_SRC_SURFACE] =
+            get_nir_buffer_intrinsic_index(ntb, bld, instr, &no_mask_handle);
+      } else {
+         srcs[SURFACE_LOGICAL_SRC_SURFACE] = fs_reg(brw_imm_ud(GFX7_BTI_SLM));
+         no_mask_handle = true;
+      }
       srcs[SURFACE_LOGICAL_SRC_ADDRESS] = address;
 
       const fs_builder ubld1 = bld.exec_all().group(1, 0);
@@ -7412,9 +7574,12 @@ fs_nir_emit_intrinsic(nir_to_brw_state &ntb,
          srcs[SURFACE_LOGICAL_SRC_IMM_ARG] = brw_imm_ud(block);
 
          const fs_builder &ubld = block == 8 ? ubld8 : ubld16;
-         ubld.emit(SHADER_OPCODE_UNALIGNED_OWORD_BLOCK_READ_LOGICAL,
-                   retype(byte_offset(dest, loaded * 4), BRW_TYPE_UD),
-                   srcs, SURFACE_LOGICAL_NUM_SRCS)->size_written = block_bytes;
+         fs_inst *inst =
+            ubld.emit(SHADER_OPCODE_UNALIGNED_OWORD_BLOCK_READ_LOGICAL,
+                      retype(byte_offset(dest, loaded * 4), BRW_TYPE_UD),
+                      srcs, SURFACE_LOGICAL_NUM_SRCS);
+         inst->size_written = block_bytes;
+         inst->has_no_mask_send_params = no_mask_handle;
 
          ubld1.ADD(address, address, brw_imm_ud(block_bytes));
          loaded += block;
