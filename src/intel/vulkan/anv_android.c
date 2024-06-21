@@ -369,9 +369,7 @@ anv_image_init_from_gralloc(struct anv_device *device,
     *
     */
    result = anv_device_import_bo(device, dma_buf,
-                                 ANV_BO_ALLOC_EXTERNAL |
-                                 ANV_BO_ALLOC_IMPLICIT_SYNC |
-                                 ANV_BO_ALLOC_IMPLICIT_WRITE,
+                                 ANV_BO_ALLOC_EXTERNAL,
                                  0 /* client_address */,
                                  &bo);
    if (result != VK_SUCCESS) {
@@ -467,9 +465,7 @@ anv_image_bind_from_gralloc(struct anv_device *device,
     */
    struct anv_bo *bo = NULL;
    VkResult result = anv_device_import_bo(device, dma_buf,
-                                          ANV_BO_ALLOC_EXTERNAL |
-                                          ANV_BO_ALLOC_IMPLICIT_SYNC |
-                                          ANV_BO_ALLOC_IMPLICIT_WRITE,
+                                          ANV_BO_ALLOC_EXTERNAL,
                                           0 /* client_address */,
                                           &bo);
    if (result != VK_SUCCESS) {
