@@ -112,26 +112,24 @@ if gbm_backends_path == ''
   gbm_backends_path = join_paths(get_option('prefix'), get_option('libdir'), 'gbm')
 endif
 
-# Default shared glapi disabled for windows, enabled elsewhere.
-with_shared_glapi = get_option('shared-glapi') \
-  .disable_auto_if(host_machine.system() == 'windows') \
-  .allowed()
-
 with_opengl = get_option('opengl')
-
-with_gles1 = get_option('gles1') \
-  .require(with_shared_glapi, error_message : 'OpengGL ES 1.x requires shared-glapi') \
-  .allowed()
-
-with_gles2 = get_option('gles2') \
-  .require(with_shared_glapi, error_message : 'OpengGL ES 2.x requires shared-glapi') \
-  .allowed()
+with_gles1 = get_option('gles1')
+with_gles2 = get_option('gles2')
 
 pre_args += '-DHAVE_OPENGL=@0@'.format(with_opengl.to_int())
 pre_args += '-DHAVE_OPENGL_ES_1=@0@'.format(with_gles1.to_int())
 pre_args += '-DHAVE_OPENGL_ES_2=@0@'.format(with_gles2.to_int())
 
-with_any_opengl = with_opengl or with_gles1 or with_gles2
+opengl_variants = with_opengl.to_int() + with_gles1.to_int() + with_gles2.to_int()
+with_any_opengl = opengl_variants > 0
+
+# Default shared glapi disabled for windows, enabled elsewhere if there's more
+# than one GL API in use.
+with_shared_glapi = get_option('shared-glapi') \
+  .disable_auto_if(host_machine.system() == 'windows') \
+  .disable_auto_if(opengl_variants < 2) \
+  .allowed()
+
 # Only build shared_glapi if at least one OpenGL API is enabled
 with_shared_glapi = with_shared_glapi and with_any_opengl
 
@@ -455,7 +453,6 @@ with_xlib_lease = get_option('xlib-lease') \
 
 with_egl = get_option('egl') \
   .require(with_platform_windows or with_platform_haiku or with_dri or with_platform_android, error_message : 'EGL requires DRI, Haiku, Windows or Android') \
-  .require(with_shared_glapi, error_message : 'EGL requires shared-glapi') \
   .require(with_glx != 'xlib', error_message :'EGL requires DRI, but GLX is being built with xlib support') \
   .disable_auto_if(with_platform_haiku) \
   .allowed()

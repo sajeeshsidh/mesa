@@ -316,15 +316,17 @@ option(
 
 option(
   'gles1',
-  type : 'feature',
-  deprecated: {'true': 'enabled', 'false': 'disabled'},
+  type : 'boolean',
+  value : true,
+  deprecated: {'enabled': 'true', 'auto': 'true', 'disabled': 'false'},
   description : 'Build support for OpenGL ES 1.x'
 )
 
 option(
   'gles2',
-  type : 'feature',
-  deprecated: {'true': 'enabled', 'false': 'disabled'},
+  type : 'boolean',
+  value : true,
+  deprecated: {'enabled': 'true', 'auto': 'true', 'disabled': 'false'},
   description : 'Build support for OpenGL ES 2.x and 3.x'
 )
 
