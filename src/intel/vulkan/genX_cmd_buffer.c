@@ -1726,6 +1726,18 @@ genX(emit_apply_pipe_flushes)(struct anv_batch *batch,
     *     and on PIPECONTROL having Post Sync Operation enabled."
     *
     * Therefore setting L3 Fabric Flush here would be redundant.
+    *
+    * From Bspec 43904 (Register_CCSAuxiliaryTableInvalidate):
+    * RCS engine idle sequence:
+    *
+    *    Gfx12+:
+    *       PIPE_CONTROL:- DC Flush + L3 Fabric Flush + CS Stall + Render
+    *                      Target Cache Flush + Depth Cache
+    *
+    *    Gfx125+:
+    *       PIPE_CONTROL:- DC Flush + L3 Fabric Flush + CS Stall + Render
+    *                      Target Cache Flush + Depth Cache + CCS flush
+    *
     */
    if (GFX_VER == 12 && (bits & ANV_PIPE_AUX_TABLE_INVALIDATE_BIT)) {
       if (current_pipeline == GPGPU) {
@@ -1736,6 +1748,9 @@ genX(emit_apply_pipe_flushes)(struct anv_batch *batch,
          bits |= (ANV_PIPE_NEEDS_END_OF_PIPE_SYNC_BIT |
                   ANV_PIPE_RENDER_TARGET_CACHE_FLUSH_BIT |
                   ANV_PIPE_STATE_CACHE_INVALIDATE_BIT |
+                  (GFX_VERx10 >= 120 ?
+                   ANV_PIPE_DEPTH_CACHE_FLUSH_BIT |
+                   ANV_PIPE_DATA_CACHE_FLUSH_BIT : 0) |
                   (GFX_VERx10 == 125 ? ANV_PIPE_CCS_CACHE_FLUSH_BIT: 0));
       }
    }

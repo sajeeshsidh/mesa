@@ -6164,6 +6164,10 @@ invalidate_aux_map_state_per_engine(struct iris_batch *batch)
        * From Bspec 43904 (Register_CCSAuxiliaryTableInvalidate):
        * RCS engine idle sequence:
        *
+       *    Gfx12+:
+       *       PIPE_CONTROL:- DC Flush + L3 Fabric Flush + CS Stall + Render
+       *                      Target Cache Flush + Depth Cache
+       *
        *    Gfx125+:
        *       PIPE_CONTROL:- DC Flush + L3 Fabric Flush + CS Stall + Render
        *                      Target Cache Flush + Depth Cache + CCS flush
@@ -6173,6 +6177,9 @@ invalidate_aux_map_state_per_engine(struct iris_batch *batch)
                                  PIPE_CONTROL_CS_STALL |
                                  PIPE_CONTROL_RENDER_TARGET_FLUSH |
                                  PIPE_CONTROL_STATE_CACHE_INVALIDATE |
+                                 (GFX_VERx10 >= 120 ?
+                                  PIPE_CONTROL_DEPTH_CACHE_FLUSH |
+                                  PIPE_CONTROL_DATA_CACHE_FLUSH : 0) |
                                  (GFX_VERx10 == 125 ?
                                   PIPE_CONTROL_CCS_CACHE_FLUSH : 0));
 
