@@ -35,7 +35,8 @@ struct DisasmTest : testing::Test, testing::WithParamInterface<disasm_state> {
 
    DisasmTest()
    {
-      static const struct isa_decode_options options = {.show_errors = true,
+      static const struct isa_decode_options options = {.gpu_id = ~0U,
+                                                        .show_errors = true,
                                                         .branch_labels = false};
 
       constexpr int output_size = 4096;
@@ -306,7 +307,7 @@ INSTANTIATE_TEST_SUITE_P(texldlpcf, DisasmTest,
    testing::Values(
       // taken from dEQP-GLES3.functional.shaders.texture_functions.texturelod.sampler2dshadow_vertex (GC7000)
       disasm_state{ {0x04011809, 0x00000004, 0x00000000, 0x002a8018}, "mov.sat           t1.___w, void, void, t1.zzzz\n"},
-      disasm_state{ {0x0081102f, 0x29001800, 0x00010140, 0x003fc018}, "texldlpcf         t1.x___, tex0.xxxx, t1.xyzz, t2.xxxx, t1.wwww\n"},
+      disasm_state{ {0x0081102f, 0x29001800, 0x00010140, 0x003fc018}, "texldl_pcf        t1.x___, tex0.xxxx, t1.xyzz, t2.xxxx, t1.wwww\n"},
       disasm_state{ {0x07011009, 0x00000004, 0x00000000, 0x20390018}, "mov               t1._yzw, void, void, u1.xyzw\n"}
    )
 );
@@ -320,6 +321,66 @@ INSTANTIATE_TEST_SUITE_P(LoadStoreVariants, DisasmTest,
       disasm_state{ {0x01001032, 0x15400d14, 0x00000040, 0x00000000}, "load.denorm.local.ls2 t0._y__, t0.yyyy, t0.xxxx, void\n"},
       disasm_state{ {0x00800033, 0x00000c14, 0x00000050, 0x00154008}, "store.denorm.ls2  mem.x___, u0.xxxx, t0.xxxx, t0.yyyy\n"},
       disasm_state{ {0x00861033, 0x15400d04, 0x100efe40, 0x7085860f}, "store.denorm.local mem.x___, t0.yyyy, 4092, 99.000000\t; dontcare bits in store: 00000000000000000000000000061000\n"}
+   )
+);
+
+// clang-format off
+INSTANTIATE_TEST_SUITE_P(texture, DisasmTest,
+   testing::Values(
+      // dEQP-GLES3.functional.shaders.texture_functions.texture.sampler2d_bias_float_fragment (GC3000/GC7000)
+      disasm_state{ {0x07811018, 0x15001f20, 0x015400c0, 0x00000000}, "texldb            t1, tex0.xyzw, t1.xyyy, t1.zzzz, void\n"},
+
+      // dEQP-GLES3.functional.shaders.texture_functions.texture.sampler2darrayshadow_fragment (GC3000/GC7000)
+      disasm_state{ {0x00811018, 0x29002800, 0x00000000, 0x003fc028}, "texld_pcf         t1.x___, tex0.xxxx, t2.xyzz, void, t2.wwww\n"},
+
+      // dEQP-GLES3.functional.shaders.texture_functions.texture.sampler2dshadow_bias_fragment (GC3000/GC7000)
+      disasm_state{ {0x00811018, 0x29001800, 0x01fe00c0, 0x00000028}, "texldb_pcf        t1.x___, tex0.xxxx, t1.xyzz, t1.wwww, t2.xxxx\n"},
+
+
+      // dEQP-GLES3.functional.shaders.texture_functions.texture.sampler2d_bias_float_fragment (GC2000)
+      disasm_state{ {0x0f811019, 0x39003f20, 0x00000000, 0x00000000}, "texldb            t1, tex1.xyzw, t3.xyzw, void, void\n"},
+
+      // dEQP-GLES3.functional.shaders.texture_functions.texture.sampler2dshadow_bias_fragment (GC2000)
+      disasm_state{ {0x07821019, 0x39002f20, 0x00000000, 0x00000000}, "texldb            t2, tex0.xyzw, t2.xyzw, void, void\n"}
+   )
+);
+// clang-format on
+
+// clang-format off
+INSTANTIATE_TEST_SUITE_P(texturegrad, DisasmTest,
+   testing::Values(
+      // dEQP-GLES3.functional.shaders.texture_functions.texturegrad.sampler2d_fixed_vertex (GC7000)
+      disasm_state{ {0x0781101a, 0x15001f20, 0x00a80140, 0x003f8018}, "texldd            t1, tex0.xyzw, t1.xyyy, t2.xyyy, t1.zwww\n"},
+
+      // dEQP-GLES3.functional.shaders.texture_functions.texturegrad.sampler2d_fixed_vertex (GC2000)
+      disasm_state{ {0x4781101b, 0x39003f20, 0x00000000, 0x00000000}, "texldl            t1, tex8.xyzw, t3.xyzw, void, void\n"}
+   )
+);
+// clang-format on
+
+// clang-format off
+INSTANTIATE_TEST_SUITE_P(texturelod, DisasmTest,
+   testing::Values(
+      // dEQP-GLES3.functional.shaders.texture_functions.texturelod.sampler2d_fixed_vertex (GC3000/GC7000)
+      disasm_state{ {0x0781102f, 0x15001f20, 0x00010140, 0x00000000}, "texldl            t1, tex0.xyzw, t1.xyyy, t2.xxxx, void\n"},
+
+      // dEQP-GLES3.functional.shaders.texture_functions.texturelod.sampler2d_fixed_vertex (GC2000)
+      disasm_state{ {0x4781101b, 0x39003f20, 0x00000000, 0x00000000}, "texldl            t1, tex8.xyzw, t3.xyzw, void, void\n"}
+   )
+);
+
+// clang-format off
+INSTANTIATE_TEST_SUITE_P(
+   textureproj, DisasmTest,
+   testing::Values(
+      // dEQP-GLES3.functional.shaders.texture_functions.textureproj.sampler2dshadow_vertex (GC7000)
+      disasm_state{ {0x0081102f, 0x39001800, 0x00010040, 0x002a801f}, "texldl_pcf        t1.x___, tex0.xxxx, t1.xyzw, 0.000000, t1.zzzz\n"},
+
+      // dEQP-GLES3.functional.shaders.texture_functions.textureproj.sampler2dshadow_vertex (GC3000)
+      disasm_state{ {0xf881102f, 0x39001800, 0x00010040, 0x002a801f}, "texldl_pcf        t1.x___, tex31.xxxx, t1.xyzw, 0.000000, t1.zzzz\n"},
+
+      // dEQP-GLES3.functional.shaders.texture_functions.textureproj.sampler2dshadow_vertex (GC2000)
+      disasm_state{ {0x4782101b, 0x39002f20, 0x00000000, 0x00000000}, "texldl            t2, tex8.xyzw, t2.xyzw, void, void\n"}
    )
 );
 // clang-format on

@@ -24,6 +24,7 @@ main(int argc, char *argv[])
 
    etnaviv_isa_disasm(raw, sz, stdout,
                       &(struct isa_decode_options){
+                         .gpu_id = ~0U,
                          .show_errors = true,
                          .branch_labels = true,
                          .pre_instr_cb = pre_instr_cb,

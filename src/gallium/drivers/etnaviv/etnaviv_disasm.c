@@ -37,11 +37,12 @@ pre_instr_cb(void *d, unsigned n, void *instr)
 }
 
 void
-etna_disasm(uint32_t *dwords, int sizedwords, enum debug_t debug)
+etna_disasm(const struct etna_shader_variant *variant, enum debug_t debug)
 {
-   assert((sizedwords % 2) == 0);
+   assert((variant->code_size % 2) == 0);
 
    struct isa_decode_options options = {
+      .gpu_id = variant->shader->specs->halti,
       .show_errors = true,
       .branch_labels = true,
    };
@@ -49,5 +50,5 @@ etna_disasm(uint32_t *dwords, int sizedwords, enum debug_t debug)
    if (debug & PRINT_RAW)
       options.pre_instr_cb = pre_instr_cb;
 
-   etnaviv_isa_disasm(dwords, sizedwords * sizeof(uint32_t), stdout, &options);
+   etnaviv_isa_disasm(variant->code, variant->code_size * sizeof(uint32_t), stdout, &options);
 }

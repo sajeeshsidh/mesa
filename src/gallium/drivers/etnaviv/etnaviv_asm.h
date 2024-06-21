@@ -29,6 +29,7 @@
 
 #include <stdint.h>
 #include <stdbool.h>
+#include "etnaviv_internal.h"
 #include "util/u_math.h"
 
 #include <etnaviv/isa/asm.h>
@@ -104,6 +105,6 @@ etna_immediate_int(int x)
  * value otherwise.
  */
 int
-etna_assemble(uint32_t *out, const struct etna_inst *inst, bool has_no_oneconst_limit);
+etna_assemble(uint32_t *out, const struct etna_inst *inst, const struct etna_specs *specs);
 
 #endif

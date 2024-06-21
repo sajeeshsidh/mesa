@@ -65,7 +65,7 @@ etna_dump_shader(const struct etna_shader_variant *shader)
    else
       printf("FRAG\n");
 
-   etna_disasm(shader->code, shader->code_size, PRINT_RAW);
+   etna_disasm(shader, PRINT_RAW);
 
    printf("num loops: %i\n", shader->num_loops);
    printf("num temps: %i\n", shader->num_temps);

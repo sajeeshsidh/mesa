@@ -29,12 +29,14 @@
 
 #include <stdint.h>
 
+#include "etnaviv_compiler.h"
+
 /* bitmask of print flags */
 enum debug_t {
    PRINT_RAW = 0x1, /* dump raw hexdump */
 };
 
 void
-etna_disasm(uint32_t *dwords, int sizedwords, enum debug_t debug);
+etna_disasm(const struct etna_shader_variant *variant, enum debug_t debug);
 
 #endif

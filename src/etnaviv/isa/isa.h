@@ -10,6 +10,6 @@
 
 struct etna_inst;
 
-void isa_assemble_instruction(uint32_t *out, const struct etna_inst *instr);
+void isa_assemble_instruction(uint32_t *out, const struct etna_inst *instr, uint32_t halti);
 
 #endif /* _ISA_H_ */
