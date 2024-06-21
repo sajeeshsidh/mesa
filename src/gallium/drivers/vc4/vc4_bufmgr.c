@@ -465,7 +465,7 @@ vc4_bo_get_dmabuf(struct vc4_bo *bo)
 {
         int fd;
         int ret = drmPrimeHandleToFD(bo->screen->fd, bo->handle,
-                                     O_CLOEXEC, &fd);
+                                     O_CLOEXEC | O_RDWR, &fd);
         if (ret != 0) {
                 fprintf(stderr, "Failed to export gem bo %d to dmabuf\n",
                         bo->handle);

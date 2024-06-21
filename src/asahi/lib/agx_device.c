@@ -350,7 +350,7 @@ agx_bo_export(struct agx_bo *bo)
 
    assert(bo->flags & AGX_BO_SHAREABLE);
 
-   if (drmPrimeHandleToFD(bo->dev->fd, bo->handle, DRM_CLOEXEC, &fd))
+   if (drmPrimeHandleToFD(bo->dev->fd, bo->handle, DRM_CLOEXEC | DRM_RDWR, &fd))
       return -1;
 
    if (!(bo->flags & AGX_BO_SHARED)) {
