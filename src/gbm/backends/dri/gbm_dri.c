@@ -410,7 +410,7 @@ gbm_format_to_dri_format(uint32_t gbm_format)
          return gbm_dri_visuals_table[i].dri_image_format;
    }
 
-   return 0;
+   return -1;
 }
 
 static int
@@ -425,7 +425,7 @@ gbm_dri_is_format_supported(struct gbm_device *gbm,
       return 0;
 
    format = gbm_core.v0.format_canonicalize(format);
-   if (gbm_format_to_dri_format(format) == 0)
+   if (gbm_format_to_dri_format(format) == -1)
       return 0;
 
    /* If there is no query, fall back to the small table which was originally
@@ -461,7 +461,7 @@ gbm_dri_get_format_modifier_plane_count(struct gbm_device *gbm,
       return -1;
 
    format = gbm_core.v0.format_canonicalize(format);
-   if (gbm_format_to_dri_format(format) == 0)
+   if (gbm_format_to_dri_format(format) == -1)
       return -1;
 
    if (!dri->image->queryDmaBufFormatModifierAttribs(
@@ -961,7 +961,7 @@ gbm_dri_bo_create(struct gbm_device *gbm,
    bo->base.v0.format = format;
 
    dri_format = gbm_format_to_dri_format(format);
-   if (dri_format == 0) {
+   if (dri_format == -1) {
       errno = EINVAL;
       goto failed;
    }
