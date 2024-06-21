@@ -45,13 +45,20 @@ struct gallivm_state
 {
    char *module_name;
    LLVMModuleRef module;
-   LLVMExecutionEngineRef engine;
    LLVMTargetDataRef target;
+#if GALLIVM_USE_ORCJIT
+   /* own this->module */
+   LLVMOrcThreadSafeContextRef _ts_context;
+   /* each module is in its own jitdylib */
+   LLVMOrcJITDylibRef _per_module_jd;
+#else
+   LLVMExecutionEngineRef engine;
    struct lp_passmgr *passmgr;
-   LLVMContextRef context;
-   LLVMBuilderRef builder;
    LLVMMCJITMemoryManagerRef memorymgr;
    struct lp_generated_code *code;
+#endif
+   LLVMContextRef context;
+   LLVMBuilderRef builder;
    struct lp_cached_code *cache;
    unsigned compiled;
    LLVMValueRef coro_malloc_hook;

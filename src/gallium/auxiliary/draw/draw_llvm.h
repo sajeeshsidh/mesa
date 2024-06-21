@@ -42,6 +42,9 @@
 #include "pipe/p_context.h"
 #include "util/list.h"
 
+#if GALLIVM_USE_ORCJIT
+#include <llvm-c/Orc.h>
+#endif
 
 struct draw_llvm;
 struct llvm_vertex_shader;
