@@ -160,11 +160,11 @@ zink_get_name(struct pipe_screen *pscreen)
    struct zink_screen *screen = zink_screen(pscreen);
    const char *driver_name = vk_DriverId_to_str(screen->info.driver_props.driverID) + strlen("VK_DRIVER_ID_");
    static char buf[1000];
-   snprintf(buf, sizeof(buf), "zink Vulkan %d.%d(%s (%s))",
-            VK_VERSION_MAJOR(screen->info.device_version),
-            VK_VERSION_MINOR(screen->info.device_version),
+   snprintf(buf, sizeof(buf), "%s (%s) (zink Vulkan %d.%d)",
             screen->info.props.deviceName,
-            strstr(vk_DriverId_to_str(screen->info.driver_props.driverID), "VK_DRIVER_ID_") ? driver_name : "Driver Unknown"
+            strstr(vk_DriverId_to_str(screen->info.driver_props.driverID), "VK_DRIVER_ID_") ? driver_name : "Driver Unknown",
+            VK_VERSION_MAJOR(screen->info.device_version),
+            VK_VERSION_MINOR(screen->info.device_version)
             );
    return buf;
 }
