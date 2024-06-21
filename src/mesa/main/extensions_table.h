@@ -224,6 +224,7 @@ EXT(EXT_blend_equation_separate             , EXT_blend_equation_separate       
 EXT(EXT_blend_func_extended                 , ARB_blend_func_extended                ,  x ,  x ,  x , ES2, 2015)
 EXT(EXT_blend_func_separate                 , dummy_true                             , GLL,  x ,  x ,  x , 1999)
 EXT(EXT_blend_minmax                        , dummy_true                             , GLL,  x , ES1, ES2, 1995)
+EXT(EXT_blend_minmax_factor                 , EXT_blend_minmax_factor                , GLL, GLC, ES1, ES2, 2024)
 EXT(EXT_blend_subtract                      , dummy_true                             , GLL,  x ,  x ,  x , 1995)
 EXT(EXT_buffer_storage                      , ARB_buffer_storage                     ,  x ,  x ,  x ,  31, 2015)
 EXT(EXT_clear_texture                       , dummy_true                             ,  x ,  x ,  x ,  31, 2016)

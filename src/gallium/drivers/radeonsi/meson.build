@@ -54,6 +54,8 @@ files_libradeonsi = files(
   'si_get.c',
   'si_gfx_cs.c',
   'si_gpu_load.c',
+  'si_info.c',
+  'si_info.h',
   'si_perfcounter.c',
   'si_pipe.c',
   'si_pipe.h',

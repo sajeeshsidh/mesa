@@ -670,6 +670,7 @@ enum pipe_conservative_raster_mode
  */
 enum pipe_cap
 {
+   PIPE_CAP_BLEND_MINMAX_FACTOR,
    PIPE_CAP_GRAPHICS,
    PIPE_CAP_NPOT_TEXTURES,
    PIPE_CAP_MAX_DUAL_SOURCE_RENDER_TARGETS,

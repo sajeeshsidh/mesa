@@ -56,6 +56,8 @@ static int si_get_param(struct pipe_screen *pscreen, enum pipe_cap param)
 
    switch (param) {
    /* Supported features (boolean caps). */
+   case PIPE_CAP_BLEND_MINMAX_FACTOR:
+      return 1;
    case PIPE_CAP_ACCELERATED:
    case PIPE_CAP_MAX_DUAL_SOURCE_RENDER_TARGETS:
    case PIPE_CAP_ANISOTROPIC_FILTER:
@@ -172,7 +174,7 @@ static int si_get_param(struct pipe_screen *pscreen, enum pipe_cap param)
    case PIPE_CAP_NATIVE_FENCE_FD:
    case PIPE_CAP_CL_GL_SHARING:
       return 1;
-
+      
    case PIPE_CAP_TEXTURE_TRANSFER_MODES:
       return PIPE_TEXTURE_TRANSFER_BLIT;
 

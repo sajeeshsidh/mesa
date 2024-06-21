@@ -206,6 +206,8 @@ iris_get_param(struct pipe_screen *pscreen, enum pipe_cap param)
    const struct intel_device_info *devinfo = screen->devinfo;
 
    switch (param) {
+   case PIPE_CAP_BLEND_MINMAX_FACTOR:
+      return 1;
    case PIPE_CAP_NPOT_TEXTURES:
    case PIPE_CAP_ANISOTROPIC_FILTER:
    case PIPE_CAP_OCCLUSION_QUERY:
