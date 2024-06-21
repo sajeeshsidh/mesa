@@ -349,8 +349,8 @@ lower_ubo_load_to_uniform(nir_intrinsic_instr *instr, nir_builder *b,
    }
 
    nir_def *uniform =
-      nir_load_uniform(b, instr->num_components, instr->def.bit_size,
-                       uniform_offset, .base = const_offset);
+      nir_load_const_ir3(b, instr->num_components, instr->def.bit_size,
+                         uniform_offset, .base = const_offset);
 
    nir_def_rewrite_uses(&instr->def, uniform);
 
@@ -821,7 +821,7 @@ fixup_load_uniform_filter(const nir_instr *instr, const void *arg)
    if (instr->type != nir_instr_type_intrinsic)
       return false;
    return nir_instr_as_intrinsic(instr)->intrinsic ==
-          nir_intrinsic_load_uniform;
+          nir_intrinsic_load_const_ir3;
 }
 
 static nir_def *
