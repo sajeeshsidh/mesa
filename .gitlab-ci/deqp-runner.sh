@@ -96,6 +96,13 @@ fi
 
 if [ -e "$INSTALL/$GPU_VERSION-fails.txt" ]; then
     DEQP_RUNNER_OPTIONS="$DEQP_RUNNER_OPTIONS --baseline $INSTALL/$GPU_VERSION-fails.txt"
+
+    # Known failures are not checked while merging, to save resources and
+    # time. Nightly pipelines still make sure they haven't been fixed.
+    if [ $GITLAB_USER_LOGIN == "marge-bot" ]; then
+        cut -d, -f1 $INSTALL/$GPU_VERSION-fails.txt > /tmp/skip-fails.txt
+        DEQP_SKIPS="$DEQP_SKIPS /tmp/skip-fails.txt"
+    fi
 fi
 
 # Default to an empty known flakes file if it doesn't exist.
