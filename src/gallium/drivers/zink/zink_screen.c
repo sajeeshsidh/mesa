@@ -2907,14 +2907,17 @@ init_driver_workarounds(struct zink_screen *screen)
     * gl_PointSize + glPolygonMode(..., GL_LINE), in the imagination
     * proprietary driver.
     */
-   switch (screen->info.driver_props.driverID) {
-   case VK_DRIVER_ID_IMAGINATION_PROPRIETARY:
+   if (screen->info.have_KHR_maintenance5) {
+      if (!screen->info.maint5_props.polygonModePointSize) {
+         if (screen->info.feats.features.geometryShader)
+            screen->driver_workarounds.no_hw_gl_point = true;
+         else
+            fprintf(stderr, "WARNING: Zink requires geometry shaders to work "
+                           "around missing polygonModePointSize");
+      }
+   } else if (screen->info.driver_props.driverID ==
+              VK_DRIVER_ID_IMAGINATION_PROPRIETARY)
       screen->driver_workarounds.no_hw_gl_point = true;
-      break;
-   default:
-      screen->driver_workarounds.no_hw_gl_point = false;
-      break;
-   }
 
    if (screen->info.driver_props.driverID == VK_DRIVER_ID_AMD_OPEN_SOURCE || 
        screen->info.driver_props.driverID == VK_DRIVER_ID_AMD_PROPRIETARY || 
