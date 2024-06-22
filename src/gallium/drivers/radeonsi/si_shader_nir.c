@@ -111,6 +111,7 @@ void si_nir_opts(struct si_screen *sscreen, struct nir_shader *nir, bool first)
       progress |= lower_alu_to_scalar | lower_phis_to_scalar;
 
       NIR_PASS(progress, nir, nir_opt_cse);
+      NIR_PASS(progress, nir, nir_opt_gcm, false);
       NIR_PASS(progress, nir, nir_opt_peephole_select, 8, true, true);
 
       /* Needed for algebraic lowering */
@@ -171,6 +172,7 @@ void si_nir_late_opts(nir_shader *nir)
       NIR_PASS_V(nir, nir_copy_prop);
       NIR_PASS_V(nir, nir_opt_dce);
       NIR_PASS_V(nir, nir_opt_cse);
+      NIR_PASS_V(nir, nir_opt_gcm, false);
    }
 }
 
