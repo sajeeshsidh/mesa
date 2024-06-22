@@ -77,6 +77,9 @@ struct llvmpipe_screen
 #ifdef HAVE_LIBDRM
    int udmabuf_fd;
 #endif
+
+   struct llvmpipe_memory_fd_alloc *dummy_dmabuf;
+   int dummy_sync_fd;
 };
 
 
