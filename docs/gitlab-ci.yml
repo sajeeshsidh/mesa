@@ -10,6 +10,7 @@
   script:
   - apk --no-cache add coreutils graphviz py3-clang clang-dev musl-dev linux-headers
   - pip3 install sphinx===5.1.1 mako===1.2.3 hawkmoth===0.16.0
+  - docs/isaspec-doc-wrapper.py --out-dir=docs/isaspec_rst
   - sphinx-build -W -b $BUILDER docs public
 
 pages:
@@ -27,6 +28,8 @@ pages:
       - src/compiler/nir/nir.h
       - src/intel/isl/**/*
       - src/vulkan/runtime/**/*
+      # Paths from isaspec-doc.py
+      - src/freedreno/isa/ir3.xml
       when: always
     # Other cases default to never
 
