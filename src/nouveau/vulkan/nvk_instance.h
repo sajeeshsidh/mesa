@@ -15,6 +15,7 @@ struct nvk_instance {
 
    struct driOptionCache dri_options;
    struct driOptionCache available_dri_options;
+   bool disable_bda;
 
    uint8_t driver_build_sha[20];
    uint32_t force_vk_vendor;

@@ -252,7 +252,8 @@ nvk_get_device_extensions(const struct nvk_instance *instance,
 }
 
 static void
-nvk_get_device_features(const struct nv_device_info *info,
+nvk_get_device_features(const struct nvk_instance *instance,
+                        const struct nv_device_info *info,
                         const struct vk_device_extension_table *supported_extensions,
                         struct vk_features *features)
 {
@@ -368,7 +369,7 @@ nvk_get_device_features(const struct nv_device_info *info,
       .separateDepthStencilLayouts = true,
       .hostQueryReset = true,
       .timelineSemaphore = true,
-      .bufferDeviceAddress = true,
+      .bufferDeviceAddress = !instance->disable_bda,
       .bufferDeviceAddressCaptureReplay = true,
       .bufferDeviceAddressMultiDevice = false,
       .vulkanMemoryModel = nvk_use_nak(info),
@@ -1202,7 +1203,7 @@ nvk_create_drm_physical_device(struct vk_instance *_instance,
                              &supported_extensions);
 
    struct vk_features supported_features;
-   nvk_get_device_features(&info, &supported_extensions, &supported_features);
+   nvk_get_device_features(instance, &info, &supported_extensions, &supported_features);
 
    struct vk_properties properties;
    nvk_get_device_properties(instance, &info, conformant, &properties);

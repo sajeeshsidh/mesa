@@ -811,4 +811,11 @@
 #define DRI_CONF_DZN_DISABLE(def) \
    DRI_CONF_OPT_B(dzn_disable, def, "Fail instance creation")
 
+/**
+ * \brief NVK specific configuration options
+ */
+
+#define DRI_CONF_NVK_DISABLE_BDA(def) \
+   DRI_CONF_OPT_B(nvk_disable_bda, def, "Disable bufferDeviceAddress feature")
+
 #endif
