@@ -5829,6 +5829,7 @@ bool nir_lower_io_to_scalar(nir_shader *shader, nir_variable_mode mask, nir_inst
 bool nir_lower_io_to_scalar_early(nir_shader *shader, nir_variable_mode mask);
 bool nir_lower_io_to_vector(nir_shader *shader, nir_variable_mode mask);
 bool nir_vectorize_tess_levels(nir_shader *shader);
+bool nir_tess_levels_defined_in_all_invocations(const struct nir_shader *nir);
 nir_shader *nir_create_passthrough_tcs_impl(const nir_shader_compiler_options *options,
                                             unsigned *locations, unsigned num_locations,
                                             uint8_t patch_vertices);

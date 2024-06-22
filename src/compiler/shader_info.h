@@ -496,7 +496,7 @@ typedef struct shader_info {
          /* Bit mask of TCS per-vertex outputs that are used
           * with a vertex index that is NOT the invocation id
           */
-         uint64_t tcs_cross_invocation_outputs_read;
+         uint64_t tcs_cross_invocation_output_access;
       } tess;
 
       /* Applies to MESH and TASK. */
