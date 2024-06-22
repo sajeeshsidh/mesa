@@ -1697,7 +1697,7 @@ foreach d : _libdrm_checks
   if d[1]
     set_variable(
       'dep_libdrm_' + d[0],
-      dependency('libdrm_' + d[0], version : '>=' + _drm_ver)
+       dependency('libdrm_' + d[0], version : '>=' + _drm_ver, fallback: 'libdrm')
     )
   endif
 endforeach
@@ -1707,7 +1707,8 @@ if system_has_kms_drm
   dep_libdrm = dependency(
     'libdrm', version : '>=' + _drm_ver,
     # GNU/Hurd includes egl_dri2, without drm.
-    required : (with_dri2 and host_machine.system() != 'gnu') or with_dri3
+    required : (with_dri2 and host_machine.system() != 'gnu') or with_dri3,
+    fallback : 'libdrm',
   )
 else
   # We should prevent libdrm from being available when the target doesn't have it to avoid transitive
