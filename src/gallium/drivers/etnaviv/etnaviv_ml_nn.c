@@ -174,6 +174,21 @@ struct etna_nn_params {
    FIELD(further8, 32)
 };
 
+struct etna_nn_header_v8 {
+   FIELD(precode, 1)
+   FIELD(bit16, 1)
+   FIELD(fp16, 1)
+   FIELD(reserved1, 1)
+   FIELD(version, 4)
+
+   uint8_t run_length_size;
+   uint8_t run_length_table[18];
+   uint32_t symbol_map;
+   uint16_t avg_bias;
+   uint16_t reserved2;
+   uint32_t stream_size[0];
+};
+
 static void *
 map_resource(struct pipe_resource *resource)
 {
@@ -899,57 +914,71 @@ static uint32_t calculate_bias_correction(uint8_t *weights, const struct etna_op
    return correction;
 }
 
+struct bitstream {
+   unsigned bits_in_buffer;
+   uint64_t buffer;
+   uint32_t **map;
+   bool do_write;
+};
 
 static void
-append_bits(uint32_t value, size_t size, unsigned *bits_in_buffer, uint64_t *buffer, uint32_t **dest, bool do_write)
+append_bits(uint32_t value, size_t size, struct bitstream *bitstream)
 {
-   *buffer |= (uint64_t)value << *bits_in_buffer;
-   *bits_in_buffer += size;
-   if (*bits_in_buffer >= 32) {
-      if (do_write)
-         **dest = *buffer & 0xffffffff;
-      *dest += 1;
-      *buffer >>= 32;
-      *bits_in_buffer -= 32;
+   if (!size)
+      return;
+   bitstream->buffer |= (uint64_t)value << bitstream->bits_in_buffer;
+   bitstream->bits_in_buffer += size;
+   if (bitstream->bits_in_buffer >= 32) {
+      if (bitstream->do_write)
+         **bitstream->map = bitstream->buffer & 0xffffffff;
+      *bitstream->map += 1;
+      bitstream->buffer >>= 32;
+      bitstream->bits_in_buffer -= 32;
    }
 }
 
+static void
+flush_bits(struct bitstream *bitstream)
+{
+   if (bitstream->bits_in_buffer > 0)
+      append_bits(0, 32 - bitstream->bits_in_buffer, bitstream);
+}
+
 struct wb_stream {
+   struct bitstream bitstream;
    unsigned zero_point;
    unsigned zrl_bits;
-   unsigned *bits_in_buffer;
-   uint64_t *buffer;
-   uint32_t **map;
-   bool do_write;
-
    unsigned accum_zeroes;
 };
 
 static void
 wb_stream_flush_zeroes(struct wb_stream *wb_stream)
 {
+   struct bitstream *bitstream = &wb_stream->bitstream;
+
    if (wb_stream->accum_zeroes == 0)
       return;
 
-   append_bits(wb_stream->accum_zeroes - 1, wb_stream->zrl_bits, wb_stream->bits_in_buffer, wb_stream->buffer, wb_stream->map, wb_stream->do_write);
+   append_bits(wb_stream->accum_zeroes - 1, wb_stream->zrl_bits, bitstream);
    wb_stream->accum_zeroes = 0;
-   append_bits(wb_stream->zero_point, 8, wb_stream->bits_in_buffer, wb_stream->buffer, wb_stream->map, wb_stream->do_write);
+   append_bits(wb_stream->zero_point, 8, bitstream);
 }
 
 static void
 wb_stream_write(struct wb_stream *wb_stream, unsigned value)
 {
+   struct bitstream *bitstream = &wb_stream->bitstream;
    unsigned max_zeroes = (1 << wb_stream->zrl_bits) - 1;
 
    if (wb_stream->zrl_bits == 0) {
-      append_bits(value, 8, wb_stream->bits_in_buffer, wb_stream->buffer, wb_stream->map, wb_stream->do_write);
+      append_bits(value, 8, bitstream);
       return;
    }
 
    if (wb_stream->accum_zeroes == max_zeroes) {
-      append_bits(max_zeroes, wb_stream->zrl_bits, wb_stream->bits_in_buffer, wb_stream->buffer, wb_stream->map, wb_stream->do_write);
+      append_bits(max_zeroes, wb_stream->zrl_bits, bitstream);
       wb_stream->accum_zeroes = 0;
-      append_bits(value, 8, wb_stream->bits_in_buffer, wb_stream->buffer, wb_stream->map, wb_stream->do_write);
+      append_bits(value, 8, bitstream);
       return;
    }
 
@@ -958,9 +987,9 @@ wb_stream_write(struct wb_stream *wb_stream, unsigned value)
       return;
    }
 
-   append_bits(wb_stream->accum_zeroes, wb_stream->zrl_bits, wb_stream->bits_in_buffer, wb_stream->buffer, wb_stream->map, wb_stream->do_write);
+   append_bits(wb_stream->accum_zeroes, wb_stream->zrl_bits, bitstream);
    wb_stream->accum_zeroes = 0;
-   append_bits(value, 8, wb_stream->bits_in_buffer, wb_stream->buffer, wb_stream->map, wb_stream->do_write);
+   append_bits(value, 8, bitstream);
 }
 
 static unsigned
@@ -980,21 +1009,18 @@ write_core_6(struct etna_ml_subgraph *subgraph, uint32_t *map, unsigned core, co
    uint8_t *weights_maps[DIV_ROUND_UP(kernels_per_core, superblocks)];
    uint32_t *initial_ptr = map;
    bool do_write = initial_ptr != NULL;
-   uint64_t buffer = 0;
-   unsigned bits_in_buffer = 0;
    struct wb_stream wb_stream = {
       .zero_point = operation->weight_zero_point,
       .zrl_bits = zrl_bits,
-      .bits_in_buffer = &bits_in_buffer,
-      .buffer = &buffer,
-      .map = &map,
-      .do_write = do_write,
+      .bitstream.map = &map,
+      .bitstream.do_write = do_write,
    };
+   struct bitstream *bitstream = &wb_stream.bitstream;
 
    ML_DBG("%s core %d zrl_bits %d\n", __func__, core, zrl_bits);
 
-   append_bits(zrl_bits, 8, &bits_in_buffer, &buffer, &map, do_write);
-   append_bits(kernels_per_core, 16, &bits_in_buffer, &buffer, &map, do_write);
+   append_bits(zrl_bits, 8, bitstream);
+   append_bits(kernels_per_core, 16, bitstream);
 
    for (unsigned superblock = 0; superblock < superblocks; superblock++) {
 
@@ -1016,7 +1042,7 @@ write_core_6(struct etna_ml_subgraph *subgraph, uint32_t *map, unsigned core, co
 
                uint32_t corr = calculate_bias_correction(weights_maps[kernel], operation);
                wb_stream_flush_zeroes(&wb_stream);
-               append_bits(biases[out_channel] - corr, 32, &bits_in_buffer, &buffer, &map, do_write);
+               append_bits(biases[out_channel] - corr, 32, bitstream);
 
                for (int i = 1; i < stride; i++) {
                   wb_stream_write(&wb_stream, weights_maps[kernel][i]);
@@ -1029,7 +1055,7 @@ write_core_6(struct etna_ml_subgraph *subgraph, uint32_t *map, unsigned core, co
             }
             if (block == DIV_ROUND_UP(input_channels, stride) - 1) {
                wb_stream_flush_zeroes(&wb_stream);
-               append_bits(out_values_per_channel * out_channel, 32, &bits_in_buffer, &buffer, &map, do_write);
+               append_bits(out_values_per_channel * out_channel, 32, bitstream);
             }
          }
       }
@@ -1037,8 +1063,7 @@ write_core_6(struct etna_ml_subgraph *subgraph, uint32_t *map, unsigned core, co
 
    wb_stream_flush_zeroes(&wb_stream);
 
-   if (bits_in_buffer > 0)
-      append_bits(0, 32 - bits_in_buffer, &bits_in_buffer, &buffer, &map, do_write);
+   flush_bits(bitstream);
 
    return (uint8_t *)map - (uint8_t *)initial_ptr - 1;
 }
@@ -1059,21 +1084,18 @@ write_core_interleaved(struct etna_ml_subgraph *subgraph, uint32_t *map, unsigne
    uint8_t (*weights_map)[input_channels][operation->weight_width][operation->weight_height] = (void *)input;
    uint32_t *initial_ptr = map;
    bool do_write = initial_ptr != NULL;
-   uint64_t buffer = 0;
-   unsigned bits_in_buffer = 0;
    struct wb_stream wb_stream = {
       .zero_point = operation->weight_zero_point,
       .zrl_bits = zrl_bits,
-      .bits_in_buffer = &bits_in_buffer,
-      .buffer = &buffer,
-      .map = &map,
-      .do_write = do_write,
+      .bitstream.map = &map,
+      .bitstream.do_write = do_write,
    };
+   struct bitstream *bitstream = &wb_stream.bitstream;
 
    ML_DBG("%s core %d zrl_bits %d map %p\n", __func__, core, zrl_bits, map);
 
-   append_bits(zrl_bits, 8, &bits_in_buffer, &buffer, &map, do_write);
-   append_bits(kernels_per_core, 16, &bits_in_buffer, &buffer, &map, do_write);
+   append_bits(zrl_bits, 8, bitstream);
+   append_bits(kernels_per_core, 16, bitstream);
 
    for (unsigned superblock = 0; superblock < superblocks; superblock++) {
 
@@ -1097,7 +1119,7 @@ write_core_interleaved(struct etna_ml_subgraph *subgraph, uint32_t *map, unsigne
                      if (x == 0 && y == 0 && z == 0) {
                         uint32_t corr = calculate_bias_correction((uint8_t *)weights_map[out_channel], operation);
                         wb_stream_flush_zeroes(&wb_stream);
-                        append_bits(biases[out_channel] - corr, 32, &bits_in_buffer, &buffer, &map, do_write);
+                        append_bits(biases[out_channel] - corr, 32, bitstream);
                      }
                   }
                }
@@ -1114,7 +1136,7 @@ write_core_interleaved(struct etna_ml_subgraph *subgraph, uint32_t *map, unsigne
 
             if (z == input_channels - 1) {
                wb_stream_flush_zeroes(&wb_stream);
-               append_bits(out_values_per_channel * out_channel, 32, &bits_in_buffer, &buffer, &map, do_write);
+               append_bits(out_values_per_channel * out_channel, 32, bitstream);
             }
          }
          if (superblock == superblocks - 1)
@@ -1124,8 +1146,7 @@ write_core_interleaved(struct etna_ml_subgraph *subgraph, uint32_t *map, unsigne
 
    wb_stream_flush_zeroes(&wb_stream);
 
-   if (bits_in_buffer > 0)
-      append_bits(0, 32 - bits_in_buffer, &bits_in_buffer, &buffer, &map, do_write);
+   flush_bits(bitstream);
 
    return (uint8_t *)map - (uint8_t *)initial_ptr;
 }
@@ -1144,21 +1165,18 @@ write_core_sequential(struct etna_ml_subgraph *subgraph, uint32_t *map, unsigned
    unsigned superblocks = calculate_tiling(etna_context(pctx), operation, NULL, NULL);
    uint32_t *initial_ptr = map;
    bool do_write = initial_ptr != NULL;
-   uint64_t buffer = 0;
-   unsigned bits_in_buffer = 0;
    struct wb_stream wb_stream = {
       .zero_point = operation->weight_zero_point,
       .zrl_bits = zrl_bits,
-      .bits_in_buffer = &bits_in_buffer,
-      .buffer = &buffer,
-      .map = &map,
-      .do_write = do_write,
+      .bitstream.map = &map,
+      .bitstream.do_write = do_write,
    };
+   struct bitstream *bitstream = &wb_stream.bitstream;
 
    ML_DBG("%s core %d zrl_bits %d superblocks %d\n", __func__, core, zrl_bits, superblocks);
 
-   append_bits(zrl_bits, 8, &bits_in_buffer, &buffer, &map, do_write);
-   append_bits(kernels_per_core, 16, &bits_in_buffer, &buffer, &map, do_write);
+   append_bits(zrl_bits, 8, bitstream);
+   append_bits(kernels_per_core, 16, bitstream);
 
    for (unsigned superblock = 0; superblock < superblocks; superblock++) {
 
@@ -1185,7 +1203,7 @@ write_core_sequential(struct etna_ml_subgraph *subgraph, uint32_t *map, unsigned
                   if (x == 0 && y == 0) {
                      uint32_t corr = calculate_bias_correction((uint8_t *)weights_map, operation);
                      wb_stream_flush_zeroes(&wb_stream);
-                     append_bits(biases[out_channel] - corr, 32, &bits_in_buffer, &buffer, &map, do_write);
+                     append_bits(biases[out_channel] - corr, 32, bitstream);
                   }
                }
             }
@@ -1202,16 +1220,15 @@ write_core_sequential(struct etna_ml_subgraph *subgraph, uint32_t *map, unsigned
          }
          wb_stream_flush_zeroes(&wb_stream);
          if (operation->addition)
-            append_bits(operation->addition_offset, 32, &bits_in_buffer, &buffer, &map, do_write);
+            append_bits(operation->addition_offset, 32, bitstream);
          else
-            append_bits(out_values_per_channel * out_channel, 32, &bits_in_buffer, &buffer, &map, do_write);
+            append_bits(out_values_per_channel * out_channel, 32, bitstream);
       }
    }
 
    wb_stream_flush_zeroes(&wb_stream);
 
-   if (bits_in_buffer > 0)
-      append_bits(0, 32 - bits_in_buffer, &bits_in_buffer, &buffer, &map, do_write);
+   flush_bits(bitstream);
 
    return (uint8_t *)map - (uint8_t *)initial_ptr - 1;
 }
@@ -1347,14 +1364,443 @@ create_coefficients_bo(struct etna_ml_subgraph *subgraph, const struct etna_oper
    return compressed;
 }
 
+/*
+ * The V8 architecture Huffman stream decoder uses a fixed code book with 8
+ * entries to determine bit lengths of variable length values later in the bit
+ * stream. The 2 to 5-bit long codes are stored in fixed length 3-bit (plus
+ * optional 2-bit) fields:
+ *
+ *     code   symbol
+ *    --------------
+ *    00_       0
+ *    10_       1
+ *    111       2
+ *    110       3
+ *    011       4
+ *    010 1_    5
+ *    010 01    6
+ *    010 00    7
+ *
+ * The free bit (_) is used for the sign, if available, otherwise the sign
+ * is stored with the variable length value later in the bitstream. In ZRL
+ * encoding mode, where larger values are stored verbatim, this may also be
+ * the lsb of the value instead.. The decoder processes weights in pairs and
+ * is pipelined 3-deep:
+ *
+ * In each step, first two 3-bit codes are read, then up to two 2-bit codes
+ * that belong with (010) 3-bit codes from the previous step. The optional
+ * 2-bit codes from the previous step, together with the 3-bit codes from the
+ * step before that are used to decode two symbols that are mapped to two bit
+ * lengths for the two variable length values that are read next.
+ *
+ * Finally, the bit lengths, signs, and variable length values are used to
+ * calculate two weights.
+ */
+
+struct v8_code {
+   /* fixed 3-bit code */
+   uint8_t part0;
+   /* optional 2-bit code, iff part0 == 0b010 */
+   uint8_t part1;
+   /* variable length value */
+   uint8_t part2;
+   /* bit length determined from part0, part1, and symbol-to-bitlength map */
+   uint8_t part2_len;
+};
+
+struct v8_encoder {
+   /* bit-length-to-huffman-symbol map */
+   uint8_t map[9];
+   /* ring buffer for 3 encoded weight pairs */
+   struct v8_code code[6];
+   size_t bytes_read;
+   struct bitstream bitstream;
+   uint32_t *initial_ptr;
+   uint32_t *dest;
+   uint8_t accum_zeroes;
+   bool zrl;
+};
+
+/* Calculate a histogram of bit lenghts. */
+static void v8_histogram_accumulate(size_t histogram[9], uint8_t *bytes, size_t len, bool zrl)
+{
+   for (size_t i = 0; i < len; i++) {
+      uint8_t num_bits = 0;
+      if (bytes[i]) {
+         bool sign = bytes[i] >> 7;
+         uint8_t value = bytes[i];
+         if (sign) {
+            value -= zrl;
+            value ^= 0xff;
+         }
+         num_bits = util_logbase2(value) + 1;
+      }
+      assert(num_bits <= 8);
+      histogram[num_bits]++;
+   }
+}
+
+/*
+ * value can be 8-bit raw value or variable length value with prepended sign.
+ * num_bits is number of bits in value, including the sign bit.
+ */
+static struct v8_code v8_huffman_code(uint8_t sym, uint8_t value, uint8_t num_bits)
+{
+   switch (sym) {
+   case 0:
+      return (struct v8_code){ 0 | ((value & 1) << 2), 0, value >> 1, num_bits - 1 };
+   case 1:
+      return (struct v8_code){ 1 | ((value & 1) << 2), 0, value >> 1, num_bits - 1 };
+   case 2:
+      return (struct v8_code){ 7, 0, value, num_bits};
+   case 3:
+      return (struct v8_code){ 3, 0, value, num_bits};
+   case 4:
+      return (struct v8_code){ 6, 0, value, num_bits};
+   case 5:
+      return (struct v8_code){ 2, 1 | ((value & 1) << 1), value >> 1, num_bits - 1 };
+   case 6:
+      return (struct v8_code){ 2, 2, value, num_bits};
+   case 7:
+      return (struct v8_code){ 2, 0, value, num_bits};
+   default:
+      return (struct v8_code){};
+   }
+}
+
+static void v8_emit_pair(struct v8_encoder *encoder)
+{
+   struct bitstream *bitstream = &encoder->bitstream;
+   struct v8_code *code = &encoder->code[(encoder->bytes_read - 2) % 6];
+
+   append_bits(code[0].part0, 3, bitstream);
+   append_bits(code[1].part0, 3, bitstream);
+   if (encoder->bytes_read > 2) {
+      code = &encoder->code[(encoder->bytes_read - 4) % 6];
+      append_bits(code[0].part1, code[0].part0 == 2 ? 2 : 0, bitstream);
+      append_bits(code[1].part1, code[1].part0 == 2 ? 2 : 0, bitstream);
+   }
+   if (encoder->bytes_read > 4) {
+      code = &encoder->code[(encoder->bytes_read - 6) % 6];
+      append_bits(code[0].part2, code[0].part2_len, bitstream);
+      append_bits(code[1].part2, code[1].part2_len, bitstream);
+   }
+}
+
+/* Encode a single byte. Emit into the bitstream when a pair is complete. */
+static void v8_encode_byte(struct v8_encoder *encoder, uint8_t byte)
+{
+   bool zrl = encoder->zrl;
+   bool sign = byte >> 7;
+   uint8_t value = byte;
+   if (sign) {
+      value -= zrl;
+      value ^= 0xff;
+   }
+   uint8_t msb = util_logbase2(value);
+   uint8_t num_bits = value ? (msb + 1) : 0;
+   value &= ~(1 << msb);
+   uint8_t sym = encoder->map[num_bits];
+   if (zrl && byte == 0) {
+      if (encoder->accum_zeroes <= 1) {
+         // this seems to be used for the non-repeated 0 at the beginning and end
+         sym = encoder->map[7];
+         num_bits = 8;
+      } else {
+         // FIXME - how to encode run length into the run length table?
+         num_bits = 1;
+      }
+   }
+   if (!zrl && num_bits == 0) {
+      num_bits = 1;
+   }
+   if (sym == 255 || (zrl && byte == 128)) {
+      // if there is no huffman code assigned to this bit length, or when
+      // encoding 0x80 in ZRL mode, dump the value into the bitstream verbatim.
+      sym = encoder->map[7];
+      value = byte;
+      num_bits = 8;
+   } else if (zrl && num_bits == 7) {
+      value = byte;
+      num_bits = 8;
+   } else {
+      value = (value << 1) | sign;
+   }
+   unsigned int i = encoder->bytes_read % 6;
+   encoder->code[i] = v8_huffman_code(sym, value, num_bits);
+   encoder->bytes_read++;
+   if ((encoder->bytes_read & 1) == 0)
+      v8_emit_pair(encoder);
+}
+
+static void v8_encoder_init(struct v8_encoder *encoder, uint8_t *map, uint32_t *initial_ptr, bool zrl)
+{
+   memset(encoder, 0, sizeof(*encoder));
+   encoder->initial_ptr = initial_ptr;
+   encoder->dest = initial_ptr;
+   encoder->bitstream.map = &encoder->dest;
+   encoder->bitstream.do_write = initial_ptr != NULL;
+
+   for (int i = 0; i < 9; i++)
+      encoder->map[i] = 255;
+   for (int i = 0; i < 8; i++)
+      encoder->map[map[i]] = i;
+
+   encoder->zrl = zrl;
+}
+
+/*
+ * Flush remaining weights stuck in the encoder ring buffer and all bits
+ * in the bitstream FIFO. Return the total number of bits written.
+ */
+static size_t v8_encoder_flush(struct v8_encoder *encoder, size_t len)
+{
+   struct bitstream *bitstream = &encoder->bitstream;
+   size_t total_bits;
+
+   if (encoder->zrl) {
+      // FIXME - for WHIc 2x2x1 kernels
+      if (len < 8)
+         encoder->accum_zeroes += 8 - len;
+
+      if (encoder->accum_zeroes) {
+         v8_encode_byte(encoder, 0);
+         // FIXME - for trailing zeros only
+         // rlt[0] = encoder->accum_zeroes - 1
+         encoder->accum_zeroes = 0;
+      }
+      // FIXME - for WHIc 2x2x1 kernels
+      if (len < 9)
+         v8_encode_byte(encoder, 0);
+   }
+
+   if (!encoder->zrl && len == 25) {
+      // FIXME - for WHIc 5x5x1 kernels
+      v8_encode_byte(encoder, 0);
+      v8_encode_byte(encoder, 0);
+   }
+
+   if (encoder->bytes_read & 1)
+      v8_encode_byte(encoder, 0);
+
+   /* flush pipeline */
+   // FIXME - how to determine this code?
+   struct v8_code code = v8_huffman_code(0, 1, 0); // or (0, 0, 0)
+   encoder->code[encoder->bytes_read++ % 6] = code;
+   encoder->code[encoder->bytes_read++ % 6] = code;
+   v8_emit_pair(encoder);
+   encoder->code[encoder->bytes_read++ % 6] = code;
+   encoder->code[encoder->bytes_read++ % 6] = code;
+   v8_emit_pair(encoder);
+
+   total_bits = (*bitstream->map - encoder->initial_ptr) * 32 +
+                bitstream->bits_in_buffer;
+
+   flush_bits(bitstream);
+
+   return total_bits;
+}
+
+static void v8_map_swap(uint8_t *map, int a, int b)
+{
+   uint8_t tmp = map[a];
+
+   map[a] = map[b];
+   map[b] = tmp;
+}
+
+/*
+ * Sort the Huffman symbol to bit length map according to the histogram of bit
+ * lengths, so that more common bit lengths are represented by shorter codes.
+ * FIXME - doesn't take into account rlz mode properly.
+ */
+static void v8_sort_map(uint8_t *map, size_t *histogram)
+{
+   const uint8_t network[19][2] = {
+      {0, 2}, {1, 3}, {4, 6}, {5, 7},
+      {0, 4}, {1, 5}, {2, 6}, {3, 7},
+      {0, 1}, {2, 3}, {4, 5}, {6, 7},
+      {2, 4}, {3, 5},
+      {1, 4}, {3, 6},
+      {1, 2}, {3 ,4}, {5, 6},
+   };
+
+   for (int i = 0; i < 19; i++) {
+      int a = network[i][0];
+      int b = network[i][1];
+
+      if (histogram[map[a]] < histogram[map[b]])
+         v8_map_swap(map, a, b);
+   }
+}
+
+static void v8_encoder_reset(struct v8_encoder *encoder)
+{
+   encoder->bitstream.buffer = 0;
+   encoder->bitstream.bits_in_buffer = 0;
+   encoder->bytes_read = 0;
+   memset(encoder->code, 0, sizeof(encoder->code));
+
+   v8_encode_byte(encoder, 1);
+   v8_encode_byte(encoder, 0);
+}
+
+static uint32_t v8_encode(struct v8_encoder *encoder, uint8_t *weights, size_t len, uint8_t zero_point)
+{
+   v8_encoder_reset(encoder);
+
+   for (size_t i = 0; i < len; i++) {
+      if (encoder->zrl) {
+         if (weights[i] == zero_point) {
+            encoder->accum_zeroes++;
+            continue;
+         } else if (encoder->accum_zeroes) {
+            v8_encode_byte(encoder, 0x00);
+            encoder->accum_zeroes = 0;
+         }
+      }
+      v8_encode_byte(encoder, weights[i] - zero_point);
+   }
+
+   return v8_encoder_flush(encoder, len);
+}
+
+static unsigned
+calculate_weight_bo_size_v8(struct etna_ml_subgraph *subgraph, const struct etna_operation *operation, uint8_t *symbol_map)
+{
+   unsigned input_channels = operation->addition ? 1 : operation->input_channels;
+   unsigned output_channels = operation->addition ? 1 : operation->output_channels;
+   uint8_t *input = map_resource(operation->weight_tensor);
+   uint8_t (*weights_map)[input_channels][operation->weight_height][operation->weight_width] = (void *)input;
+
+   assert(output_channels == 1); /* for now */
+   assert(output_channels <= 6); /* next */
+
+   size_t histogram[9] = {};
+   v8_histogram_accumulate(histogram, (uint8_t *)weights_map[0], operation->weight_width *
+                operation->weight_height * input_channels, false);
+
+   for (int i = 0; i < 8; i++)
+      symbol_map[i] = i;
+   v8_sort_map(symbol_map, histogram);
+
+   // FIXME - overwrite map with the one blob chooses for
+   // test_conv2d[4-False-valid-1-1-1-1-4-1]
+   uint8_t override_map[8] = { 7, 8, 5, 0, 1, 2, 6, 3 };
+   memcpy(symbol_map, override_map, 8);
+
+   return 4096; // FIXME - actually compute required space
+}
+
+static uint32_t v8_pack_symbol_map(uint8_t map[8])
+{
+   uint32_t ret = 0;
+
+   for (int i = 0; i < 8; i++)
+      ret |= map[i] << (4 * i);
+
+   return ret;
+}
+
+static uint32_t calculate_bias_correction_v8(uint8_t *weights, const struct etna_operation *operation)
+{
+   int32_t correction = 0;
+
+   for (unsigned i = 0; i < operation->weight_width * operation->weight_height * operation->input_channels; i++) {
+      correction += (weights[i] - operation->weight_zero_point) * (operation->input_zero_point - 128);
+   }
+
+   return correction;
+}
+
+static struct etna_bo *
+create_coefficients_bo_v8(struct etna_ml_subgraph *subgraph, const struct etna_operation *operation, unsigned *cache_size)
+{
+   struct pipe_context *context = subgraph->base.context;
+   struct etna_context *ctx = etna_context(context);
+   unsigned nn_core_count = ctx->screen->specs.nn_core_count;
+   unsigned header_size = ALIGN(sizeof(struct etna_nn_header_v8) + nn_core_count * 4, 64);
+   unsigned input_channels = operation->addition ? 1 : operation->input_channels;
+   unsigned output_channels = operation->addition ? 1 : operation->output_channels;
+   unsigned cores_used = MIN2(output_channels, nn_core_count);
+   uint8_t *input = map_resource(operation->weight_tensor);
+   uint8_t (*weights_map)[input_channels][operation->weight_height][operation->weight_width] = (void *)input;
+   uint32_t *biases = map_resource(operation->bias_tensor);
+   unsigned bo_size;
+
+   assert(header_size == 64);
+
+   assert(output_channels == 1); /* for now */
+   assert(output_channels <= 6); /* next */
+
+   uint8_t symbol_map[8];
+   bo_size = calculate_weight_bo_size_v8(subgraph, operation, symbol_map);
+
+   struct etna_bo *compressed = etna_bo_new(ctx->screen->dev,
+                                            bo_size,
+                                            DRM_ETNA_GEM_CACHE_WC);
+
+   etna_bo_cpu_prep(compressed, DRM_ETNA_PREP_WRITE);
+
+   uint32_t *map = etna_bo_map(compressed);
+   memset(map, 0, bo_size);
+
+   struct etna_nn_header_v8 *header = (struct etna_nn_header_v8 *)map;
+   header->version = 1;
+   // FIXME - how to decide this
+   bool zrl = true;
+   if (zrl) {
+      uint8_t rlt[4] = { 6, 1, 0, 1 }; // FIXME - from pointwise 2x2x1 convolution
+      header->run_length_size = sizeof(rlt);
+      memcpy(header->run_length_table, rlt, sizeof(rlt));
+   }
+   header->symbol_map = v8_pack_symbol_map(symbol_map);
+   map += header_size / 4;
+
+   struct v8_encoder encoder;
+   v8_encoder_init(&encoder, symbol_map, map, zrl);
+
+   for (unsigned core = 0; core < cores_used; core++) {
+
+      unsigned actual_bits;
+      assert(!(operation->pointwise && output_channels > 8)); /* for now */;
+      assert(!(input_channels > 1)); /* for now */
+      actual_bits = v8_encode(&encoder, (uint8_t *)weights_map[0], operation->weight_width *
+                              operation->weight_height * input_channels,
+                              operation->weight_zero_point);
+
+      header->stream_size[core] = actual_bits;
+
+      map += ALIGN(DIV_ROUND_UP(actual_bits, 8), 64) / 4;
+   }
+
+   for (unsigned core = 0; core < cores_used; core++) {
+      uint32_t corr = calculate_bias_correction_v8((uint8_t *)weights_map[0], operation);
+      map[core] = biases[core] - corr;
+   }
+
+   etna_bo_cpu_fini(compressed);
+
+   // FIXME - from pointwise 2x2x1 convolution
+   *cache_size = 256;
+
+   return compressed;
+}
+
 void
 etna_ml_compile_operation_nn(struct etna_ml_subgraph *subgraph, const struct etna_operation *operation,
                              struct etna_vip_instruction *instruction)
 {
+   struct pipe_context *pctx = subgraph->base.context;
+   struct etna_context *ctx = etna_context(pctx);
+   unsigned nn_core_version = ctx->screen->specs.nn_core_version;
    unsigned coef_cache_size;
 
    instruction->type = ETNA_JOB_TYPE_NN;
-   instruction->coefficients = create_coefficients_bo(subgraph, operation, &coef_cache_size);
+   if (nn_core_version == 8)
+      instruction->coefficients = create_coefficients_bo_v8(subgraph, operation, &coef_cache_size);
+   else
+      instruction->coefficients = create_coefficients_bo(subgraph, operation, &coef_cache_size);
 
    struct pipe_resource *input = etna_ml_get_tensor(subgraph, operation->input_tensor);
    assert(input);
