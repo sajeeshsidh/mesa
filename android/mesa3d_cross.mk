@@ -83,6 +83,7 @@ MESON_GEN_NINJA := \
 	--cross-file $(call relative-to-absolute,$(MESON_GEN_DIR))/aosp_cross        \
 	--buildtype=release                                                          \
 	-Ddri-search-path=/vendor/$(MESA3D_LIB_DIR)/dri                              \
+	-Dgbm-backends-path=/vendor/$(MESA3D_LIB_DIR)/gbm                            \
 	-Dplatforms=android                                                          \
 	-Dplatform-sdk-version=$(PLATFORM_SDK_VERSION)                               \
 	-Dgallium-drivers=$(subst $(space),$(comma),$(BOARD_MESA3D_GALLIUM_DRIVERS)) \
