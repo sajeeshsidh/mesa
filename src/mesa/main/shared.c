@@ -42,6 +42,8 @@
 #include "syncobj.h"
 #include "texobj.h"
 #include "texturebindless.h"
+#include "vbo/vbo_save.h"
+#include "context.h"
 
 #include "util/hash_table.h"
 #include "util/set.h"
@@ -349,6 +351,9 @@ free_shared_state(struct gl_context *ctx, struct gl_shared_state *shared)
    _mesa_DeinitHashTable(&shared->DisplayList, delete_displaylist_cb, ctx);
    free(shared->small_dlist_store.ptr);
    util_idalloc_fini(&shared->small_dlist_store.free_idx);
+
+   if (_mesa_is_desktop_gl_compat(ctx))
+      vbo_save_destroy(ctx);
 
    _mesa_HashWalk(&shared->ShaderObjects, free_shader_program_data_cb, ctx);
    _mesa_DeinitHashTable(&shared->ShaderObjects, delete_shader_cb, ctx);
