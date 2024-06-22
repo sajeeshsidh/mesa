@@ -853,7 +853,7 @@ update_vertex_elements(struct NineDevice9 *device)
     BOOL need_dummy_vbo = false;
     struct cso_velems_state ve;
     unsigned vtxbuf_mask;
-    unsigned vtxbuf_holes_map[PIPE_MAX_ATTRIBS];
+    unsigned vtxbuf_holes_map[PIPE_MAX_ATTRIBS] = {};
 
     context->stream_usage_mask = 0;
     memset(vdecl_index_map, -1, 16);
