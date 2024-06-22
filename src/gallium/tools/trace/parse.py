@@ -427,7 +427,7 @@ class Main:
         for fname in args.filename:
             try:
                 if fname.endswith('.gz'):
-                    from gzip import GzipFile
+                    from zlib_ng import GzipFile
                     stream = io.TextIOWrapper(GzipFile(fname, 'rb'))
                 elif fname.endswith('.bz2'):
                     from bz2 import BZ2File

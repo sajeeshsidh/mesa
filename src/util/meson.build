@@ -223,7 +223,7 @@ format_srgb = custom_target(
 )
 
 deps_for_libmesa_util = [
-  dep_zlib,
+  dep_zlib_ng,
   dep_clock,
   dep_thread,
   dep_atomic,

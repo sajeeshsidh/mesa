@@ -4,7 +4,7 @@
 # SPDX-License-Identifier: MIT
 
 import sys
-import zlib
+from zlib_ng import zlib_ng
 import xml.etree.ElementTree as et
 
 
@@ -13,7 +13,7 @@ def main():
         print("No input xml file specified")
         sys.exit(1)
 
-    compress = zlib.compressobj()
+    compress = zlib_ng.compressobj()
 
     print("static const struct {")
     print("   uint32_t ver_10;")

@@ -233,7 +233,7 @@ def pkk_parse_trace(filename, options, state):
     pkk_info(f"Parsing {filename} ...")
     try:
         if filename.endswith(".gz"):
-            from gzip import GzipFile
+            from zlib_ng import GzipFile
             stream = io.TextIOWrapper(GzipFile(filename, "rb"))
         elif filename.endswith(".bz2"):
             from bz2 import BZ2File

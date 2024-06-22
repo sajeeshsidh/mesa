@@ -575,11 +575,11 @@ option(
 )
 
 option(
-   'zlib',
+   'zlib_ng',
    type : 'feature',
    deprecated: {'true': 'enabled', 'false': 'disabled'},
    value : 'enabled',
-   description : 'Use ZLIB to build driver. Default: enabled'
+   description : 'Use ZLIB-ng to build driver. Default: enabled'
 )
 
 option(

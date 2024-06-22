@@ -8,7 +8,7 @@
 
 #include <stdbool.h>
 #include <stdint.h>
-#include <zlib.h>
+#include <zlib-ng.h>
 
 #include "redump.h"
 

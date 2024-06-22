@@ -30,7 +30,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <stdarg.h>
-#include <zlib.h>
+#include <zlib-ng.h>
 
 #include "util/list.h"
 
@@ -53,7 +53,7 @@ static int zlib_inflate(uint32_t **ptr, int len)
    zstream.next_in = (unsigned char *)*ptr;
    zstream.avail_in = 4*len;
 
-   if (inflateInit(&zstream) != Z_OK)
+   if (zng_inflateInit(&zstream) != Z_OK)
       return 0;
 
    out = malloc(out_size);
@@ -61,13 +61,13 @@ static int zlib_inflate(uint32_t **ptr, int len)
    zstream.avail_out = out_size;
 
    do {
-      switch (inflate(&zstream, Z_SYNC_FLUSH)) {
+      switch (zng_inflate(&zstream, Z_SYNC_FLUSH)) {
       case Z_STREAM_END:
          goto end;
       case Z_OK:
          break;
       default:
-         inflateEnd(&zstream);
+         zng_inflateEnd(&zstream);
          return 0;
       }
 
@@ -76,7 +76,7 @@ static int zlib_inflate(uint32_t **ptr, int len)
 
       out = realloc(out, 2*zstream.total_out);
       if (out == NULL) {
-         inflateEnd(&zstream);
+         zng_inflateEnd(&zstream);
          return 0;
       }
 
@@ -84,7 +84,7 @@ static int zlib_inflate(uint32_t **ptr, int len)
       zstream.avail_out = zstream.total_out;
    } while (1);
  end:
-   inflateEnd(&zstream);
+   zng_inflateEnd(&zstream);
    free(*ptr);
    *ptr = out;
    return zstream.total_out / 4;

@@ -1568,10 +1568,10 @@ else
 endif
 
 # IMPORTANT: We can't upgrade Zlib beyond 1.2.5 because it would break Viewperf.
-dep_zlib = dependency('zlib', version : '>= 1.2.3',
+dep_zlib_ng = dependency('zlib-ng', version : '>= 1.3.0',
                       allow_fallback: true,
-                      required : get_option('zlib'))
-if dep_zlib.found()
+                      required : get_option('zlib_ng'))
+if dep_zlib_ng.found()
   pre_args += '-DHAVE_ZLIB'
 endif
 
@@ -1580,7 +1580,7 @@ if dep_zstd.found()
   pre_args += '-DHAVE_ZSTD'
 endif
 
-with_compression = dep_zlib.found() or dep_zstd.found()
+with_compression = dep_zlib_ng.found() or dep_zstd.found()
 if with_compression
   pre_args += '-DHAVE_COMPRESSION'
 elif with_shader_cache

@@ -2,7 +2,7 @@
 
 import re
 import sys
-import gzip
+from zlib_ng import gzip_ng
 import io
 
 # Captures per-frame state, including all the renderpasses, and
@@ -140,7 +140,7 @@ class RenderPass:
 def main():
     filename = sys.argv[1]
     if filename.endswith(".gz"):
-        file = gzip.open(filename, "r")
+        file = gzip_ng.open(filename, "r")
         file = io.TextIOWrapper(file)
     else:
         file = open(filename, "r")

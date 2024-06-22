@@ -34,7 +34,7 @@
 #include <expat.h>
 #endif
 #include <inttypes.h>
-#include <zlib.h>
+#include <zlib-ng.h>
 
 #include <util/macros.h>
 #include <util/ralloc.h>
@@ -575,7 +575,7 @@ static uint32_t zlib_inflate(const void *compressed_data,
         zstream.next_in = (unsigned char *)compressed_data;
         zstream.avail_in = compressed_len;
 
-        if (inflateInit(&zstream) != Z_OK)
+        if (zng_inflateInit(&zstream) != Z_OK)
                 return 0;
 
         out = malloc(4096);
@@ -583,13 +583,13 @@ static uint32_t zlib_inflate(const void *compressed_data,
         zstream.avail_out = 4096;
 
         do {
-                switch (inflate(&zstream, Z_SYNC_FLUSH)) {
+                switch (zng_inflate(&zstream, Z_SYNC_FLUSH)) {
                 case Z_STREAM_END:
                         goto end;
                 case Z_OK:
                         break;
                 default:
-                        inflateEnd(&zstream);
+                        zng_inflateEnd(&zstream);
                         return 0;
                 }
 
@@ -598,7 +598,7 @@ static uint32_t zlib_inflate(const void *compressed_data,
 
                 out = realloc(out, 2*zstream.total_out);
                 if (out == NULL) {
-                        inflateEnd(&zstream);
+                        zng_inflateEnd(&zstream);
                         return 0;
                 }
 
@@ -606,7 +606,7 @@ static uint32_t zlib_inflate(const void *compressed_data,
                 zstream.avail_out = zstream.total_out;
         } while (1);
  end:
-        inflateEnd(&zstream);
+        zng_inflateEnd(&zstream);
         *out_ptr = out;
         return zstream.total_out;
 }

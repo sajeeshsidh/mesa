@@ -92,7 +92,7 @@ fd_rd_output_init(struct fd_rd_output *output, char* output_name)
       char file_path[PATH_MAX];
       snprintf(file_path, sizeof(file_path), "%s/%s_combined.rd",
                fd_rd_output_base_path, output->name);
-      output->file = gzopen(file_path, "w");
+      output->file = zng_gzopen(file_path, "w");
    }
 
    if (FD_RD_DUMP(TRIGGER)) {

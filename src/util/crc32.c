@@ -32,10 +32,15 @@
  * @author Jose Fonseca
  */
 
-
+#include "crc32.h"
 #ifdef HAVE_ZLIB
-#include <zlib.h>
-#endif
+#include <zlib-ng.h>
+uint32_t
+util_hash_crc32(const void *data, size_t size)
+{
+   return ~zng_crc32_z(0,data, size);
+}
+#else
 #include "crc32.h"
 
 
@@ -117,18 +122,9 @@ util_hash_crc32(const void *data, size_t size)
    const uint8_t *p = data;
    uint32_t crc = 0xffffffff;
 
-#ifdef HAVE_ZLIB
-   /* Prefer zlib's implementation for better performance.
-    * zlib's uInt is always "unsigned int" while size_t can be 64bit.
-    * Since 1.2.9 there's crc32_z that takes size_t, but use the more
-    * available function to avoid build system complications.
-    */
-   if ((uInt)size == size)
-      return ~crc32(0, data, size);
-#endif
-
    while (size--)
       crc = util_crc32_table[(crc ^ *p++) & 0xff] ^ (crc >> 8);
 
    return crc;
 }
+#endif

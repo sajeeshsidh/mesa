@@ -25,13 +25,13 @@
 
 #include <assert.h>
 
-/* Ensure that zlib uses 'const' in 'z_const' declarations. */
+/* Ensure that zlib uses 'const' in 'zng_const' declarations. */
 #ifndef ZLIB_CONST
 #define ZLIB_CONST
 #endif
 
 #ifdef HAVE_ZLIB
-#include "zlib.h"
+#include "zlib-ng.h"
 #endif
 
 #ifdef HAVE_ZSTD
@@ -87,7 +87,7 @@ util_compress_deflate(const uint8_t *in_data, size_t in_data_size,
    size_t compressed_size = 0;
 
    /* allocate deflate state */
-   z_stream strm;
+   zng_stream strm;
    strm.zalloc = Z_NULL;
    strm.zfree = Z_NULL;
    strm.opaque = Z_NULL;
@@ -96,14 +96,14 @@ util_compress_deflate(const uint8_t *in_data, size_t in_data_size,
    strm.avail_in = in_data_size;
    strm.avail_out = out_buff_size;
 
-   int ret = deflateInit(&strm, Z_BEST_COMPRESSION);
+   int ret = zng_deflateInit(&strm, Z_BEST_COMPRESSION);
    if (ret != Z_OK) {
-       (void) deflateEnd(&strm);
+       (void) zng_deflateEnd(&strm);
        return 0;
    }
 
    /* compress until end of in_data */
-   ret = deflate(&strm, Z_FINISH);
+   ret = zng_deflate(&strm, Z_FINISH);
 
    /* stream should be complete */
    assert(ret == Z_STREAM_END);
@@ -112,7 +112,7 @@ util_compress_deflate(const uint8_t *in_data, size_t in_data_size,
    }
 
    /* clean up and return */
-   (void) deflateEnd(&strm);
+   (void) zng_deflateEnd(&strm);
    return compressed_size;
 #else
    STATIC_ASSERT(false);
@@ -131,7 +131,7 @@ util_compress_inflate(const uint8_t *in_data, size_t in_data_size,
    size_t ret = ZSTD_decompress(out_data, out_data_size, in_data, in_data_size);
    return !ZSTD_isError(ret);
 #elif defined(HAVE_ZLIB)
-   z_stream strm;
+   zng_stream strm;
 
    /* allocate inflate state */
    strm.zalloc = Z_NULL;
@@ -142,24 +142,24 @@ util_compress_inflate(const uint8_t *in_data, size_t in_data_size,
    strm.next_out = out_data;
    strm.avail_out = out_data_size;
 
-   int ret = inflateInit(&strm);
+   int ret = zng_inflateInit(&strm);
    if (ret != Z_OK)
       return false;
 
-   ret = inflate(&strm, Z_NO_FLUSH);
+   ret = zng_inflate(&strm, Z_NO_FLUSH);
    assert(ret != Z_STREAM_ERROR);  /* state not clobbered */
 
    /* Unless there was an error we should have decompressed everything in one
     * go as we know the uncompressed file size.
     */
    if (ret != Z_STREAM_END) {
-      (void)inflateEnd(&strm);
+      (void)zng_inflateEnd(&strm);
       return false;
    }
    assert(strm.avail_out == 0);
 
    /* clean up and return */
-   (void)inflateEnd(&strm);
+   (void)zng_inflateEnd(&strm);
    return true;
 #else
    STATIC_ASSERT(false);
