@@ -296,7 +296,7 @@ preprocess_nir(nir_shader *nir)
    NIR_PASS(_, nir, nir_lower_global_vars_to_local);
 
    NIR_PASS(_, nir, nir_split_var_copies);
-   NIR_PASS(_, nir, nir_split_struct_vars, nir_var_function_temp);
+   NIR_PASS(_, nir, nir_split_struct_vars, nir_var_function_temp, NULL);
 
    v3d_optimize_nir(NULL, nir);
 

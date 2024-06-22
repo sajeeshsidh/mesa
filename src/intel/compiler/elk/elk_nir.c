@@ -927,7 +927,7 @@ elk_preprocess_nir(const struct elk_compiler *compiler, nir_shader *nir,
    OPT(nir_lower_global_vars_to_local);
 
    OPT(nir_split_var_copies);
-   OPT(nir_split_struct_vars, nir_var_function_temp);
+   OPT(nir_split_struct_vars, nir_var_function_temp, NULL);
 
    elk_nir_optimize(nir, is_scalar, devinfo);
 

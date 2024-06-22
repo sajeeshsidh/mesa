@@ -2001,7 +2001,7 @@ TEST_F(nir_split_vars_test, simple_split)
    ASSERT_EQ(count_derefs(nir_deref_type_array), 4);
    ASSERT_EQ(count_function_temp_vars(), 1);
 
-   bool progress = nir_split_array_vars(b->shader, nir_var_function_temp);
+   bool progress = nir_split_array_vars(b->shader, nir_var_function_temp, NULL);
    EXPECT_TRUE(progress);
 
    nir_validate_shader(b->shader, NULL);
@@ -2038,7 +2038,7 @@ TEST_F(nir_split_vars_test, simple_no_split_array_struct)
    ASSERT_EQ(count_derefs(nir_deref_type_struct), 4);
    ASSERT_EQ(count_function_temp_vars(), 2);
 
-   bool progress = nir_split_array_vars(b->shader, nir_var_function_temp);
+   bool progress = nir_split_array_vars(b->shader, nir_var_function_temp, NULL);
    EXPECT_TRUE(progress);
 
    nir_validate_shader(b->shader, NULL);
@@ -2068,7 +2068,7 @@ TEST_F(nir_split_vars_test, simple_split_shader_temp)
    ASSERT_EQ(count_derefs(nir_deref_type_array), 4);
    ASSERT_EQ(count_shader_temp_vars(), 1);
 
-   bool progress = nir_split_array_vars(b->shader, nir_var_shader_temp);
+   bool progress = nir_split_array_vars(b->shader, nir_var_shader_temp, NULL);
    EXPECT_TRUE(progress);
 
    nir_validate_shader(b->shader, NULL);
@@ -2090,7 +2090,7 @@ TEST_F(nir_split_vars_test, simple_oob)
    ASSERT_EQ(count_derefs(nir_deref_type_array), 6);
    ASSERT_EQ(count_function_temp_vars(), 1);
 
-   bool progress = nir_split_array_vars(b->shader, nir_var_function_temp);
+   bool progress = nir_split_array_vars(b->shader, nir_var_function_temp, NULL);
    EXPECT_TRUE(progress);
 
    nir_validate_shader(b->shader, NULL);
@@ -2112,7 +2112,7 @@ TEST_F(nir_split_vars_test, simple_unused)
    ASSERT_EQ(count_derefs(nir_deref_type_array), 2);
    ASSERT_EQ(count_function_temp_vars(), 1);
 
-   bool progress = nir_split_array_vars(b->shader, nir_var_function_temp);
+   bool progress = nir_split_array_vars(b->shader, nir_var_function_temp, NULL);
    EXPECT_TRUE(progress);
 
    nir_validate_shader(b->shader, NULL);
@@ -2139,7 +2139,7 @@ TEST_F(nir_split_vars_test, two_level_split)
    ASSERT_EQ(count_derefs(nir_deref_type_array), 20);
    ASSERT_EQ(count_function_temp_vars(), 1);
 
-   bool progress = nir_split_array_vars(b->shader, nir_var_function_temp);
+   bool progress = nir_split_array_vars(b->shader, nir_var_function_temp, NULL);
    EXPECT_TRUE(progress);
 
    nir_validate_shader(b->shader, NULL);
@@ -2164,7 +2164,7 @@ TEST_F(nir_split_vars_test, simple_dont_split)
    ASSERT_EQ(count_derefs(nir_deref_type_array), 4);
    ASSERT_EQ(count_function_temp_vars(), 1);
 
-   bool progress = nir_split_array_vars(b->shader, nir_var_function_temp);
+   bool progress = nir_split_array_vars(b->shader, nir_var_function_temp, NULL);
    EXPECT_FALSE(progress);
 
    nir_validate_shader(b->shader, NULL);
@@ -2194,7 +2194,7 @@ TEST_F(nir_split_vars_test, twolevel_dont_split_lvl_0)
    ASSERT_EQ(count_derefs(nir_deref_type_array), 28);
    ASSERT_EQ(count_function_temp_vars(), 1);
 
-   bool progress = nir_split_array_vars(b->shader, nir_var_function_temp);
+   bool progress = nir_split_array_vars(b->shader, nir_var_function_temp, NULL);
    EXPECT_TRUE(progress);
 
    nir_validate_shader(b->shader, NULL);
@@ -2225,7 +2225,7 @@ TEST_F(nir_split_vars_test, twolevel_dont_split_lvl_1)
    ASSERT_EQ(count_derefs(nir_deref_type_array), 28);
    ASSERT_EQ(count_function_temp_vars(), 1);
 
-   bool progress = nir_split_array_vars(b->shader, nir_var_function_temp);
+   bool progress = nir_split_array_vars(b->shader, nir_var_function_temp, NULL);
    EXPECT_TRUE(progress);
 
    nir_validate_shader(b->shader, NULL);
@@ -2254,7 +2254,7 @@ TEST_F(nir_split_vars_test, split_multiple_store)
    ASSERT_EQ(count_derefs(nir_deref_type_array), 8);
    ASSERT_EQ(count_function_temp_vars(), 2);
 
-   bool progress = nir_split_array_vars(b->shader, nir_var_function_temp);
+   bool progress = nir_split_array_vars(b->shader, nir_var_function_temp, NULL);
    EXPECT_TRUE(progress);
 
    nir_validate_shader(b->shader, NULL);
@@ -2286,7 +2286,7 @@ TEST_F(nir_split_vars_test, split_load_store)
    ASSERT_EQ(count_derefs(nir_deref_type_array), 12);
    ASSERT_EQ(count_function_temp_vars(), 2);
 
-   bool progress = nir_split_array_vars(b->shader, nir_var_function_temp);
+   bool progress = nir_split_array_vars(b->shader, nir_var_function_temp, NULL);
    EXPECT_TRUE(progress);
 
    nir_validate_shader(b->shader, NULL);
@@ -2318,7 +2318,7 @@ TEST_F(nir_split_vars_test, split_copy)
    ASSERT_EQ(count_derefs(nir_deref_type_array), 12);
    ASSERT_EQ(count_function_temp_vars(), 2);
 
-   bool progress = nir_split_array_vars(b->shader, nir_var_function_temp);
+   bool progress = nir_split_array_vars(b->shader, nir_var_function_temp, NULL);
    EXPECT_TRUE(progress);
 
    nir_validate_shader(b->shader, NULL);
@@ -2351,7 +2351,7 @@ TEST_F(nir_split_vars_test, split_wildcard_copy)
    ASSERT_EQ(count_function_temp_vars(), 2);
    ASSERT_EQ(count_intrinsics(nir_intrinsic_copy_deref), 1);
 
-   bool progress = nir_split_array_vars(b->shader, nir_var_function_temp);
+   bool progress = nir_split_array_vars(b->shader, nir_var_function_temp, NULL);
    EXPECT_TRUE(progress);
 
    nir_validate_shader(b->shader, NULL);
@@ -2415,7 +2415,7 @@ TEST_F(nir_split_vars_test, split_nested_struct_const_init)
 
    nir_validate_shader(b->shader, NULL);
 
-   bool progress = nir_split_struct_vars(b->shader, nir_var_mem_constant);
+   bool progress = nir_split_struct_vars(b->shader, nir_var_mem_constant, NULL);
    EXPECT_TRUE(progress);
 
    nir_validate_shader(b->shader, NULL);

@@ -108,7 +108,7 @@ optimize_nir(nir_shader *nir, const struct nak_compiler *nak, bool allow_copies)
        * code.
        */
       if (nir->info.stage != MESA_SHADER_KERNEL)
-         OPT(nir, nir_split_array_vars, nir_var_function_temp);
+         OPT(nir, nir_split_array_vars, nir_var_function_temp, NULL);
 
       OPT(nir, nir_shrink_vec_array_vars, nir_var_function_temp);
       OPT(nir, nir_opt_deref);
@@ -381,7 +381,7 @@ nak_preprocess_nir(nir_shader *nir, const struct nak_compiler *nak)
    OPT(nir, nir_lower_global_vars_to_local);
 
    OPT(nir, nir_split_var_copies);
-   OPT(nir, nir_split_struct_vars, nir_var_function_temp);
+   OPT(nir, nir_split_struct_vars, nir_var_function_temp, NULL);
 
    /* Optimize but allow copies because we haven't lowered them yet */
    optimize_nir(nir, nak, true /* allow_copies */);

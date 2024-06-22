@@ -85,7 +85,7 @@ void si_nir_opts(struct si_screen *sscreen, struct nir_shader *nir, bool first)
       NIR_PASS(progress, nir, nir_lower_phis_to_scalar, false);
 
       if (first) {
-         NIR_PASS(progress, nir, nir_split_array_vars, nir_var_function_temp);
+         NIR_PASS(progress, nir, nir_split_array_vars, nir_var_function_temp, NULL);
          NIR_PASS(lower_alu_to_scalar, nir, nir_shrink_vec_array_vars, nir_var_function_temp);
          NIR_PASS(progress, nir, nir_opt_find_array_copies);
       }

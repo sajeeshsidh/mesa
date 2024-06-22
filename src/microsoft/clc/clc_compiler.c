@@ -956,7 +956,7 @@ clc_spirv_to_dxil(struct clc_libclc *lib,
    // While inserting new var derefs for our "logical" addressing mode, temporarily
    // switch the pointer size to 32-bit.
    nir->info.cs.ptr_size = 32;
-   NIR_PASS_V(nir, nir_split_struct_vars, nir_var_shader_temp);
+   NIR_PASS_V(nir, nir_split_struct_vars, nir_var_shader_temp, NULL);
    NIR_PASS_V(nir, dxil_nir_flatten_var_arrays, nir_var_shader_temp);
    NIR_PASS_V(nir, dxil_nir_lower_var_bit_size, nir_var_shader_temp,
               (supported_int_sizes & 16) ? 16 : 32, (supported_int_sizes & 64) ? 64 : 32);

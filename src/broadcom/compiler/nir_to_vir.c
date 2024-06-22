@@ -2065,7 +2065,7 @@ v3d_optimize_nir(struct v3d_compile *c, struct nir_shader *s)
         do {
                 progress = false;
 
-                NIR_PASS(progress, s, nir_split_array_vars, nir_var_function_temp);
+                NIR_PASS(progress, s, nir_split_array_vars, nir_var_function_temp, NULL);
                 NIR_PASS(progress, s, nir_shrink_vec_array_vars, nir_var_function_temp);
                 NIR_PASS(progress, s, nir_opt_deref);
 

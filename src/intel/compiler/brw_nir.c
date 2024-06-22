@@ -726,7 +726,7 @@ brw_nir_optimize(nir_shader *nir,
        * code.
        */
       if (nir->info.stage != MESA_SHADER_KERNEL)
-         LOOP_OPT(nir_split_array_vars, nir_var_function_temp);
+         LOOP_OPT(nir_split_array_vars, nir_var_function_temp, NULL);
       LOOP_OPT(nir_shrink_vec_array_vars, nir_var_function_temp);
       LOOP_OPT(nir_opt_deref);
       if (LOOP_OPT(nir_opt_memcpy))
@@ -1049,7 +1049,7 @@ brw_preprocess_nir(const struct brw_compiler *compiler, nir_shader *nir,
    OPT(nir_lower_global_vars_to_local);
 
    OPT(nir_split_var_copies);
-   OPT(nir_split_struct_vars, nir_var_function_temp);
+   OPT(nir_split_struct_vars, nir_var_function_temp, NULL);
 
    brw_nir_optimize(nir, devinfo);
 

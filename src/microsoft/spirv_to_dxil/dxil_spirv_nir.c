@@ -1009,7 +1009,7 @@ dxil_spirv_nir_passes(nir_shader *nir,
       NIR_PASS_V(nir, dxil_nir_split_unaligned_loads_stores, nir_var_mem_shared);
       NIR_PASS_V(nir, nir_lower_explicit_io, nir_var_mem_shared, nir_address_format_32bit_offset);
    } else {
-      NIR_PASS_V(nir, nir_split_struct_vars, nir_var_mem_shared);
+      NIR_PASS_V(nir, nir_split_struct_vars, nir_var_mem_shared, NULL);
       NIR_PASS_V(nir, dxil_nir_flatten_var_arrays, nir_var_mem_shared);
       NIR_PASS_V(nir, dxil_nir_lower_var_bit_size, nir_var_mem_shared,
                  conf->shader_model_max >= SHADER_MODEL_6_2 ? 16 : 32, 64);
@@ -1075,7 +1075,7 @@ dxil_spirv_nir_passes(nir_shader *nir,
    }
 
    NIR_PASS_V(nir, nir_remove_dead_variables, nir_var_function_temp, NULL);
-   NIR_PASS_V(nir, nir_split_struct_vars, nir_var_function_temp);
+   NIR_PASS_V(nir, nir_split_struct_vars, nir_var_function_temp, NULL);
    NIR_PASS_V(nir, dxil_nir_flatten_var_arrays, nir_var_function_temp);
    NIR_PASS_V(nir, dxil_nir_lower_var_bit_size, nir_var_function_temp,
               conf->shader_model_max >= SHADER_MODEL_6_2 ? 16 : 32, 64);
