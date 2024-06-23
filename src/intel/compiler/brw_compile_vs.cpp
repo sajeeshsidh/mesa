@@ -22,6 +22,8 @@ brw_compile_vs(const struct brw_compiler *compiler,
       brw_should_print_shader(nir, params->base.debug_flag ?
                                    params->base.debug_flag : DEBUG_VS);
 
+   brw_debug_archive_nir(&params->base);
+
    prog_data->base.base.stage = MESA_SHADER_VERTEX;
    prog_data->base.base.ray_queries = nir->info.ray_queries;
    prog_data->base.base.total_scratch = 0;
@@ -115,7 +117,7 @@ brw_compile_vs(const struct brw_compiler *compiler,
    fs_generator g(compiler, &params->base,
                   &prog_data->base.base,
                   MESA_SHADER_VERTEX);
-   if (unlikely(debug_enabled)) {
+   if (unlikely(debug_enabled || params->base.archiver)) {
       const char *debug_name =
          ralloc_asprintf(params->base.mem_ctx, "%s vertex shader %s",
                          nir->info.label ? nir->info.label :

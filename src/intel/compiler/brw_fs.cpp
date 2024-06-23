@@ -2760,18 +2760,18 @@ fs_visitor::debug_optimizer(const nir_shader *nir,
                             const char *pass_name,
                             int iteration, int pass_num) const
 {
-   if (!brw_should_print_shader(nir, DEBUG_OPTIMIZER))
+   if (!archiver)
       return;
 
-   char *filename;
-   int ret = asprintf(&filename, "%s/%s%d-%s-%02d-%02d-%s",
-                      debug_get_option("INTEL_SHADER_OPTIMIZER_PATH", "./"),
-                      _mesa_shader_stage_to_abbrev(stage), dispatch_width, nir->info.name,
+   const char *filename =
+      ralloc_asprintf(mem_ctx, "%s%d-%s.brw/%02d-%02d-%s",
+                      _mesa_shader_stage_to_abbrev(nir->info.stage),
+                      dispatch_width, nir->info.name,
                       iteration, pass_num, pass_name);
-   if (ret == -1)
-      return;
-   dump_instructions(filename);
-   free(filename);
+
+   FILE *f = debug_archiver_start_file(archiver, filename);
+   dump_instructions_to_file(f);
+   debug_archiver_finish_file(archiver);
 }
 
 uint32_t
@@ -3801,6 +3801,24 @@ brw_nir_populate_wm_prog_data(nir_shader *shader,
    brw_compute_flat_inputs(prog_data, shader);
 }
 
+void
+brw_debug_archive_nir(const struct brw_compile_params *params)
+{
+   debug_archiver *archiver = params->archiver;
+   if (!archiver)
+      return;
+
+   nir_shader *nir = params->nir;
+   const char *filename =
+      ralloc_asprintf(params->mem_ctx, "%s-NIR-%s.nir/start-brw",
+                      _mesa_shader_stage_to_abbrev(nir->info.stage),
+                      nir->info.name);
+
+   FILE *f = debug_archiver_start_file(archiver, filename);
+   nir_print_shader(nir, f);
+   debug_archiver_finish_file(archiver);
+}
+
 const unsigned *
 brw_compile_fs(const struct brw_compiler *compiler,
                struct brw_compile_fs_params *params)
@@ -3819,6 +3837,8 @@ brw_compile_fs(const struct brw_compiler *compiler,
 
    const struct intel_device_info *devinfo = compiler->devinfo;
    const unsigned max_subgroup_size = 32;
+
+   brw_debug_archive_nir(&params->base);
 
    brw_nir_apply_key(nir, compiler, &key->base, max_subgroup_size);
    brw_nir_lower_fs_inputs(nir, devinfo, key);
@@ -4024,7 +4044,8 @@ brw_compile_fs(const struct brw_compiler *compiler,
    fs_generator g(compiler, &params->base, &prog_data->base,
                   MESA_SHADER_FRAGMENT);
 
-   if (unlikely(debug_enabled)) {
+   debug_archiver *archiver = params->base.archiver;
+   if (unlikely(debug_enabled || archiver)) {
       g.enable_debug(ralloc_asprintf(params->base.mem_ctx,
                                      "%s fragment shader %s",
                                      nir->info.label ?
@@ -4207,6 +4228,8 @@ brw_compile_cs(const struct brw_compiler *compiler,
       .required_width = brw_required_dispatch_width(&nir->info),
    };
 
+   brw_debug_archive_nir(&params->base);
+
    std::unique_ptr<fs_visitor> v[3];
 
    for (unsigned simd = 0; simd < 3; simd++) {
@@ -4273,7 +4296,7 @@ brw_compile_cs(const struct brw_compiler *compiler,
 
    fs_generator g(compiler, &params->base, &prog_data->base,
                   MESA_SHADER_COMPUTE);
-   if (unlikely(debug_enabled)) {
+   if (unlikely(debug_enabled || params->base.archiver)) {
       char *name = ralloc_asprintf(params->base.mem_ctx,
                                    "%s compute shader %s",
                                    nir->info.label ?
@@ -4451,7 +4474,7 @@ brw_compile_bs(const struct brw_compiler *compiler,
 
    fs_generator g(compiler, &params->base, &prog_data->base,
                   shader->info.stage);
-   if (unlikely(debug_enabled)) {
+   if (unlikely(debug_enabled || params->base.archiver)) {
       char *name = ralloc_asprintf(params->base.mem_ctx,
                                    "%s %s shader %s",
                                    shader->info.label ?
@@ -4470,7 +4493,7 @@ brw_compile_bs(const struct brw_compiler *compiler,
    uint64_t *resume_sbt = ralloc_array(params->base.mem_ctx,
                                        uint64_t, num_resume_shaders);
    for (unsigned i = 0; i < num_resume_shaders; i++) {
-      if (INTEL_DEBUG(DEBUG_RT)) {
+      if (INTEL_DEBUG(DEBUG_RT) || params->base.archiver) {
          char *name = ralloc_asprintf(params->base.mem_ctx,
                                       "%s %s resume(%u) shader %s",
                                       shader->info.label ?

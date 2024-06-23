@@ -41,6 +41,8 @@ brw_compile_gs(const struct brw_compiler *compiler,
 
    const bool debug_enabled = brw_should_print_shader(nir, DEBUG_GS);
 
+   brw_debug_archive_nir(&params->base);
+
    prog_data->base.base.stage = MESA_SHADER_GEOMETRY;
    prog_data->base.base.ray_queries = nir->info.ray_queries;
    prog_data->base.base.total_scratch = 0;
@@ -253,7 +255,7 @@ brw_compile_gs(const struct brw_compiler *compiler,
 
       fs_generator g(compiler, &params->base,
                      &prog_data->base.base, MESA_SHADER_GEOMETRY);
-      if (unlikely(debug_enabled)) {
+      if (unlikely(debug_enabled || params->base.archiver)) {
          const char *label =
             nir->info.label ? nir->info.label : "unnamed";
          char *name = ralloc_asprintf(params->base.mem_ctx,

@@ -58,6 +58,8 @@ sha1_h = custom_target(
   build_always_stale : true, # commit sha1 can change without having touched these files
 )
 
+subdir('mda')
+
 if cc.get_argument_syntax() == 'msvc'
   subdir('getopt')
 else

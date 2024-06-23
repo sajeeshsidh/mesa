@@ -1424,7 +1424,16 @@ fs_generator::generate_code(const cfg_t *cfg, int dispatch_width,
                           sha1buf);
 
    if (unlikely(debug_flag)) {
-      fprintf(stderr, "Native code for %s (src_hash 0x%08x) (sha1 %s)\n"
+      FILE *f = stderr;
+
+      if (params->archiver) {
+         const char *filename =
+            ralloc_asprintf(mem_ctx, "%s-ASM%d",
+                            _mesa_shader_stage_to_abbrev(stage), dispatch_width);
+         f = debug_archiver_start_file(params->archiver, filename);
+      }
+
+      fprintf(f, "Native code for %s (src_hash 0x%08x) (sha1 %s)\n"
               "SIMD%d shader: %d instructions. %d loops. %u cycles. "
               "%d:%d spills:fills, %u sends, "
               "scheduled with mode %s. "
@@ -1444,10 +1453,13 @@ fs_generator::generate_code(const cfg_t *cfg, int dispatch_width,
       /* overriding the shader makes disasm_info invalid */
       if (!brw_try_override_assembly(p, start_offset, sha1buf)) {
          dump_assembly(p->store, start_offset, p->next_insn_offset,
-                       disasm_info, perf.block_latency);
+                       disasm_info, perf.block_latency, f);
       } else {
-         fprintf(stderr, "Successfully overrode shader with sha1 %s\n\n", sha1buf);
+         fprintf(f, "Successfully overrode shader with sha1 %s\n\n", sha1buf);
       }
+
+      if (params->archiver)
+         debug_archiver_finish_file(params->archiver);
    }
    ralloc_free(disasm_info);
 #ifndef NDEBUG

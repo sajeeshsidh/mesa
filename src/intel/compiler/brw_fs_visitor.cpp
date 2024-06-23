@@ -1040,7 +1040,8 @@ fs_visitor::fs_visitor(const struct brw_compiler *compiler,
      needs_register_pressure(needs_register_pressure),
      dispatch_width(dispatch_width),
      max_polygons(0),
-     api_subgroup_size(brw_nir_api_subgroup_size(shader, dispatch_width))
+     api_subgroup_size(brw_nir_api_subgroup_size(shader, dispatch_width)),
+     archiver(params->archiver)
 {
    init();
 }
@@ -1064,7 +1065,8 @@ fs_visitor::fs_visitor(const struct brw_compiler *compiler,
      needs_register_pressure(needs_register_pressure),
      dispatch_width(dispatch_width),
      max_polygons(max_polygons),
-     api_subgroup_size(brw_nir_api_subgroup_size(shader, dispatch_width))
+     api_subgroup_size(brw_nir_api_subgroup_size(shader, dispatch_width)),
+     archiver(params->archiver)
 {
    init();
    assert(api_subgroup_size == 0 ||
@@ -1092,7 +1094,8 @@ fs_visitor::fs_visitor(const struct brw_compiler *compiler,
      needs_register_pressure(needs_register_pressure),
      dispatch_width(compiler->devinfo->ver >= 20 ? 16 : 8),
      max_polygons(0),
-     api_subgroup_size(brw_nir_api_subgroup_size(shader, dispatch_width))
+     api_subgroup_size(brw_nir_api_subgroup_size(shader, dispatch_width)),
+     archiver(params->archiver)
 {
    init();
    assert(api_subgroup_size == 0 ||

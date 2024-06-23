@@ -79,6 +79,7 @@ with_vulkan_device_select_layer = get_option('vulkan-layers').contains('device-s
 with_tools = get_option('tools')
 if with_tools.contains('all')
   with_tools = [
+    'mda',
     'drm-shim',
     'dlclose-skip',
     'etnaviv',

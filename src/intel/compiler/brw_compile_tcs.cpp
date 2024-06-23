@@ -51,6 +51,8 @@ brw_compile_tcs(const struct brw_compiler *compiler,
 
    const bool debug_enabled = brw_should_print_shader(nir, DEBUG_TCS);
 
+   brw_debug_archive_nir(&params->base);
+
    vue_prog_data->base.stage = MESA_SHADER_TESS_CTRL;
    prog_data->base.base.ray_queries = nir->info.ray_queries;
    prog_data->base.base.total_scratch = 0;
@@ -147,7 +149,7 @@ brw_compile_tcs(const struct brw_compiler *compiler,
 
    fs_generator g(compiler, &params->base,
                   &prog_data->base.base, MESA_SHADER_TESS_CTRL);
-   if (unlikely(debug_enabled)) {
+   if (unlikely(debug_enabled || params->base.archiver)) {
       g.enable_debug(ralloc_asprintf(params->base.mem_ctx,
                                      "%s tessellation control shader %s",
                                      nir->info.label ? nir->info.label

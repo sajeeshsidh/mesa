@@ -497,6 +497,8 @@ public:
 
    struct shader_stats shader_stats;
 
+   debug_archiver *archiver;
+
    unsigned workgroup_size() const;
 
    void debug_optimizer(const nir_shader *nir,

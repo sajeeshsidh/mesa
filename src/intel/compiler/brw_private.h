@@ -92,6 +92,8 @@ int brw_simd_select_for_workgroup_size(const struct intel_device_info *devinfo,
 
 bool brw_should_print_shader(const nir_shader *shader, uint64_t debug_flag);
 
+void brw_debug_archive_nir(const struct brw_compile_params *params);
+
 #endif // __cplusplus
 
 #endif // BRW_PRIVATE_H

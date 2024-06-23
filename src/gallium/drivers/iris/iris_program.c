@@ -53,6 +53,8 @@
 #include "iris_pipe.h"
 #include "nir/tgsi_to_nir.h"
 
+#include "git_sha1.h"
+
 #define KEY_INIT(prefix)                                                   \
    .prefix.program_string_id = ish->program_id,                            \
    .prefix.limit_trig_input_range = screen->driconf.limit_trig_input_range
@@ -1815,6 +1817,38 @@ iris_schedule_compile(struct iris_screen *screen,
    }
 }
 
+static debug_archiver *
+iris_debug_archiver_open(void *tmp_ctx, struct iris_screen *screen,
+                         struct iris_uncompiled_shader *ish, const void *key,
+                         unsigned key_size)
+{
+   if (!INTEL_DEBUG(DEBUG_OPTIMIZER) || !screen->brw)
+      return NULL;
+
+   // TODO: use the key instead of ish sha1 since we have variants.
+
+   char name[SHA1_DIGEST_STRING_LENGTH + 5] = {};
+   {
+      struct mesa_sha1 ctx;
+      unsigned char hash[SHA1_DIGEST_LENGTH];
+
+      _mesa_sha1_init(&ctx);
+      _mesa_sha1_update(&ctx, &ish->nir_sha1, sizeof(ish->nir_sha1));
+      _mesa_sha1_update(&ctx, key, key_size);
+      _mesa_sha1_final(&ctx, hash);
+
+      _mesa_sha1_format(name, hash);
+   }
+   memcpy(&name[SHA1_DIGEST_STRING_LENGTH - 1], ".iris", 5);
+
+   debug_archiver *debug_archiver =
+      debug_archiver_open(tmp_ctx, name, PACKAGE_VERSION MESA_GIT_SHA1);
+
+   debug_archiver_set_prefix(debug_archiver,
+                             _mesa_shader_stage_to_abbrev(ish->nir->info.stage));
+   return debug_archiver;
+}
+
 /**
  * Compile a vertex shader, and upload the assembly.
  */
@@ -1833,6 +1867,9 @@ iris_compile_vs(struct iris_screen *screen,
 
    nir_shader *nir = nir_shader_clone(mem_ctx, ish->nir);
    const struct iris_vs_prog_key *const key = &shader->key.vs;
+
+   debug_archiver *debug_archiver =
+      iris_debug_archiver_open(mem_ctx, screen, ish, key, sizeof(*key));
 
    if (key->vue.nr_userclip_plane_consts) {
       nir_function_impl *impl = nir_shader_get_entrypoint(nir);
@@ -1875,6 +1912,7 @@ iris_compile_vs(struct iris_screen *screen,
             .nir = nir,
             .log_data = dbg,
             .source_hash = ish->source_hash,
+            .archiver = debug_archiver,
          },
          .key = &brw_key,
          .prog_data = brw_prog_data,
@@ -1918,6 +1956,8 @@ iris_compile_vs(struct iris_screen *screen,
          iris_apply_elk_prog_data(shader, &elk_prog_data->base.base);
       }
    }
+
+   debug_archiver_close(debug_archiver);
 
    if (program == NULL) {
       dbg_printf("Failed to compile vertex shader: %s\n", error);
@@ -2076,6 +2116,9 @@ iris_compile_tcs(struct iris_screen *screen,
       source_hash = *(uint32_t*)nir->info.source_blake3;
    }
 
+   debug_archiver *debug_archiver =
+      iris_debug_archiver_open(mem_ctx, screen, ish, key, sizeof(*key));
+
    iris_setup_uniforms(devinfo, mem_ctx, nir, 0, &system_values,
                        &num_system_values, &num_cbufs);
    iris_setup_binding_table(devinfo, nir, &bt, /* num_render_targets */ 0,
@@ -2094,6 +2137,7 @@ iris_compile_tcs(struct iris_screen *screen,
             .nir = nir,
             .log_data = dbg,
             .source_hash = source_hash,
+            .archiver = debug_archiver,
          },
          .key = &brw_key,
          .prog_data = brw_prog_data,
@@ -2131,6 +2175,8 @@ iris_compile_tcs(struct iris_screen *screen,
          iris_apply_elk_prog_data(shader, &elk_prog_data->base.base);
       }
    }
+
+   debug_archiver_close(debug_archiver);
 
    if (program == NULL) {
       dbg_printf("Failed to compile control shader: %s\n", error);
@@ -2254,6 +2300,9 @@ iris_compile_tes(struct iris_screen *screen,
    nir_shader *nir = nir_shader_clone(mem_ctx, ish->nir);
    const struct iris_tes_prog_key *const key = &shader->key.tes;
 
+   debug_archiver *debug_archiver =
+      iris_debug_archiver_open(mem_ctx, screen, ish, key, sizeof(*key));
+
    if (key->vue.nr_userclip_plane_consts) {
       nir_function_impl *impl = nir_shader_get_entrypoint(nir);
       nir_lower_clip_vs(nir, (1 << key->vue.nr_userclip_plane_consts) - 1,
@@ -2292,6 +2341,7 @@ iris_compile_tes(struct iris_screen *screen,
             .nir = nir,
             .log_data = dbg,
             .source_hash = ish->source_hash,
+            .archiver = debug_archiver,
          },
          .key = &brw_key,
          .prog_data = brw_prog_data,
@@ -2337,6 +2387,8 @@ iris_compile_tes(struct iris_screen *screen,
          iris_apply_elk_prog_data(shader, &elk_prog_data->base.base);
       }
    }
+
+   debug_archiver_close(debug_archiver);
 
    if (program == NULL) {
       dbg_printf("Failed to compile evaluation shader: %s\n", error);
@@ -2436,6 +2488,9 @@ iris_compile_gs(struct iris_screen *screen,
    nir_shader *nir = nir_shader_clone(mem_ctx, ish->nir);
    const struct iris_gs_prog_key *const key = &shader->key.gs;
 
+   debug_archiver *debug_archiver =
+      iris_debug_archiver_open(mem_ctx, screen, ish, key, sizeof(*key));
+
    if (key->vue.nr_userclip_plane_consts) {
       nir_function_impl *impl = nir_shader_get_entrypoint(nir);
       nir_lower_clip_gs(nir, (1 << key->vue.nr_userclip_plane_consts) - 1,
@@ -2473,6 +2528,7 @@ iris_compile_gs(struct iris_screen *screen,
             .nir = nir,
             .log_data = dbg,
             .source_hash = ish->source_hash,
+            .archiver = debug_archiver,
          },
          .key = &brw_key,
          .prog_data = brw_prog_data,
@@ -2514,6 +2570,8 @@ iris_compile_gs(struct iris_screen *screen,
          iris_apply_elk_prog_data(shader, &elk_prog_data->base.base);
       }
    }
+
+   debug_archiver_close(debug_archiver);
 
    if (program == NULL) {
       dbg_printf("Failed to compile geometry shader: %s\n", error);
@@ -2610,6 +2668,9 @@ iris_compile_fs(struct iris_screen *screen,
    nir_shader *nir = nir_shader_clone(mem_ctx, ish->nir);
    const struct iris_fs_prog_key *const key = &shader->key.fs;
 
+   debug_archiver *debug_archiver =
+      iris_debug_archiver_open(mem_ctx, screen, ish, key, sizeof(*key));
+
    iris_setup_uniforms(devinfo, mem_ctx, nir, 0, &system_values,
                        &num_system_values, &num_cbufs);
 
@@ -2650,6 +2711,7 @@ iris_compile_fs(struct iris_screen *screen,
             .nir = nir,
             .log_data = dbg,
             .source_hash = ish->source_hash,
+            .archiver = debug_archiver,
          },
          .key = &brw_key,
          .prog_data = brw_prog_data,
@@ -2697,6 +2759,8 @@ iris_compile_fs(struct iris_screen *screen,
          iris_apply_elk_prog_data(shader, &elk_prog_data->base);
       }
    }
+
+   debug_archiver_close(debug_archiver);
 
    if (program == NULL) {
       dbg_printf("Failed to compile fragment shader: %s\n", error);
@@ -2949,6 +3013,9 @@ iris_compile_cs(struct iris_screen *screen,
    nir_shader *nir = nir_shader_clone(mem_ctx, ish->nir);
    const struct iris_cs_prog_key *const key = &shader->key.cs;
 
+   debug_archiver *debug_archiver =
+      iris_debug_archiver_open(mem_ctx, screen, ish, key, sizeof(*key));
+
    if (screen->brw)
       NIR_PASS_V(nir, brw_nir_lower_cs_intrinsics, devinfo, NULL);
    else
@@ -2976,6 +3043,7 @@ iris_compile_cs(struct iris_screen *screen,
             .nir = nir,
             .log_data = dbg,
             .source_hash = ish->source_hash,
+            .archiver = debug_archiver,
          },
          .key = &brw_key,
          .prog_data = brw_prog_data,
@@ -3011,6 +3079,8 @@ iris_compile_cs(struct iris_screen *screen,
          iris_apply_elk_prog_data(shader, &elk_prog_data->base);
       }
    }
+
+   debug_archiver_close(debug_archiver);
 
    if (program == NULL) {
       dbg_printf("Failed to compile compute shader: %s\n", error);

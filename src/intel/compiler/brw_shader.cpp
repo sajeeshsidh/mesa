@@ -617,6 +617,8 @@ brw_compile_tes(const struct brw_compiler *compiler,
 
    const bool debug_enabled = brw_should_print_shader(nir, DEBUG_TES);
 
+   brw_debug_archive_nir(&params->base);
+
    prog_data->base.base.stage = MESA_SHADER_TESS_EVAL;
    prog_data->base.base.ray_queries = nir->info.ray_queries;
 
@@ -716,7 +718,7 @@ brw_compile_tes(const struct brw_compiler *compiler,
 
    fs_generator g(compiler, &params->base,
                   &prog_data->base.base, MESA_SHADER_TESS_EVAL);
-   if (unlikely(debug_enabled)) {
+   if (unlikely(debug_enabled || params->base.archiver)) {
       g.enable_debug(ralloc_asprintf(params->base.mem_ctx,
                                      "%s tessellation evaluation shader %s",
                                      nir->info.label ? nir->info.label
