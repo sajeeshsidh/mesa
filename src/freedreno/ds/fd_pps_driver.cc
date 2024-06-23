@@ -75,51 +75,51 @@ FreedrenoDriver::setup_a6xx_counters()
     * Create the countables that we'll be using.
     */
 
-   auto PERF_CP_ALWAYS_COUNT = countable("PERF_CP_ALWAYS_COUNT");
-   auto PERF_CP_BUSY_CYCLES  = countable("PERF_CP_BUSY_CYCLES");
-   auto PERF_RB_3D_PIXELS    = countable("PERF_RB_3D_PIXELS");
-   auto PERF_TP_L1_CACHELINE_MISSES = countable("PERF_TP_L1_CACHELINE_MISSES");
-   auto PERF_TP_L1_CACHELINE_REQUESTS = countable("PERF_TP_L1_CACHELINE_REQUESTS");
+   auto PERF_CP_ALWAYS_COUNT = countable("CP", "PERF_CP_ALWAYS_COUNT");
+   auto PERF_CP_BUSY_CYCLES  = countable("CP", "PERF_CP_BUSY_CYCLES");
+   auto PERF_RB_3D_PIXELS    = countable("RB", "PERF_RB_3D_PIXELS");
+   auto PERF_TP_L1_CACHELINE_MISSES = countable("TP", "PERF_TP_L1_CACHELINE_MISSES");
+   auto PERF_TP_L1_CACHELINE_REQUESTS = countable("TP", "PERF_TP_L1_CACHELINE_REQUESTS");
 
-   auto PERF_TP_OUTPUT_PIXELS  = countable("PERF_TP_OUTPUT_PIXELS");
-   auto PERF_TP_OUTPUT_PIXELS_ANISO  = countable("PERF_TP_OUTPUT_PIXELS_ANISO");
-   auto PERF_TP_OUTPUT_PIXELS_BILINEAR = countable("PERF_TP_OUTPUT_PIXELS_BILINEAR");
-   auto PERF_TP_OUTPUT_PIXELS_POINT = countable("PERF_TP_OUTPUT_PIXELS_POINT");
-   auto PERF_TP_OUTPUT_PIXELS_ZERO_LOD = countable("PERF_TP_OUTPUT_PIXELS_ZERO_LOD");
+   auto PERF_TP_OUTPUT_PIXELS  = countable("TP", "PERF_TP_OUTPUT_PIXELS");
+   auto PERF_TP_OUTPUT_PIXELS_ANISO  = countable("TP", "PERF_TP_OUTPUT_PIXELS_ANISO");
+   auto PERF_TP_OUTPUT_PIXELS_BILINEAR = countable("TP", "PERF_TP_OUTPUT_PIXELS_BILINEAR");
+   auto PERF_TP_OUTPUT_PIXELS_POINT = countable("TP", "PERF_TP_OUTPUT_PIXELS_POINT");
+   auto PERF_TP_OUTPUT_PIXELS_ZERO_LOD = countable("TP", "PERF_TP_OUTPUT_PIXELS_ZERO_LOD");
 
-   auto PERF_TSE_INPUT_PRIM  = countable("PERF_TSE_INPUT_PRIM");
-   auto PERF_TSE_CLIPPED_PRIM  = countable("PERF_TSE_CLIPPED_PRIM");
-   auto PERF_TSE_TRIVAL_REJ_PRIM  = countable("PERF_TSE_TRIVAL_REJ_PRIM");
-   auto PERF_TSE_OUTPUT_VISIBLE_PRIM = countable("PERF_TSE_OUTPUT_VISIBLE_PRIM");
+   auto PERF_TSE_INPUT_PRIM  = countable("TSE", "PERF_TSE_INPUT_PRIM");
+   auto PERF_TSE_CLIPPED_PRIM  = countable("TSE", "PERF_TSE_CLIPPED_PRIM");
+   auto PERF_TSE_TRIVAL_REJ_PRIM  = countable("TSE", "PERF_TSE_TRIVAL_REJ_PRIM");
+   auto PERF_TSE_OUTPUT_VISIBLE_PRIM = countable("TSE", "PERF_TSE_OUTPUT_VISIBLE_PRIM");
 
-   auto PERF_SP_BUSY_CYCLES  = countable("PERF_SP_BUSY_CYCLES");
-   auto PERF_SP_ALU_WORKING_CYCLES = countable("PERF_SP_ALU_WORKING_CYCLES");
-   auto PERF_SP_EFU_WORKING_CYCLES = countable("PERF_SP_EFU_WORKING_CYCLES");
-   auto PERF_SP_VS_STAGE_EFU_INSTRUCTIONS = countable("PERF_SP_VS_STAGE_EFU_INSTRUCTIONS");
-   auto PERF_SP_VS_STAGE_FULL_ALU_INSTRUCTIONS = countable("PERF_SP_VS_STAGE_FULL_ALU_INSTRUCTIONS");
-   auto PERF_SP_VS_STAGE_TEX_INSTRUCTIONS = countable("PERF_SP_VS_STAGE_TEX_INSTRUCTIONS");
-   auto PERF_SP_FS_STAGE_EFU_INSTRUCTIONS = countable("PERF_SP_FS_STAGE_EFU_INSTRUCTIONS");
-   auto PERF_SP_FS_STAGE_FULL_ALU_INSTRUCTIONS = countable("PERF_SP_FS_STAGE_FULL_ALU_INSTRUCTIONS");
-   auto PERF_SP_FS_STAGE_HALF_ALU_INSTRUCTIONS = countable("PERF_SP_FS_STAGE_HALF_ALU_INSTRUCTIONS");
-   auto PERF_SP_STALL_CYCLES_TP = countable("PERF_SP_STALL_CYCLES_TP");
-   auto PERF_SP_ANY_EU_WORKING_FS_STAGE = countable("PERF_SP_ANY_EU_WORKING_FS_STAGE");
-   auto PERF_SP_ANY_EU_WORKING_VS_STAGE = countable("PERF_SP_ANY_EU_WORKING_VS_STAGE");
-   auto PERF_SP_ANY_EU_WORKING_CS_STAGE = countable("PERF_SP_ANY_EU_WORKING_CS_STAGE");
+   auto PERF_SP_BUSY_CYCLES  = countable("SP", "PERF_SP_BUSY_CYCLES");
+   auto PERF_SP_ALU_WORKING_CYCLES = countable("SP", "PERF_SP_ALU_WORKING_CYCLES");
+   auto PERF_SP_EFU_WORKING_CYCLES = countable("SP", "PERF_SP_EFU_WORKING_CYCLES");
+   auto PERF_SP_VS_STAGE_EFU_INSTRUCTIONS = countable("SP", "PERF_SP_VS_STAGE_EFU_INSTRUCTIONS");
+   auto PERF_SP_VS_STAGE_FULL_ALU_INSTRUCTIONS = countable("SP", "PERF_SP_VS_STAGE_FULL_ALU_INSTRUCTIONS");
+   auto PERF_SP_VS_STAGE_TEX_INSTRUCTIONS = countable("SP", "PERF_SP_VS_STAGE_TEX_INSTRUCTIONS");
+   auto PERF_SP_FS_STAGE_EFU_INSTRUCTIONS = countable("SP", "PERF_SP_FS_STAGE_EFU_INSTRUCTIONS");
+   auto PERF_SP_FS_STAGE_FULL_ALU_INSTRUCTIONS = countable("SP", "PERF_SP_FS_STAGE_FULL_ALU_INSTRUCTIONS");
+   auto PERF_SP_FS_STAGE_HALF_ALU_INSTRUCTIONS = countable("SP", "PERF_SP_FS_STAGE_HALF_ALU_INSTRUCTIONS");
+   auto PERF_SP_STALL_CYCLES_TP = countable("SP", "PERF_SP_STALL_CYCLES_TP");
+   auto PERF_SP_ANY_EU_WORKING_FS_STAGE = countable("SP", "PERF_SP_ANY_EU_WORKING_FS_STAGE");
+   auto PERF_SP_ANY_EU_WORKING_VS_STAGE = countable("SP", "PERF_SP_ANY_EU_WORKING_VS_STAGE");
+   auto PERF_SP_ANY_EU_WORKING_CS_STAGE = countable("SP", "PERF_SP_ANY_EU_WORKING_CS_STAGE");
 
-   auto PERF_UCHE_STALL_CYCLES_ARBITER = countable("PERF_UCHE_STALL_CYCLES_ARBITER");
-   auto PERF_UCHE_VBIF_READ_BEATS_TP = countable("PERF_UCHE_VBIF_READ_BEATS_TP");
-   auto PERF_UCHE_VBIF_READ_BEATS_VFD = countable("PERF_UCHE_VBIF_READ_BEATS_VFD");
-   auto PERF_UCHE_VBIF_READ_BEATS_SP = countable("PERF_UCHE_VBIF_READ_BEATS_SP");
-   auto PERF_UCHE_READ_REQUESTS_TP = countable("PERF_UCHE_READ_REQUESTS_TP");
+   auto PERF_UCHE_STALL_CYCLES_ARBITER = countable("UCHE", "PERF_UCHE_STALL_CYCLES_ARBITER");
+   auto PERF_UCHE_VBIF_READ_BEATS_TP = countable("UCHE", "PERF_UCHE_VBIF_READ_BEATS_TP");
+   auto PERF_UCHE_VBIF_READ_BEATS_VFD = countable("UCHE", "PERF_UCHE_VBIF_READ_BEATS_VFD");
+   auto PERF_UCHE_VBIF_READ_BEATS_SP = countable("UCHE", "PERF_UCHE_VBIF_READ_BEATS_SP");
+   auto PERF_UCHE_READ_REQUESTS_TP = countable("UCHE", "PERF_UCHE_READ_REQUESTS_TP");
 
-   auto PERF_PC_STALL_CYCLES_VFD = countable("PERF_PC_STALL_CYCLES_VFD");
-   auto PERF_PC_VS_INVOCATIONS = countable("PERF_PC_VS_INVOCATIONS");
-   auto PERF_PC_VERTEX_HITS = countable("PERF_PC_VERTEX_HITS");
+   auto PERF_PC_STALL_CYCLES_VFD = countable("PC", "PERF_PC_STALL_CYCLES_VFD");
+   auto PERF_PC_VS_INVOCATIONS = countable("PC", "PERF_PC_VS_INVOCATIONS");
+   auto PERF_PC_VERTEX_HITS = countable("PC", "PERF_PC_VERTEX_HITS");
 
-   auto PERF_HLSQ_QUADS = countable("PERF_HLSQ_QUADS"); /* Quads (fragments / 4) produced */
+   auto PERF_HLSQ_QUADS = countable("HLSQ", "PERF_HLSQ_QUADS"); /* Quads (fragments / 4) produced */
 
-   auto PERF_CP_NUM_PREEMPTIONS = countable("PERF_CP_NUM_PREEMPTIONS");
-   auto PERF_CP_PREEMPTION_REACTION_DELAY = countable("PERF_CP_PREEMPTION_REACTION_DELAY");
+   auto PERF_CP_NUM_PREEMPTIONS = countable("CP", "PERF_CP_NUM_PREEMPTIONS");
+   auto PERF_CP_PREEMPTION_REACTION_DELAY = countable("CP", "PERF_CP_PREEMPTION_REACTION_DELAY");
 
    /* TODO: resolve() tells there is no PERF_CMPDECMP_VBIF_READ_DATA */
    // auto PERF_CMPDECMP_VBIF_READ_DATA = countable("PERF_CMPDECMP_VBIF_READ_DATA");
@@ -403,6 +403,702 @@ FreedrenoDriver::setup_a6xx_counters()
    );
 }
 
+void
+FreedrenoDriver::setup_a7xx_counters()
+{
+   /* TODO is there a reason to want more than one group? */
+   CounterGroup group = {};
+   group.name = "counters";
+   groups.clear();
+   counters.clear();
+   countables.clear();
+   enabled_counters.clear();
+   groups.emplace_back(std::move(group));
+
+   enum {
+      BR = 0,
+      BV = 1,
+   };
+
+   auto cbCountable = [=](std::string group, std::string name) {
+      return std::array<Countable, 2> {
+         countable(group, name),
+         countable("BV_" + group, name),
+      };
+   };
+
+   auto cbSum = [](const std::array<Countable, 2>& countable) {
+      return countable[BR] + countable[BV];
+   };
+
+   /* CP: 3/14 counters */
+   auto PERF_CP_ALWAYS_COUNT = countable("CP", "PERF_CP_ALWAYS_COUNT");
+   auto PERF_CP_NUM_PREEMPTIONS = countable("CP", "PERF_CP_NUM_PREEMPTIONS");
+   auto PERF_CP_PREEMPTION_REACTION_DELAY = countable("CP", "PERF_CP_PREEMPTION_REACTION_DELAY");
+
+   /* RBBM: 1/4 counters */
+   auto PERF_RBBM_STATUS_MASKED = countable("RBBM", "PERF_RBBM_STATUS_MASKED");
+
+   /* PC: 3/8 counters, BV_PC: 3/8 counters */
+   auto PERF_PC_STALL_CYCLES_VFD = cbCountable("PC", "PERF_PC_STALL_CYCLES_VFD");
+   auto PERF_PC_VERTEX_HITS = cbCountable("PC", "PERF_PC_VERTEX_HITS");
+   auto PERF_PC_VS_INVOCATIONS = cbCountable("PC", "PERF_PC_VS_INVOCATIONS");
+
+   /* TSE: 4/8 counters */
+   auto PERF_TSE_INPUT_PRIM = countable("TSE", "PERF_TSE_INPUT_PRIM");
+   auto PERF_TSE_TRIVAL_REJ_PRIM = countable("TSE", "PERF_TSE_TRIVAL_REJ_PRIM");
+   auto PERF_TSE_CLIPPED_PRIM = countable("TSE", "PERF_TSE_CLIPPED_PRIM");
+   auto PERF_TSE_OUTPUT_VISIBLE_PRIM = countable("TSE", "PERF_TSE_OUTPUT_VISIBLE_PRIM");
+
+   /* UCHE: 5/12 counters */
+   auto PERF_UCHE_STALL_CYCLES_ARBITER = countable("UCHE", "PERF_UCHE_STALL_CYCLES_ARBITER");
+   auto PERF_UCHE_VBIF_READ_BEATS_TP = countable("UCHE", "PERF_UCHE_VBIF_READ_BEATS_TP");
+   auto PERF_UCHE_VBIF_READ_BEATS_VFD = countable("UCHE", "PERF_UCHE_VBIF_READ_BEATS_VFD");
+   auto PERF_UCHE_VBIF_READ_BEATS_SP = countable("UCHE", "PERF_UCHE_VBIF_READ_BEATS_SP");
+   auto PERF_UCHE_VBIF_READ_REQUESTS_TP = countable("UCHE", "PERF_UCHE_VBIF_READ_REQUESTS_TP");
+
+   /* TP: 8/12 counters, BV_TP: 7/6 counters FIXME */
+   auto PERF_TP_BUSY_CYCLES = countable("TP", "PERF_TP_BUSY_CYCLES");
+   auto PERF_TP_L1_CACHELINE_REQUESTS = cbCountable("TP", "PERF_TP_L1_CACHELINE_REQUESTS");
+   auto PERF_TP_L1_CACHELINE_MISSES = cbCountable("TP", "PERF_TP_L1_CACHELINE_MISSES");
+   auto PERF_TP_OUTPUT_PIXELS = cbCountable("TP", "PERF_TP_OUTPUT_PIXELS");
+   auto PERF_TP_OUTPUT_PIXELS_POINT = cbCountable("TP", "PERF_TP_OUTPUT_PIXELS_POINT");
+   auto PERF_TP_OUTPUT_PIXELS_BILINEAR = cbCountable("TP", "PERF_TP_OUTPUT_PIXELS_BILINEAR");
+   auto PERF_TP_OUTPUT_PIXELS_ANISO = cbCountable("TP", "PERF_TP_OUTPUT_PIXELS_ANISO");
+   auto PERF_TP_OUTPUT_PIXELS_ZERO_LOD = cbCountable("TP", "PERF_TP_OUTPUT_PIXELS_ZERO_LOD");
+
+   /* SP: 24/24 counters, BV_SP: 7/12 counters */
+   auto PERF_SP_BUSY_CYCLES = countable("SP", "PERF_SP_BUSY_CYCLES");
+   auto PERF_SP_ALU_WORKING_CYCLES = countable("SP", "PERF_SP_ALU_WORKING_CYCLES");
+   auto PERF_SP_EFU_WORKING_CYCLES = countable("SP", "PERF_SP_EFU_WORKING_CYCLES");
+   auto PERF_SP_STALL_CYCLES_TP = cbCountable("SP", "PERF_SP_STALL_CYCLES_TP");
+   auto PERF_SP_NON_EXECUTION_CYCLES = countable("SP", "PERF_SP_NON_EXECUTION_CYCLES");
+   auto PERF_SP_VS_STAGE_TEX_INSTRUCTIONS = cbCountable("SP", "PERF_SP_VS_STAGE_TEX_INSTRUCTIONS");
+   auto PERF_SP_VS_STAGE_EFU_INSTRUCTIONS = cbCountable("SP", "PERF_SP_VS_STAGE_EFU_INSTRUCTIONS");
+   auto PERF_SP_VS_STAGE_FULL_ALU_INSTRUCTIONS = cbCountable("SP", "PERF_SP_VS_STAGE_FULL_ALU_INSTRUCTIONS");
+   auto PERF_SP_FS_STAGE_EFU_INSTRUCTIONS = countable("SP", "PERF_SP_FS_STAGE_EFU_INSTRUCTIONS");
+   auto PERF_SP_FS_STAGE_FULL_ALU_INSTRUCTIONS = countable("SP", "PERF_SP_FS_STAGE_FULL_ALU_INSTRUCTIONS");
+   auto PERF_SP_FS_STAGE_HALF_ALU_INSTRUCTIONS = countable("SP", "PERF_SP_FS_STAGE_HALF_ALU_INSTRUCTIONS");
+   auto PERF_SP_ICL1_REQUESTS = cbCountable("SP", "PERF_SP_ICL1_REQUESTS");
+   auto PERF_SP_ICL1_MISSES = cbCountable("SP", "PERF_SP_ICL1_MISSES");
+   auto PERF_SP_ANY_EU_WORKING_FS_STAGE = countable("SP", "PERF_SP_ANY_EU_WORKING_FS_STAGE");
+   auto PERF_SP_ANY_EU_WORKING_VS_STAGE = cbCountable("SP", "PERF_SP_ANY_EU_WORKING_VS_STAGE");
+   auto PERF_SP_ANY_EU_WORKING_CS_STAGE = countable("SP", "PERF_SP_ANY_EU_WORKING_CS_STAGE");
+   auto PERF_SP_PIXELS = countable("SP", "PERF_SP_PIXELS");
+   auto PERF_SP_RAY_QUERY_INSTRUCTIONS = countable("SP", "PERF_SP_RAY_QUERY_INSTRUCTIONS");
+   auto PERF_SP_RTU_BUSY_CYCLES = countable("SP", "PERF_SP_RTU_BUSY_CYCLES");
+   auto PERF_SP_RTU_BVH_FETCH_LATENCY_CYCLES = countable("SP", "PERF_SP_RTU_BVH_FETCH_LATENCY_CYCLES");
+   auto PERF_SP_RTU_BVH_FETCH_LATENCY_SAMPLES = countable("SP", "PERF_SP_RTU_BVH_FETCH_LATENCY_SAMPLES");
+   auto PERF_SP_RTU_RAY_BOX_INTERSECTIONS = countable("SP", "PERF_SP_RTU_RAY_BOX_INTERSECTIONS");
+   auto PERF_SP_RTU_RAY_TRIANGLE_INTERSECTIONS = countable("SP", "PERF_SP_RTU_RAY_TRIANGLE_INTERSECTIONS");
+   auto PERF_SP_SCH_STALL_CYCLES_RTU = countable("SP", "PERF_SP_SCH_STALL_CYCLES_RTU");
+
+   /* CMP: 1/4 counters */
+   auto PERF_CMPDECMP_VBIF_READ_DATA = countable("CMP", "PERF_CMPDECMP_VBIF_READ_DATA");
+
+   /**
+    * GPU General
+    */
+   counter("Clocks / Second", Counter::Units::None, [=]() {
+         /* Number of GPU clocks per second. */
+         /* Countables:
+          * KGSL_PERFCOUNTER_GROUP_CP::COUNTABLE_0 = PERF_CP_ALWAYS_COUNT
+          */
+         return PERF_CP_ALWAYS_COUNT / time;
+      }
+   );
+   counter("GPU % Bus Busy", Counter::Units::Percent, [=]() {
+         /* Approximate Percentage of time the GPU's bus to system memory is busy. */
+         /* Countables:
+          * KGSL_PERFCOUNTER_GROUP_RBBM::COUNTABLE_6 = PERF_RBBM_STATUS_MASKED
+          * KGSL_PERFCOUNTER_GROUP_UCHE::COUNTABLE_1 = PERF_UCHE_STALL_CYCLES_ARBITER
+          * KGSL_PERFCOUNTER_GROUP_VBIF::COUNTABLE_34 = PERF_GBIF_AXI0_READ_DATA_BEATS_TOTAL
+          * KGSL_PERFCOUNTER_GROUP_VBIF::COUNTABLE_35 = PERF_GBIF_AXI1_READ_DATA_BEATS_TOTAL
+          * KGSL_PERFCOUNTER_GROUP_VBIF::COUNTABLE_46 = PERF_GBIF_AXI0_WRITE_DATA_BEATS_TOTAL
+          * KGSL_PERFCOUNTER_GROUP_VBIF::COUNTABLE_47 = PERF_GBIF_AXI1_WRITE_DATA_BEATS_TOTAL
+          * TODO: result = ??
+          */
+         return 0;
+      }
+   );
+   /**   GPU Frequency
+         TODO: Reads from /sys/class/kgsl/kgsl-3d0/gpuclk
+    */
+   /**   GPU Temperature
+         TODO: Reads from /sys/class/kgsl/kgsl-3d0/temp
+    */
+   counter("GPU % Utilization", Counter::Units::Percent, [=]() {
+         /* Percentage utilization of the GPU. */
+         /* Countables:
+          * KGSL_PERFCOUNTER_GROUP_RBBM::COUNTABLE_6 = PERF_RBBM_STATUS_MASKED
+          * TODO: result = ??
+          */
+         return 0;
+      }
+   );
+
+   /**
+    * GPU Memory Stats
+    */
+   counter("Avg Bytes / Fragment", Counter::Units::Byte, [=]() {
+         /* Average number of bytes transferred from main memory for each fragment. */
+         /* Countables:
+          * KGSL_PERFCOUNTER_GROUP_UCHE::COUNTABLE_4 = PERF_UCHE_VBIF_READ_BEATS_TP
+          * KGSL_PERFCOUNTER_GROUP_SP::COUNTABLE_101 = PERF_SP_PIXELS
+          */
+         return safe_div(PERF_UCHE_VBIF_READ_BEATS_TP * 32, PERF_SP_PIXELS);
+      }
+   );
+   counter("Avg Bytes / Vertex", Counter::Units::Byte, [=]() {
+         /* Average number of bytes transferred from main memory for each vertex. */
+         /* Countables:
+          * KGSL_PERFCOUNTER_GROUP_UCHE::COUNTABLE_5 = PERF_UCHE_VBIF_READ_BEATS_VFD
+          * KGSL_PERFCOUNTER_GROUP_PC::COUNTABLE_25 = PERF_PC_VS_INVOCATIONS
+          * KGSL_PERFCOUNTER_GROUP_BV_PC::COUNTABLE_25 = PERF_PC_VS_INVOCATIONS
+          */
+         safe_div(PERF_UCHE_VBIF_READ_BEATS_VFD * 32, cbSum(PERF_PC_VS_INVOCATIONS));
+         return 0;
+      }
+   );
+   counter("Read Total (Bytes/sec)", Counter::Units::Byte, [=]() {
+         /* Total number of bytes read by the GPU from memory, per second. */
+         /* Countables:
+          * KGSL_PERFCOUNTER_GROUP_VBIF::COUNTABLE_34 = PERF_GBIF_AXI0_READ_DATA_BEATS_TOTAL
+          * KGSL_PERFCOUNTER_GROUP_VBIF::COUNTABLE_35 = PERF_GBIF_AXI1_READ_DATA_BEATS_TOTAL
+          * TODO: result = (PERF_GBIF_AXI0_READ_DATA_BEATS_TOTAL + PERF_GBIF_AXI1_READ_DATA_BEATS_TOTAL) * 32 / time
+          */
+         return 0;
+      }
+   );
+   counter("SP Memory Read (Bytes/sec)", Counter::Units::Byte, [=]() {
+         /* Bytes of data read from memory by the Shader Processors, per second. */
+         /* Countables:
+          * KGSL_PERFCOUNTER_GROUP_UCHE::COUNTABLE_8 = PERF_UCHE_VBIF_READ_BEATS_SP
+          */
+         return (PERF_UCHE_VBIF_READ_BEATS_SP * 32) / time;
+      }
+   );
+   counter("Texture Memory Read BW (Bytes/sec)", Counter::Units::Byte, [=]() {
+         /* Bytes of texture data read from memory per second. */
+         /* Countables:
+          * KGSL_PERFCOUNTER_GROUP_UCHE::COUNTABLE_4 = PERF_UCHE_VBIF_READ_BEATS_TP
+          * KGSL_PERFCOUNTER_GROUP_CMP::COUNTABLE_7 = PERF_CMPDECMP_VBIF_READ_DATA
+          */
+         return ((PERF_UCHE_VBIF_READ_BEATS_TP + PERF_CMPDECMP_VBIF_READ_DATA) * 32) / time;
+      }
+   );
+   counter("Vertex Memory Read (Bytes/sec)", Counter::Units::Byte, [=]() {
+         /* Bytes of vertex data read from memory per second. */
+         /* Countables:
+          * KGSL_PERFCOUNTER_GROUP_UCHE::COUNTABLE_5 = PERF_UCHE_VBIF_READ_BEATS_VFD
+          */
+         return (PERF_UCHE_VBIF_READ_BEATS_VFD * 32) / time;
+      }
+   );
+   counter("Write Total (Bytes/sec)", Counter::Units::Byte, [=]() {
+         /* Total number of bytes written by the GPU to memory, per second. */
+         /* Countables:
+          * KGSL_PERFCOUNTER_GROUP_VBIF::COUNTABLE_46 = PERF_GBIF_AXI0_WRITE_DATA_BEATS_TOTAL
+          * KGSL_PERFCOUNTER_GROUP_VBIF::COUNTABLE_47 = PERF_GBIF_AXI1_WRITE_DATA_BEATS_TOTAL
+          * TODO: result = (PERF_GBIF_AXI0_WRITE_DATA_BEATS_TOTAL + PERF_GBIF_AXI1_WRITE_DATA_BEATS_TOTAL) * 32 / time
+          */
+         return 0;
+      }
+   );
+
+   /**
+    * GPU Preemption
+    */
+   counter("Avg Preemption Delay", Counter::Units::None, [=]() {
+         /* Average time (us) from the preemption request to preemption start. */
+         /* Countables:
+          * KGSL_PERFCOUNTER_GROUP_CP::COUNTABLE_4 = PERF_CP_PREEMPTION_REACTION_DELAY
+          * KGSL_PERFCOUNTER_GROUP_CP::COUNTABLE_3 = PERF_CP_NUM_PREEMPTIONS
+          * KGSL_PERFCOUNTER_GROUP_CP::COUNTABLE_0 = PERF_CP_ALWAYS_COUNT
+          */
+         if (!PERF_CP_ALWAYS_COUNT || !PERF_CP_NUM_PREEMPTIONS)
+            return 0.0;
+
+         double clocks_per_us = (double)PERF_CP_ALWAYS_COUNT / (time * 1000000);
+         double delay_us = PERF_CP_PREEMPTION_REACTION_DELAY / clocks_per_us;
+         return delay_us / ((double)PERF_CP_NUM_PREEMPTIONS / 2);
+      }
+   );
+   counter("Preemptions / second", Counter::Units::None, [=]() {
+         /* The number of GPU preemptions that occurred, per second. */
+         /* Countables:
+          * KGSL_PERFCOUNTER_GROUP_CP::COUNTABLE_3 = PERF_CP_NUM_PREEMPTIONS
+          * NOTE: profiler seems to divide this by 2.
+          */
+         return PERF_CP_NUM_PREEMPTIONS / (2 * time);
+      }
+   );
+
+   /**
+    * GPU Primitive Processing
+    */
+   counter("Average Polygon Area", Counter::Units::None, [=]() {
+         /* Average number of pixels per polygon. */
+         /* Countables:
+          * KGSL_PERFCOUNTER_GROUP_TSE::COUNTABLE_14 = PERF_TSE_OUTPUT_VISIBLE_PRIM
+          * KGSL_PERFCOUNTER_GROUP_SP::COUNTABLE_101 = PERF_SP_PIXELS
+          */
+         return safe_div(PERF_SP_PIXELS, PERF_TSE_OUTPUT_VISIBLE_PRIM);
+      }
+   );
+   counter("Average Vertices / Polygon", Counter::Units::None, [=]() {
+         /* Average number of vertices per polygon. */
+         /* Countables:
+          * KGSL_PERFCOUNTER_GROUP_PC::COUNTABLE_25 = PERF_PC_VS_INVOCATIONS
+          * KGSL_PERFCOUNTER_GROUP_BV_PC::COUNTABLE_25 = PERF_PC_VS_INVOCATIONS
+          * KGSL_PERFCOUNTER_GROUP_TSE::COUNTABLE_6 = PERF_TSE_INPUT_PRIM
+          */
+         return safe_div(cbSum(PERF_PC_VS_INVOCATIONS), PERF_TSE_INPUT_PRIM);
+      }
+   );
+   counter("Pre-clipped Polygons / Second", Counter::Units::None, [=]() {
+         /* Number of polygons submitted to the GPU, per second, before any hardware clipping. */
+         /* Countables:
+          * KGSL_PERFCOUNTER_GROUP_TSE::COUNTABLE_6 = PERF_TSE_INPUT_PRIM
+          */
+         return PERF_TSE_INPUT_PRIM / time;
+      }
+   );
+   counter("% Prims Clipped", Counter::Units::Percent, [=]() {
+         /* Percentage of primitives clipped by the GPU (where new primitives are generated). */
+         /* Countables:
+          * KGSL_PERFCOUNTER_GROUP_TSE::COUNTABLE_9 = PERF_TSE_CLIPPED_PRIM
+          * KGSL_PERFCOUNTER_GROUP_TSE::COUNTABLE_6 = PERF_TSE_INPUT_PRIM
+          */
+         return percent(PERF_TSE_CLIPPED_PRIM, PERF_TSE_INPUT_PRIM);
+      }
+   );
+   counter("% Prims Trivially Rejected", Counter::Units::Percent, [=]() {
+         /* Percentage of primitives that are trivially rejected. */
+         /* Countables:
+          * KGSL_PERFCOUNTER_GROUP_TSE::COUNTABLE_8 = PERF_TSE_TRIVAL_REJ_PRIM
+          * KGSL_PERFCOUNTER_GROUP_TSE::COUNTABLE_6 = PERF_TSE_INPUT_PRIM
+          */
+         return percent(PERF_TSE_CLIPPED_PRIM, PERF_TSE_INPUT_PRIM);
+      }
+   );
+   counter("Reused Vertices / Second", Counter::Units::None, [=]() {
+         /* Number of vertices used from the post-transform vertex buffer cache, per second. */
+         /* Countables:
+          * KGSL_PERFCOUNTER_GROUP_PC::COUNTABLE_19 = PERF_PC_VERTEX_HITS
+          * KGSL_PERFCOUNTER_GROUP_BV_PC::COUNTABLE_19 = PERF_PC_VERTEX_HITS
+          */
+         return cbSum(PERF_PC_VERTEX_HITS) / time;
+      }
+   );
+
+   /**
+    * GPU Shader Processing
+    */
+   counter("ALU / Fragment", Counter::Units::None, [=]() {
+         /* Average number of scalar fragment shader ALU instructions issued per shaded fragment, expressed as full precision ALUs (2 mediump = 1 fullp). */
+         /* Countables:
+          * KGSL_PERFCOUNTER_GROUP_SP::COUNTABLE_40 = PERF_SP_FS_STAGE_FULL_ALU_INSTRUCTIONS
+          * KGSL_PERFCOUNTER_GROUP_SP::COUNTABLE_41 = PERF_SP_FS_STAGE_HALF_ALU_INSTRUCTIONS
+          * KGSL_PERFCOUNTER_GROUP_SP::COUNTABLE_99 = PERF_SP_QUADS -- we use PERF_SP_PIXELS instead
+          */
+         return safe_div(PERF_SP_FS_STAGE_FULL_ALU_INSTRUCTIONS + PERF_SP_FS_STAGE_HALF_ALU_INSTRUCTIONS / 2,
+            PERF_SP_PIXELS);
+      }
+   );
+   counter("ALU / Vertex", Counter::Units::None, [=]() {
+         /* Average number of vertex scalar shader ALU instructions issued per shaded vertex. */
+         /* Countables:
+          * KGSL_PERFCOUNTER_GROUP_PC::COUNTABLE_25 = PERF_PC_VS_INVOCATIONS
+          * KGSL_PERFCOUNTER_GROUP_BV_PC::COUNTABLE_25 = PERF_PC_VS_INVOCATIONS
+          * KGSL_PERFCOUNTER_GROUP_SP::COUNTABLE_35 = PERF_SP_VS_STAGE_FULL_ALU_INSTRUCTIONS
+          * KGSL_PERFCOUNTER_GROUP_BV_SP::COUNTABLE_35 = PERF_SP_VS_STAGE_FULL_ALU_INSTRUCTIONS
+          */
+         return safe_div(cbSum(PERF_PC_VS_INVOCATIONS), cbSum(PERF_SP_VS_STAGE_FULL_ALU_INSTRUCTIONS));
+      }
+   );
+   counter("% Anisotropic Filtered", Counter::Units::Percent, [=]() {
+         /* Percent of texels filtered using the 'Anisotropic' sampling method. */
+         /* Countables:
+          * KGSL_PERFCOUNTER_GROUP_TP::COUNTABLE_10 = PERF_TP_OUTPUT_PIXELS
+          * KGSL_PERFCOUNTER_GROUP_BV_TP::COUNTABLE_10 = PERF_TP_OUTPUT_PIXELS
+          * KGSL_PERFCOUNTER_GROUP_TP::COUNTABLE_28 = PERF_TP_OUTPUT_PIXELS_ANISO
+          * KGSL_PERFCOUNTER_GROUP_BV_TP::COUNTABLE_28 = PERF_TP_OUTPUT_PIXELS_ANISO
+          */
+         return safe_div(cbSum(PERF_TP_OUTPUT_PIXELS_ANISO), cbSum(PERF_TP_OUTPUT_PIXELS));
+      }
+   );
+   counter("Average BVH Fetch Latency Cycles", Counter::Units::None, [=]() {
+         /* The Average BVH Fetch Latency cycles is the latency counted from start of BVH query request till getting BVH Query result back. */
+         /* Countables:
+          * KGSL_PERFCOUNTER_GROUP_SP::COUNTABLE_139 = PERF_SP_RTU_BVH_FETCH_LATENCY_CYCLES
+          * KGSL_PERFCOUNTER_GROUP_SP::COUNTABLE_140 = PERF_SP_RTU_BVH_FETCH_LATENCY_SAMPLES
+          */
+         return safe_div(PERF_SP_RTU_BVH_FETCH_LATENCY_CYCLES, PERF_SP_RTU_BVH_FETCH_LATENCY_SAMPLES);
+      }
+   );
+   counter("EFU / Fragment", Counter::Units::None, [=]() {
+         /* Average number of scalar fragment shader EFU instructions issued per shaded fragment. */
+         /* Countables:
+          * KGSL_PERFCOUNTER_GROUP_SP::COUNTABLE_39 = PERF_SP_FS_STAGE_EFU_INSTRUCTIONS
+          * KGSL_PERFCOUNTER_GROUP_SP::COUNTABLE_99 = PERF_SP_QUADS -- we use PERF_SP_PIXELS instead
+          */
+         return safe_div(PERF_SP_FS_STAGE_EFU_INSTRUCTIONS, PERF_SP_PIXELS);
+      }
+   );
+   counter("EFU / Vertex", Counter::Units::None, [=]() {
+         /* Average number of scalar vertex shader EFU instructions issued per shaded vertex. */
+         /* Countables:
+          * KGSL_PERFCOUNTER_GROUP_PC::COUNTABLE_25 = PERF_PC_VS_INVOCATIONS
+          * KGSL_PERFCOUNTER_GROUP_BV_PC::COUNTABLE_25 = PERF_PC_VS_INVOCATIONS
+          * KGSL_PERFCOUNTER_GROUP_SP::COUNTABLE_34 = PERF_SP_VS_STAGE_EFU_INSTRUCTIONS
+          * KGSL_PERFCOUNTER_GROUP_BV_SP::COUNTABLE_34 = PERF_SP_VS_STAGE_EFU_INSTRUCTIONS
+          */
+         return safe_div(cbSum(PERF_SP_VS_STAGE_EFU_INSTRUCTIONS), cbSum(PERF_PC_VS_INVOCATIONS));
+      }
+   );
+   counter("Fragment ALU Instructions / Sec (Full)", Counter::Units::None, [=]() {
+         /* Total number of full precision fragment shader instructions issued, per second. */
+         /* Countables:
+          * KGSL_PERFCOUNTER_GROUP_SP::COUNTABLE_40 = PERF_SP_FS_STAGE_FULL_ALU_INSTRUCTIONS
+          */
+         return PERF_SP_FS_STAGE_FULL_ALU_INSTRUCTIONS / time;
+      }
+   );
+   counter("Fragment ALU Instructions / Sec (Half)", Counter::Units::None, [=]() {
+         /* Total number of half precision Scalar fragment shader instructions issued, per second. */
+         /* Countables:
+          * KGSL_PERFCOUNTER_GROUP_SP::COUNTABLE_41 = PERF_SP_FS_STAGE_HALF_ALU_INSTRUCTIONS
+          */
+         return PERF_SP_FS_STAGE_HALF_ALU_INSTRUCTIONS / time;
+      }
+   );
+   counter("Fragment EFU Instructions / Second", Counter::Units::None, [=]() {
+         /* Total number of Scalar fragment shader Elementary Function Unit (EFU) instructions issued, per second. */
+         /* Countables:
+          * KGSL_PERFCOUNTER_GROUP_SP::COUNTABLE_39 = PERF_SP_FS_STAGE_EFU_INSTRUCTIONS
+          */
+         return PERF_SP_FS_STAGE_EFU_INSTRUCTIONS / time;
+      }
+   );
+   counter("Fragment Instructions / Second", Counter::Units::None, [=]() {
+         /* Total number of fragment shader instructions issued, per second. */
+         /* Countables:
+          * KGSL_PERFCOUNTER_GROUP_SP::COUNTABLE_39 = PERF_SP_FS_STAGE_EFU_INSTRUCTIONS
+          * KGSL_PERFCOUNTER_GROUP_SP::COUNTABLE_40 = PERF_SP_FS_STAGE_FULL_ALU_INSTRUCTIONS
+          * KGSL_PERFCOUNTER_GROUP_SP::COUNTABLE_41 = PERF_SP_FS_STAGE_HALF_ALU_INSTRUCTIONS
+          */
+         return (PERF_SP_FS_STAGE_EFU_INSTRUCTIONS + PERF_SP_FS_STAGE_FULL_ALU_INSTRUCTIONS +
+            + PERF_SP_FS_STAGE_HALF_ALU_INSTRUCTIONS / 2) / time;
+      }
+   );
+   counter("Fragments Shaded / Second", Counter::Units::None, [=]() {
+         /* Number of fragments submitted to the shader engine, per second. */
+         /* Countables:
+          * KGSL_PERFCOUNTER_GROUP_SP::COUNTABLE_101 = PERF_SP_PIXELS
+          */
+         return PERF_SP_PIXELS / time;
+      }
+   );
+   counter("% Linear Filtered", Counter::Units::Percent, [=]() {
+         /* Percent of texels filtered using the 'Linear' sampling method. */
+         /* Countables:
+          * KGSL_PERFCOUNTER_GROUP_TP::COUNTABLE_10 = PERF_TP_OUTPUT_PIXELS
+          * KGSL_PERFCOUNTER_GROUP_BV_TP::COUNTABLE_10 = PERF_TP_OUTPUT_PIXELS
+          * KGSL_PERFCOUNTER_GROUP_TP::COUNTABLE_26 = PERF_TP_OUTPUT_PIXELS_BILINEAR
+          * KGSL_PERFCOUNTER_GROUP_BV_TP::COUNTABLE_26 = PERF_TP_OUTPUT_PIXELS_BILINEAR
+          */
+         return safe_div(cbSum(PERF_TP_OUTPUT_PIXELS_BILINEAR), cbSum(PERF_TP_OUTPUT_PIXELS));
+      }
+   );
+   counter("% Nearest Filtered", Counter::Units::Percent, [=]() {
+         /* Percent of texels filtered using the 'Nearest' sampling method. */
+         /* Countables:
+          * KGSL_PERFCOUNTER_GROUP_TP::COUNTABLE_10 = PERF_TP_OUTPUT_PIXELS
+          * KGSL_PERFCOUNTER_GROUP_BV_TP::COUNTABLE_10 = PERF_TP_OUTPUT_PIXELS
+          * KGSL_PERFCOUNTER_GROUP_TP::COUNTABLE_25 = PERF_TP_OUTPUT_PIXELS_POINT
+          * KGSL_PERFCOUNTER_GROUP_BV_TP::COUNTABLE_25 = PERF_TP_OUTPUT_PIXELS_POINT
+          */
+         return safe_div(cbSum(PERF_TP_OUTPUT_PIXELS_POINT), cbSum(PERF_TP_OUTPUT_PIXELS));
+      }
+   );
+   counter("% Non-Base Level Textures", Counter::Units::Percent, [=]() {
+         /* Percent of texels coming from a non-base MIP level. */
+         /* Countables:
+          * KGSL_PERFCOUNTER_GROUP_TP::COUNTABLE_10 = PERF_TP_OUTPUT_PIXELS
+          * KGSL_PERFCOUNTER_GROUP_BV_TP::COUNTABLE_10 = PERF_TP_OUTPUT_PIXELS
+          * KGSL_PERFCOUNTER_GROUP_TP::COUNTABLE_29 = PERF_TP_OUTPUT_PIXELS_ZERO_LOD
+          * KGSL_PERFCOUNTER_GROUP_BV_TP::COUNTABLE_29 = PERF_TP_OUTPUT_PIXELS_ZERO_LOD
+          */
+         return 100.0 - percent(cbSum(PERF_TP_OUTPUT_PIXELS_ZERO_LOD), cbSum(PERF_TP_OUTPUT_PIXELS));
+      }
+   );
+   counter("% RTU Busy", Counter::Units::None, [=]() {
+         /* Percentage of time that Ray Tracing Unit in SP is busy compared to whole SP. */
+         /* Countables:
+          * KGSL_PERFCOUNTER_GROUP_SP::COUNTABLE_125 = PERF_SP_RTU_BUSY_CYCLES
+          * KGSL_PERFCOUNTER_GROUP_SP::COUNTABLE_0 = PERF_SP_BUSY_CYCLES
+          */
+         return percent(PERF_SP_RTU_BUSY_CYCLES, PERF_SP_BUSY_CYCLES);
+      }
+   );
+   counter("RTU Ray Box Intersections Per Instruction", Counter::Units::None, [=]() {
+         /* Number of Ray Box intersections per instruction. */
+         /* Countables:
+          * KGSL_PERFCOUNTER_GROUP_SP::COUNTABLE_148 = PERF_SP_RTU_RAY_BOX_INTERSECTIONS
+          * KGSL_PERFCOUNTER_GROUP_SP::COUNTABLE_122 = PERF_SP_RAY_QUERY_INSTRUCTIONS
+          */
+         return safe_div(PERF_SP_RTU_RAY_BOX_INTERSECTIONS, PERF_SP_RAY_QUERY_INSTRUCTIONS);
+      }
+   );
+   counter("RTU Ray Triangle Intersections Per Instruction", Counter::Units::None, [=]() {
+         /* Number of Ray Triangle intersections per instruction. */
+         /* Countables:
+          * KGSL_PERFCOUNTER_GROUP_SP::COUNTABLE_149 = PERF_SP_RTU_RAY_TRIANGLE_INTERSECTIONS
+          * KGSL_PERFCOUNTER_GROUP_SP::COUNTABLE_122 = PERF_SP_RAY_QUERY_INSTRUCTIONS
+          */
+         return safe_div(PERF_SP_RTU_RAY_TRIANGLE_INTERSECTIONS, PERF_SP_RAY_QUERY_INSTRUCTIONS);
+      }
+   );
+   counter("% Shader ALU Capacity Utilized", Counter::Units::Percent, [=]() {
+         /* Percent of maximum shader capacity (ALU operations) utilized. */
+         /* Countables:
+          * KGSL_PERFCOUNTER_GROUP_SP::COUNTABLE_0 = PERF_SP_BUSY_CYCLES
+          * KGSL_PERFCOUNTER_GROUP_SP::COUNTABLE_35 = PERF_SP_VS_STAGE_FULL_ALU_INSTRUCTIONS
+          * KGSL_PERFCOUNTER_GROUP_BV_SP::COUNTABLE_35 = PERF_SP_VS_STAGE_FULL_ALU_INSTRUCTIONS
+          * KGSL_PERFCOUNTER_GROUP_SP::COUNTABLE_40 = PERF_SP_FS_STAGE_FULL_ALU_INSTRUCTIONS
+          * KGSL_PERFCOUNTER_GROUP_SP::COUNTABLE_41 = PERF_SP_FS_STAGE_HALF_ALU_INSTRUCTIONS
+          */
+         return percent(cbSum(PERF_SP_VS_STAGE_FULL_ALU_INSTRUCTIONS) +
+            PERF_SP_FS_STAGE_FULL_ALU_INSTRUCTIONS + PERF_SP_FS_STAGE_HALF_ALU_INSTRUCTIONS / 2,
+            PERF_SP_BUSY_CYCLES);
+      }
+   );
+   counter("% Shaders Busy", Counter::Units::Percent, [=]() {
+         /* Percentage of time that all Shader cores are busy. */
+         /* Countables:
+          * KGSL_PERFCOUNTER_GROUP_SP::COUNTABLE_0 = PERF_SP_BUSY_CYCLES
+          * KGSL_PERFCOUNTER_GROUP_TP::COUNTABLE_0 = PERF_TP_BUSY_CYCLES
+          * KGSL_PERFCOUNTER_GROUP_RBBM::COUNTABLE_6 = PERF_RBBM_STATUS_MASKED
+          */
+         return percent(PERF_SP_BUSY_CYCLES + PERF_TP_BUSY_CYCLES, PERF_RBBM_STATUS_MASKED);
+      }
+   );
+   counter("% Shaders Stalled", Counter::Units::Percent, [=]() {
+         /* Percentage of time that all shader cores are idle with at least one active wave. */
+         /* Countables:
+          * KGSL_PERFCOUNTER_GROUP_SP::COUNTABLE_7 = PERF_SP_NON_EXECUTION_CYCLES
+          * KGSL_PERFCOUNTER_GROUP_RBBM::COUNTABLE_6 = PERF_RBBM_STATUS_MASKED
+          */
+         return percent(PERF_SP_NON_EXECUTION_CYCLES, PERF_RBBM_STATUS_MASKED);
+      }
+   );
+   counter("% Texture Pipes Busy", Counter::Units::Percent, [=]() {
+         /* Percentage of time that any texture pipe is busy. */
+         /* Countables:
+          * KGSL_PERFCOUNTER_GROUP_TP::COUNTABLE_0 = PERF_TP_BUSY_CYCLES
+          * KGSL_PERFCOUNTER_GROUP_RBBM::COUNTABLE_6 = PERF_RBBM_STATUS_MASKED
+          */
+         return percent(PERF_TP_BUSY_CYCLES, PERF_RBBM_STATUS_MASKED);
+      }
+   );
+   counter("Textures / Fragment", Counter::Units::None, [=]() {
+         /* Average number of textures referenced per fragment. */
+         /* Countables:
+          * KGSL_PERFCOUNTER_GROUP_SP::COUNTABLE_33 = PERF_SP_VS_STAGE_TEX_INSTRUCTIONS
+          * KGSL_PERFCOUNTER_GROUP_TP::COUNTABLE_10 = PERF_TP_OUTPUT_PIXELS
+          * KGSL_PERFCOUNTER_GROUP_SP::COUNTABLE_101 = PERF_SP_PIXELS
+          * TODO: result = ??
+          */
+         return 0;
+      }
+   );
+   counter("Textures / Vertex", Counter::Units::None, [=]() {
+         /* Average number of textures referenced per vertex. */
+         /* Countables:
+          * KGSL_PERFCOUNTER_GROUP_PC::COUNTABLE_25 = PERF_PC_VS_INVOCATIONS
+          * KGSL_PERFCOUNTER_GROUP_BV_PC::COUNTABLE_25 = PERF_PC_VS_INVOCATIONS
+          * KGSL_PERFCOUNTER_GROUP_SP::COUNTABLE_33 = PERF_SP_VS_STAGE_TEX_INSTRUCTIONS
+          * KGSL_PERFCOUNTER_GROUP_BV_SP::COUNTABLE_33 = PERF_SP_VS_STAGE_TEX_INSTRUCTIONS
+          */
+         return safe_div(cbSum(PERF_SP_VS_STAGE_TEX_INSTRUCTIONS), cbSum(PERF_PC_VS_INVOCATIONS));
+      }
+   );
+   counter("% Time ALUs Working", Counter::Units::Percent, [=]() {
+         /* Percentage of time the ALUs are working while the Shaders are busy. */
+         /* Countables:
+          * KGSL_PERFCOUNTER_GROUP_SP::COUNTABLE_0 = PERF_SP_BUSY_CYCLES
+          * KGSL_PERFCOUNTER_GROUP_SP::COUNTABLE_1 = PERF_SP_ALU_WORKING_CYCLES
+          */
+         return percent(PERF_SP_ALU_WORKING_CYCLES, PERF_SP_BUSY_CYCLES);
+      }
+   );
+   counter("% Time Compute", Counter::Units::None, [=]() {
+         /* Amount of time spent in compute work compared to the total time spent shading everything. */
+         /* Countables:
+          * KGSL_PERFCOUNTER_GROUP_SP::COUNTABLE_74 = PERF_SP_ANY_EU_WORKING_FS_STAGE
+          * KGSL_PERFCOUNTER_GROUP_SP::COUNTABLE_76 = PERF_SP_ANY_EU_WORKING_VS_STAGE
+          * KGSL_PERFCOUNTER_GROUP_BV_SP::COUNTABLE_76 = PERF_SP_ANY_EU_WORKING_VS_STAGE
+          * KGSL_PERFCOUNTER_GROUP_SP::COUNTABLE_78 = PERF_SP_ANY_EU_WORKING_CS_STAGE
+          */
+         int64_t total = PERF_SP_ANY_EU_WORKING_FS_STAGE +
+            cbSum(PERF_SP_ANY_EU_WORKING_VS_STAGE) + PERF_SP_ANY_EU_WORKING_CS_STAGE;
+         return percent(PERF_SP_ANY_EU_WORKING_CS_STAGE, total);
+      }
+   );
+   counter("% Time EFUs Working", Counter::Units::None, [=]() {
+         /* Percentage of time the EFUs are working while the Shaders are busy. */
+         /* Countables:
+          * KGSL_PERFCOUNTER_GROUP_SP::COUNTABLE_0 = PERF_SP_BUSY_CYCLES
+          * KGSL_PERFCOUNTER_GROUP_SP::COUNTABLE_2 = PERF_SP_EFU_WORKING_CYCLES
+          */
+         return percent(PERF_SP_EFU_WORKING_CYCLES, PERF_SP_BUSY_CYCLES);
+      }
+   );
+   counter("% Time Shading Fragments", Counter::Units::None, [=]() {
+         /* Amount of time spent shading fragments compared to the total time spent shading everything. */
+         /* Countables:
+          * KGSL_PERFCOUNTER_GROUP_SP::COUNTABLE_74 = PERF_SP_ANY_EU_WORKING_FS_STAGE
+          * KGSL_PERFCOUNTER_GROUP_SP::COUNTABLE_76 = PERF_SP_ANY_EU_WORKING_VS_STAGE
+          * KGSL_PERFCOUNTER_GROUP_BV_SP::COUNTABLE_76 = PERF_SP_ANY_EU_WORKING_VS_STAGE
+          * KGSL_PERFCOUNTER_GROUP_SP::COUNTABLE_78 = PERF_SP_ANY_EU_WORKING_CS_STAGE
+          */
+         int64_t total = PERF_SP_ANY_EU_WORKING_FS_STAGE +
+            cbSum(PERF_SP_ANY_EU_WORKING_VS_STAGE) + PERF_SP_ANY_EU_WORKING_CS_STAGE;
+         return percent(PERF_SP_ANY_EU_WORKING_FS_STAGE, total);
+      }
+   );
+   counter("% Time Shading Vertices", Counter::Units::None, [=]() {
+         /* Amount of time spent shading vertices compared to the total time spent shading everything. */
+         /* Countables:
+          * KGSL_PERFCOUNTER_GROUP_SP::COUNTABLE_74 = PERF_SP_ANY_EU_WORKING_FS_STAGE
+          * KGSL_PERFCOUNTER_GROUP_BV_SP::COUNTABLE_74 = PERF_SP_ANY_EU_WORKING_FS_STAGE
+          * KGSL_PERFCOUNTER_GROUP_SP::COUNTABLE_76 = PERF_SP_ANY_EU_WORKING_VS_STAGE
+          * KGSL_PERFCOUNTER_GROUP_BV_SP::COUNTABLE_76 = PERF_SP_ANY_EU_WORKING_VS_STAGE
+          * Countables used here are a bit odd, we mirror the other two shading-percentage counters.
+          */
+         int64_t total = PERF_SP_ANY_EU_WORKING_FS_STAGE +
+            cbSum(PERF_SP_ANY_EU_WORKING_VS_STAGE) + PERF_SP_ANY_EU_WORKING_CS_STAGE;
+         return percent(cbSum(PERF_SP_ANY_EU_WORKING_VS_STAGE), total);
+      }
+   );
+   counter("Vertex Instructions / Second", Counter::Units::None, [=]() {
+         /* Total number of scalar vertex shader instructions issued, per second. */
+         /* Countables:
+          * KGSL_PERFCOUNTER_GROUP_SP::COUNTABLE_34 = PERF_SP_VS_STAGE_EFU_INSTRUCTIONS
+          * KGSL_PERFCOUNTER_GROUP_SP::COUNTABLE_35 = PERF_SP_VS_STAGE_FULL_ALU_INSTRUCTIONS
+          * KGSL_PERFCOUNTER_GROUP_BV_SP::COUNTABLE_34 = PERF_SP_VS_STAGE_EFU_INSTRUCTIONS
+          * KGSL_PERFCOUNTER_GROUP_BV_SP::COUNTABLE_35 = PERF_SP_VS_STAGE_FULL_ALU_INSTRUCTIONS
+          */
+         return (cbSum(PERF_SP_VS_STAGE_EFU_INSTRUCTIONS) + cbSum(PERF_SP_VS_STAGE_FULL_ALU_INSTRUCTIONS)) / time;
+      }
+   );
+   counter("Vertices Shaded / Second", Counter::Units::None, [=]() {
+         /* Number of vertices submitted to the shader engine, per second. */
+         /* Countables:
+          * KGSL_PERFCOUNTER_GROUP_PC::COUNTABLE_25 = PERF_PC_VS_INVOCATIONS
+          * KGSL_PERFCOUNTER_GROUP_BV_PC::COUNTABLE_25 = PERF_PC_VS_INVOCATIONS
+          */
+         return cbSum(PERF_PC_VS_INVOCATIONS) / time;
+      }
+   );
+   counter("% Wave Context Occupancy", Counter::Units::None, [=]() {
+         /* Average percentage of wave context occupancy per cycle. */
+         /* Countables:
+          * KGSL_PERFCOUNTER_GROUP_SP::COUNTABLE_8 = PERF_SP_WAVE_CONTEXTS
+          * KGSL_PERFCOUNTER_GROUP_SP::COUNTABLE_9 = PERF_SP_WAVE_CONTEXT_CYCLES
+          * TODO: result = ??
+          */
+         return 0;
+      }
+   );
+
+   /**
+    * GPU Stalls
+    */
+   counter("% BVH Fetch Stall", Counter::Units::None, [=]() {
+         /* Percentage of clock cycles where the RTU could not make any more requests for BVH fetch from scheduler. */
+         /* Countables:
+          * KGSL_PERFCOUNTER_GROUP_SP::COUNTABLE_150 = PERF_SP_SCH_STALL_CYCLES_RTU
+          * KGSL_PERFCOUNTER_GROUP_RBBM::COUNTABLE_6 = PERF_RBBM_STATUS_MASKED
+          */
+         return percent(PERF_SP_SCH_STALL_CYCLES_RTU, PERF_RBBM_STATUS_MASKED);
+      }
+   );
+   counter("% Instruction Cache Miss", Counter::Units::None, [=]() {
+         /* Number of L1 instruction cache misses divided by L1 instruction cache requests. */
+         /* Countables:
+          * KGSL_PERFCOUNTER_GROUP_SP::COUNTABLE_51 = PERF_SP_ICL1_REQUESTS
+          * KGSL_PERFCOUNTER_GROUP_SP::COUNTABLE_52 = PERF_SP_ICL1_MISSES
+          * KGSL_PERFCOUNTER_GROUP_BV_SP::COUNTABLE_51 = PERF_SP_ICL1_REQUESTS
+          * KGSL_PERFCOUNTER_GROUP_BV_SP::COUNTABLE_52 = PERF_SP_ICL1_MISSES
+          */
+         return percent(cbSum(PERF_SP_ICL1_MISSES), cbSum(PERF_SP_ICL1_REQUESTS));
+      }
+   );
+   counter("L1 Texture Cache Miss Per Pixel", Counter::Units::None, [=]() {
+         /* Average number of Texture L1 cache misses per pixel. */
+         /* Countables:
+          * KGSL_PERFCOUNTER_GROUP_TP::COUNTABLE_7 = PERF_TP_L1_CACHELINE_MISSES
+          * KGSL_PERFCOUNTER_GROUP_BV_TP::COUNTABLE_7 = PERF_TP_L1_CACHELINE_MISSES
+          * KGSL_PERFCOUNTER_GROUP_SP::COUNTABLE_101 = PERF_SP_PIXELS
+          */
+         return safe_div(cbSum(PERF_TP_L1_CACHELINE_MISSES), PERF_SP_PIXELS);
+      }
+   );
+   counter("% Stalled On System Memory", Counter::Units::None, [=]() {
+         /* Percentage of cycles the L2 cache is stalled waiting for data from system memory. */
+         /* Countables:
+          * KGSL_PERFCOUNTER_GROUP_UCHE::COUNTABLE_1 = PERF_UCHE_STALL_CYCLES_ARBITER
+          * KGSL_PERFCOUNTER_GROUP_RBBM::COUNTABLE_6 = PERF_RBBM_STATUS_MASKED
+          */
+         return safe_div(PERF_UCHE_STALL_CYCLES_ARBITER, PERF_RBBM_STATUS_MASKED);
+      }
+   );
+   counter("% Texture Fetch Stall", Counter::Units::Percent, [=]() {
+         /* Percentage of clock cycles where the shader processors cannot make any more requests for texture data. */
+         /* Countables:
+          * KGSL_PERFCOUNTER_GROUP_SP::COUNTABLE_4 = PERF_SP_STALL_CYCLES_TP
+          * KGSL_PERFCOUNTER_GROUP_BV_SP::COUNTABLE_4 = PERF_SP_STALL_CYCLES_TP
+          * KGSL_PERFCOUNTER_GROUP_RBBM::COUNTABLE_6 = PERF_RBBM_STATUS_MASKED
+          */
+         return percent(cbSum(PERF_SP_STALL_CYCLES_TP), PERF_RBBM_STATUS_MASKED);
+      }
+   );
+   counter("% Texture L1 Miss", Counter::Units::None, [=]() {
+         /* Number of L1 texture cache misses divided by L1 texture cache requests. */
+         /* Countables:
+          * KGSL_PERFCOUNTER_GROUP_TP::COUNTABLE_6 = PERF_TP_L1_CACHELINE_REQUESTS
+          * KGSL_PERFCOUNTER_GROUP_TP::COUNTABLE_7 = PERF_TP_L1_CACHELINE_MISSES
+          * KGSL_PERFCOUNTER_GROUP_BV_TP::COUNTABLE_6 = PERF_TP_L1_CACHELINE_REQUESTS
+          * KGSL_PERFCOUNTER_GROUP_BV_TP::COUNTABLE_7 = PERF_TP_L1_CACHELINE_MISSES
+          */
+         return percent(PERF_TP_L1_CACHELINE_MISSES[BR] + PERF_TP_L1_CACHELINE_MISSES[BV],
+            PERF_TP_L1_CACHELINE_REQUESTS[BR] + PERF_TP_L1_CACHELINE_REQUESTS[BV]);
+      }
+   );
+   counter("% Texture L2 Miss", Counter::Units::None, [=]() {
+         /* Number of L2 texture cache misses divided by L2 texture cache requests. */
+         /* Countables:
+          * KGSL_PERFCOUNTER_GROUP_UCHE::COUNTABLE_4 = PERF_UCHE_VBIF_READ_BEATS_TP
+          * KGSL_PERFCOUNTER_GROUP_UCHE::COUNTABLE_9 = PERF_UCHE_READ_REQUESTS_TP
+          * TODO: result = ??
+          */
+         return 0;
+      }
+   );
+   counter("% Vertex Fetch Stall", Counter::Units::Percent, [=]() {
+         /* Percentage of clock cycles where the GPU cannot make any more requests for vertex data. */
+         /* Countables:
+          * KGSL_PERFCOUNTER_GROUP_PC::COUNTABLE_2 = PERF_PC_STALL_CYCLES_VFD
+          * KGSL_PERFCOUNTER_GROUP_BV_PC::COUNTABLE_2 = PERF_PC_STALL_CYCLES_VFD
+          * KGSL_PERFCOUNTER_GROUP_RBBM::COUNTABLE_6 = PERF_RBBM_STATUS_MASKED
+          */
+         return percent(cbSum(PERF_PC_STALL_CYCLES_VFD), PERF_RBBM_STATUS_MASKED);
+      }
+   );
+}
+
 /**
  * Generate an submit the cmdstream to configure the counter/countable
  * muxing
@@ -481,6 +1177,9 @@ FreedrenoDriver::init_perfcnt()
    switch (fd_dev_gen(dev_id)) {
    case 6:
       setup_a6xx_counters();
+      break;
+   case 7:
+      setup_a7xx_counters();
       break;
    default:
       PERFETTO_FATAL("Unsupported GPU: a%03u", fd_dev_gpu_id(dev_id));
@@ -592,15 +1291,15 @@ void FreedrenoDriver::disable_perfcnt()
  */
 
 FreedrenoDriver::Countable
-FreedrenoDriver::countable(std::string name)
+FreedrenoDriver::countable(std::string group, std::string name)
 {
-   auto countable = Countable(this, name);
+   auto countable = Countable(this, group, name);
    countables.emplace_back(countable);
    return countable;
 }
 
-FreedrenoDriver::Countable::Countable(FreedrenoDriver *d, std::string name)
-   : id {d->next_countable_id++}, d {d}, name {name}
+FreedrenoDriver::Countable::Countable(FreedrenoDriver *d, std::string group, std::string name)
+   : id {d->next_countable_id++}, d {d}, group {group}, name {name}
 {
 }
 
@@ -656,20 +1355,24 @@ FreedrenoDriver::Countable::resolve() const
 {
    for (unsigned i = 0; i < d->num_perfcntrs; i++) {
       const struct fd_perfcntr_group *g = &d->perfcntrs[i];
+      if (group != g->name)
+         continue;
+
       for (unsigned j = 0; j < g->num_countables; j++) {
          const struct fd_perfcntr_countable *c = &g->countables[j];
-         if (name == c->name) {
-            d->state[id].countable = c;
+         if (name != c->name)
+            continue;
 
-            /* Assign a counter from the same group: */
-            assert(d->assigned_counters[i] < g->num_counters);
-            d->state[id].counter = &g->counters[d->assigned_counters[i]++];
+         d->state[id].countable = c;
 
-            std::cout << "Countable: " << name << ", group=" << g->name <<
-                  ", counter=" << d->assigned_counters[i] - 1 << "\n";
+         /* Assign a counter from the same group: */
+         assert(d->assigned_counters[i] < g->num_counters);
+         d->state[id].counter = &g->counters[d->assigned_counters[i]++];
 
-            return;
-         }
+         std::cout << "Countable: " << name << ", group=" << g->name <<
+               ", counter=" << d->assigned_counters[i] - 1 << "\n";
+
+         return;
       }
    }
    unreachable("no such countable!");
