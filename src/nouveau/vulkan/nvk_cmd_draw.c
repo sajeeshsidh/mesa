@@ -1907,11 +1907,13 @@ nvk_flush_ms_state(struct nvk_cmd_buffer *cmd)
                                    min_sample_shading);
       min_samples = util_next_power_of_two(MAX2(1, min_samples));
 
-      P_IMMD(p, NV9097, SET_HYBRID_ANTI_ALIAS_CONTROL, {
-         .passes = min_samples,
-         .centroid = min_samples > 1 ? CENTROID_PER_PASS
-                                     : CENTROID_PER_FRAGMENT,
-      });
+      if (!(fs->info.fs.post_depth_coverage)) {
+         P_IMMD(p, NV9097, SET_HYBRID_ANTI_ALIAS_CONTROL, {
+            .passes = min_samples,
+            .centroid = min_samples > 1 ? CENTROID_PER_PASS
+                                        : CENTROID_PER_FRAGMENT,
+         });
+      }
    }
 
    if (BITSET_TEST(dyn->dirty, MESA_VK_DYNAMIC_MS_ALPHA_TO_COVERAGE_ENABLE) ||
