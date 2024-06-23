@@ -54,6 +54,7 @@ struct tu_bo {
    uint32_t bo_list_idx;
 
    bool implicit_sync : 1;
+   bool never_unmap : 1;
 };
 
 struct tu_knl {

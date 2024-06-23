@@ -68,6 +68,8 @@ kgsl_submitqueue_close(struct tu_device *dev, uint32_t queue_id)
    safe_ioctl(dev->physical_device->local_fd, IOCTL_KGSL_DRAWCTXT_DESTROY, &req);
 }
 
+static void kgsl_bo_finish(struct tu_device *dev, struct tu_bo *bo);
+
 static VkResult
 kgsl_bo_init(struct tu_device *dev,
              struct tu_bo **out_bo,
@@ -77,8 +79,6 @@ kgsl_bo_init(struct tu_device *dev,
              enum tu_bo_alloc_flags flags,
              const char *name)
 {
-   assert(client_iova == 0);
-
    struct kgsl_gpumem_alloc_id req = {
       .size = size,
    };
@@ -95,6 +95,9 @@ kgsl_bo_init(struct tu_device *dev,
 
    if (flags & TU_BO_ALLOC_GPU_READ_ONLY)
       req.flags |= KGSL_MEMFLAGS_GPUREADONLY;
+
+   if (flags & TU_BO_ALLOC_REPLAYABLE)
+      req.flags |= KGSL_MEMFLAGS_USE_CPU_MAP;
 
    int ret;
 
@@ -115,6 +118,35 @@ kgsl_bo_init(struct tu_device *dev,
       .name = tu_debug_bos_add(dev, req.mmapsize, name),
       .refcnt = 1,
    };
+
+   if (flags & TU_BO_ALLOC_REPLAYABLE) {
+      uint64_t offset = req.id << 12;
+      void *map = mmap((void *)client_iova, bo->size, PROT_READ | PROT_WRITE,
+                       MAP_SHARED, dev->physical_device->local_fd, offset);
+      if (map == MAP_FAILED) {
+         kgsl_bo_finish(dev, bo);
+
+         return vk_errorf(dev, VK_ERROR_OUT_OF_DEVICE_MEMORY,
+                          "mmap failed (%s)", strerror(errno));
+      }
+
+      if (client_iova && (uint64_t)map != client_iova) {
+         kgsl_bo_finish(dev, bo);
+
+         return vk_errorf(dev, VK_ERROR_INVALID_OPAQUE_CAPTURE_ADDRESS,
+                          "mmap could not map the given address");
+      }
+
+      bo->map = map;
+      bo->iova = (uint64_t)map;
+
+      /* Because we're using SVM, the CPU mapping and GPU mapping are the same
+       * and the CPU mapping must stay fixed for the lifetime of the BO.
+       */
+      bo->never_unmap = true;
+
+   }
+
 
    *out_bo = bo;
 
@@ -1456,6 +1488,8 @@ tu_knl_kgsl_load(struct tu_instance *instance, int fd)
    device->heap.size = tu_get_system_heap_size(device);
    device->heap.used = 0u;
    device->heap.flags = VK_MEMORY_HEAP_DEVICE_LOCAL_BIT;
+
+   device->has_set_iova = true;
 
    /* Even if kernel is new enough, the GPU itself may not support it. */
    device->has_cached_coherent_memory = kgsl_is_memory_type_supported(
