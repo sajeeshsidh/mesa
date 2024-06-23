@@ -506,11 +506,13 @@ can_use_input_modifiers(amd_gfx_level gfx_level, aco_opcode op, int idx)
    if (op == aco_opcode::v_mov_b32)
       return gfx_level >= GFX10;
 
-   if (op == aco_opcode::v_ldexp_f16 || op == aco_opcode::v_ldexp_f32 ||
-       op == aco_opcode::v_ldexp_f64)
-      return idx == 0;
+   return (instr_info.operands[(int)op] >> (idx * 8)) & 0x80;
+}
 
-   return instr_info.can_use_input_modifiers[(int)op];
+bool
+can_use_output_modifiers(aco_opcode op)
+{
+   return instr_info.definitions[(int)op] & 0x80;
 }
 
 bool
@@ -820,17 +822,139 @@ get_operand_size(aco_ptr<Instruction>& instr, unsigned index)
 {
    if (instr->isPseudo())
       return instr->operands[index].bytes() * 8u;
-   else if (instr->opcode == aco_opcode::v_mad_u64_u32 ||
-            instr->opcode == aco_opcode::v_mad_i64_i32)
-      return index == 2 ? 64 : 32;
-   else if (instr->opcode == aco_opcode::v_fma_mix_f32 ||
-            instr->opcode == aco_opcode::v_fma_mixlo_f16 ||
-            instr->opcode == aco_opcode::v_fma_mixhi_f16)
-      return instr->valu().opsel_hi[index] ? 16 : 32;
    else if (instr->isVALU() || instr->isSALU())
-      return instr_info.operand_size[(int)instr->opcode];
+      return type_get_constant_size(get_operand_type(instr.get(), index));
    else
       return 0;
+}
+
+aco_type
+get_operand_type(Instruction* instr, unsigned index)
+{
+   assert(index < 4);
+   if (instr->opcode == aco_opcode::v_fma_mix_f32 || instr->opcode == aco_opcode::v_fma_mixlo_f16 ||
+       instr->opcode == aco_opcode::v_fma_mixhi_f16)
+      return instr->valu().opsel_hi[index] ? type_f16 : type_f32;
+   return (aco_type)((instr_info.operands[(int)instr->opcode] >> (index * 8)) & 0x7f);
+}
+
+aco_type
+get_definition_type(enum amd_gfx_level gfx_level, Instruction* instr, unsigned index)
+{
+   assert(index < 4);
+   uint32_t packed = instr_info.definitions[(int)instr->opcode];
+   /* Before GFX10 v_cmpx also writes VCC. */
+   if (instr->isVOPC() && packed == type_exec && gfx_level < GFX10)
+      packed = type_vcc | (type_exec << 8);
+   return (aco_type)((packed >> (index * 8)) & 0x7f);
+}
+
+unsigned
+type_get_constant_size(aco_type t)
+{
+   switch (t) {
+   case type_invalid:
+   case type_pk_f32:
+   case type_u128:
+   case type_f8:
+   case type_bf8:
+   case type_pk_f8:
+   case type_pk_bf8:
+   case type_pk4_f8:
+   case type_pk4_bf8:
+   case type_vcc:
+   case type_exec:
+   case type_exec_lo:
+   case type_m0:
+   case type_scc: return 0;
+   case type_imm:
+   case type_u16: /* uses 32bit inline contants. */
+   case type_pk_u16:
+   case type_u32:
+   case type_f32: return 32;
+   case type_pk_f16:
+   case type_pk_bf16:
+   case type_f16:
+   case type_bf16: return 16;
+   case type_i64:
+   case type_u64:
+   case type_f64: return 64;
+   }
+   return 0;
+}
+
+unsigned
+type_get_bytes(aco_type t)
+{
+   switch (t) {
+   case type_invalid:
+   case type_vcc:
+   case type_exec:
+   case type_exec_lo:
+   case type_m0:
+   case type_scc:
+   case type_imm: return 0;
+   case type_f8:
+   case type_bf8: return 1;
+   case type_pk_f8:
+   case type_pk_bf8:
+   case type_f16:
+   case type_bf16:
+   case type_u16: return 2;
+   case type_pk4_f8:
+   case type_pk4_bf8:
+   case type_pk_f16:
+   case type_pk_bf16:
+   case type_pk_u16:
+   case type_u32:
+   case type_f32: return 4;
+   case type_pk_f32:
+   case type_i64:
+   case type_u64:
+   case type_f64: return 8;
+   case type_u128: return 16;
+   }
+   return 0;
+}
+
+unsigned
+type_get_dwords(aco_type t)
+{
+   return DIV_ROUND_UP(type_get_bytes(t), 4);
+}
+
+unsigned
+type_get_vector_size(aco_type t)
+{
+   switch (t) {
+   case type_invalid:
+   case type_vcc:
+   case type_exec:
+   case type_exec_lo:
+   case type_m0:
+   case type_scc:
+   case type_imm: return 0;
+   case type_f8:
+   case type_bf8:
+   case type_f16:
+   case type_bf16:
+   case type_u16:
+   case type_u32:
+   case type_f32:
+   case type_i64:
+   case type_u64:
+   case type_f64:
+   case type_u128: return 1;
+   case type_pk_f8:
+   case type_pk_bf8:
+   case type_pk_f16:
+   case type_pk_bf16:
+   case type_pk_u16:
+   case type_pk_f32: return 2;
+   case type_pk4_f8:
+   case type_pk4_bf8: return 4;
+   }
+   return 0;
 }
 
 bool

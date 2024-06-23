@@ -1734,6 +1734,7 @@ is_dead(const std::vector<uint16_t>& uses, const Instruction* instr)
 }
 
 bool can_use_input_modifiers(amd_gfx_level gfx_level, aco_opcode op, int idx);
+bool can_use_output_modifiers(aco_opcode op);
 bool can_use_opsel(amd_gfx_level gfx_level, aco_opcode op, int idx);
 bool instr_is_16bit(amd_gfx_level gfx_level, aco_opcode op);
 uint8_t get_gfx11_true16_mask(aco_opcode op);
@@ -1766,6 +1767,14 @@ unsigned get_mimg_nsa_dwords(const Instruction* instr);
 unsigned get_vopd_opy_start(const Instruction* instr);
 
 unsigned get_operand_size(aco_ptr<Instruction>& instr, unsigned index);
+
+aco_type get_operand_type(Instruction* instr, unsigned index);
+aco_type get_definition_type(enum amd_gfx_level gfx_level, Instruction* instr, unsigned index);
+
+unsigned type_get_constant_size(aco_type t);
+unsigned type_get_bytes(aco_type t);
+unsigned type_get_dwords(aco_type t);
+unsigned type_get_vector_size(aco_type t);
 
 bool should_form_clause(const Instruction* a, const Instruction* b);
 
@@ -2251,13 +2260,9 @@ typedef struct {
    const int16_t opcode_gfx10[static_cast<int>(aco_opcode::num_opcodes)];
    const int16_t opcode_gfx11[static_cast<int>(aco_opcode::num_opcodes)];
    const int16_t opcode_gfx12[static_cast<int>(aco_opcode::num_opcodes)];
-   const std::bitset<static_cast<int>(aco_opcode::num_opcodes)> can_use_input_modifiers;
-   const std::bitset<static_cast<int>(aco_opcode::num_opcodes)> can_use_output_modifiers;
    const std::bitset<static_cast<int>(aco_opcode::num_opcodes)> is_atomic;
    const char* name[static_cast<int>(aco_opcode::num_opcodes)];
    const aco::Format format[static_cast<int>(aco_opcode::num_opcodes)];
-   /* sizes used for input/output modifiers and constants */
-   const unsigned operand_size[static_cast<int>(aco_opcode::num_opcodes)];
    const instr_class classes[static_cast<int>(aco_opcode::num_opcodes)];
    const uint32_t definitions[static_cast<int>(aco_opcode::num_opcodes)];
    const uint32_t operands[static_cast<int>(aco_opcode::num_opcodes)];

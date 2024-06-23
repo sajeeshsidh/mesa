@@ -888,12 +888,7 @@ propagate_constants_vop3p(opt_ctx& ctx, aco_ptr<Instruction>& instr, ssa_info& i
    }
 
    /* The accumulation operand of dot product instructions ignores opsel. */
-   bool cannot_use_opsel =
-      (instr->opcode == aco_opcode::v_dot4_i32_i8 || instr->opcode == aco_opcode::v_dot2_i32_i16 ||
-       instr->opcode == aco_opcode::v_dot4_i32_iu8 || instr->opcode == aco_opcode::v_dot4_u32_u8 ||
-       instr->opcode == aco_opcode::v_dot2_u32_u16) &&
-      i == 2;
-   if (cannot_use_opsel)
+   if (type_get_vector_size(get_operand_type(instr.get(), i)) < 2)
       return;
 
    /* try to fold inline constants */
@@ -1581,7 +1576,7 @@ label_instruction(opt_ctx& ctx, aco_ptr<Instruction>& instr)
    }
 
    if (instr->isVALU() || instr->isVINTRP()) {
-      if (instr_info.can_use_output_modifiers[(int)instr->opcode] || instr->isVINTRP() ||
+      if (can_use_output_modifiers(instr->opcode) || instr->isVINTRP() ||
           instr->opcode == aco_opcode::v_cndmask_b32) {
          bool canonicalized = true;
          if (!does_fp_op_flush_denorms(ctx, instr->opcode)) {
@@ -3346,7 +3341,7 @@ bool
 apply_omod_clamp(opt_ctx& ctx, aco_ptr<Instruction>& instr)
 {
    if (instr->definitions.empty() || ctx.uses[instr->definitions[0].tempId()] != 1 ||
-       !instr_info.can_use_output_modifiers[(int)instr->opcode])
+       !can_use_output_modifiers(instr->opcode))
       return false;
 
    bool can_vop3 = can_use_VOP3(ctx, instr);
@@ -3672,7 +3667,7 @@ combine_vop3p(opt_ctx& ctx, aco_ptr<Instruction>& instr)
        !vop3p->opsel_lo[1] && !vop3p->opsel_hi[1]) {
 
       ssa_info& info = ctx.info[instr->operands[0].tempId()];
-      if (info.is_vop3p() && instr_info.can_use_output_modifiers[(int)info.instr->opcode]) {
+      if (info.is_vop3p() && can_use_output_modifiers(info.instr->opcode)) {
          VALU_instruction* candidate = &ctx.info[instr->operands[0].tempId()].instr->valu();
          candidate->clamp = true;
          propagate_swizzles(candidate, vop3p->opsel_lo[0], vop3p->opsel_hi[0]);
