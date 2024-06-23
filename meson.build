@@ -1877,33 +1877,48 @@ else
 endif
 
 dep_clang = null_dep
-if with_clc
+if with_clc or with_gallium_opencl
   llvm_libdir = dep_llvm.get_variable(cmake : 'LLVM_LIBRARY_DIR', configtool: 'libdir')
 
-  dep_clang = cpp.find_library('clang-cpp', dirs : llvm_libdir, required : false)
+  foreach trial : [{'dirs' : llvm_libdir}, {}]
+    dep_clang = cpp.find_library('clang-cpp', required : false, kwargs : trial)
 
-  if not dep_clang.found() or not _shared_llvm
-    clang_modules = [
-      'clangBasic', 'clangAST', 'clangCodeGen', 'clangLex',
-      'clangDriver', 'clangFrontend', 'clangFrontendTool',
-      'clangHandleCXX', 'clangHandleLLVM', 'clangSerialization',
-      'clangSema', 'clangParse', 'clangEdit', 'clangAnalysis'
-    ]
-    if dep_llvm.version().version_compare('>= 15.0')
-      clang_modules += 'clangSupport'
-    endif
-    if dep_llvm.version().version_compare('>= 16.0')
-      clang_modules += 'clangASTMatchers'
+    if dep_clang.found()
+      break
     endif
     if dep_llvm.version().version_compare('>= 18.0')
       clang_modules += 'clangAPINotes'
     endif
 
-    dep_clang = []
-    foreach m : clang_modules
-      dep_clang += cpp.find_library(m, dirs : llvm_libdir, required : true)
-    endforeach
-  endif
+    if not _shared_llvm
+      clang_modules = [
+        'clangBasic', 'clangAST', 'clangCodeGen', 'clangLex',
+        'clangDriver', 'clangFrontend', 'clangFrontendTool',
+        'clangHandleCXX', 'clangHandleLLVM', 'clangSerialization',
+        'clangSema', 'clangParse', 'clangEdit', 'clangAnalysis'
+      ]
+      if dep_llvm.version().version_compare('>= 15.0')
+        clang_modules += 'clangSupport'
+      endif
+      if dep_llvm.version().version_compare('>= 16.0')
+        clang_modules += 'clangASTMatchers'
+      endif
+
+      dep_clang = []
+      found = true
+      foreach m : clang_modules
+        _lib = cpp.find_library(m, required : not trial.has_key('dirs'), kwargs : trial)
+        if not _lib.found()
+          found = false
+          break
+        endif
+        dep_clang += _lib
+      endforeach
+      if found
+        break
+      endif
+    endif
+  endforeach
 endif
 
 # Be explicit about only using this lib on Windows, to avoid picking
