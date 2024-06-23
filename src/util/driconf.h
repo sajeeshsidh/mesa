@@ -776,8 +776,8 @@
    DRI_CONF_OPT_B(force_indirect_descriptors, def, \
                   "Use an indirection to access buffer/image/texture/sampler handles")
 
-#define DRI_CONF_ANV_DISABLE_FCV(def) \
-   DRI_CONF_OPT_B(anv_disable_fcv, def, \
+#define DRI_CONF_INTEL_DISABLE_FCV(def) \
+   DRI_CONF_OPT_B(intel_disable_fcv, def, \
                   "Disable FCV optimization")
 
 #define DRI_CONF_ANV_EXTERNAL_MEMORY_IMPLICIT_SYNC(def) \

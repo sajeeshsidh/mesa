@@ -1080,6 +1080,9 @@ upload_pixel_hashing_tables(struct iris_batch *batch)
       mode.CrossSliceHashingMode = (util_bitcount(ppipe_mask1) > 1 ?
                                     hashing32x32 : NormalMode);
       mode.CrossSliceHashingModeMask = -1;
+      mode.FastClearOptimizationEnable = !batch->screen->driconf.disable_fcv;
+      mode.FastClearOptimizationEnableMask =
+         !batch->screen->driconf.disable_fcv;
    }
 #endif
 }
@@ -3192,8 +3195,7 @@ iris_create_surface(struct pipe_context *ctx,
     */
    unsigned aux_usages = 0;
 
-   if ((res->aux.usage == ISL_AUX_USAGE_CCS_E ||
-        res->aux.usage == ISL_AUX_USAGE_FCV_CCS_E) &&
+   if (isl_aux_usage_has_ccs_e(res->aux.usage) &&
        !isl_format_supports_ccs_e(devinfo, view->format)) {
       aux_usages = 1 << ISL_AUX_USAGE_NONE;
    } else {

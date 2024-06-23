@@ -206,6 +206,7 @@ struct iris_screen {
       bool intel_enable_wa_14018912822;
       bool enable_tbimr;
       unsigned generated_indirect_threshold;
+      bool disable_fcv;
    } driconf;
 
    /** Does the kernel support various features (KERNEL_HAS_* bitfield)? */

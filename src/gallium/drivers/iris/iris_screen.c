@@ -847,6 +847,18 @@ iris_screen_create(int fd, const struct pipe_screen_config *config)
    screen->driconf.generated_indirect_threshold =
       driQueryOptioni(config->options, "generated_indirect_threshold");
 
+   /* TODO: Figure out FCV support for other platforms
+    * Testing indicates that FCV is broken on MTL, but works fine on DG2.
+    * Let's disable FCV on MTL for now till we figure out what's wrong.
+    *
+    * Alternatively, it can be toggled off via drirc option 'intel_disable_fcv'.
+    *
+    * Ref: https://gitlab.freedesktop.org/mesa/mesa/-/issues/9987
+    */
+   screen->driconf.disable_fcv =
+      intel_device_info_is_mtl(screen->devinfo) ||
+      driQueryOptionb(config->options, "intel_disable_fcv");
+
    screen->precompile = debug_get_bool_option("shader_precompile", true);
 
    isl_device_init(&screen->isl_dev, screen->devinfo);
