@@ -3447,6 +3447,15 @@ anv_can_fast_clear_color_view(struct anv_device *device,
    if (INTEL_DEBUG(DEBUG_NO_FAST_CLEAR))
       return false;
 
+   if (device->info->ver >= 11) {
+      /* Check render area dimension sizes, if the size is small enough, a fast
+       * clear ends up being more expensive than a slow clear, so we'll fall back
+       * immediately to a slow clear instead.
+       */
+      if (render_area.extent.width <= 960 && render_area.extent.height <= 540)
+         return false;
+   }
+
    if (iview->planes[0].isl.base_array_layer >=
        anv_image_aux_layers(iview->image, VK_IMAGE_ASPECT_COLOR_BIT,
                             iview->planes[0].isl.base_level))
