@@ -13,11 +13,12 @@
 enum r600_blitter_op /* bitmask */
 {
 	R600_SAVE_FRAGMENT_STATE = 1,
-	R600_SAVE_TEXTURES       = 2,
-	R600_SAVE_FRAMEBUFFER    = 4,
-	R600_DISABLE_RENDER_COND = 8,
+	R600_SAVE_FRAGMENT_CONSTANT = 2,
+	R600_SAVE_TEXTURES       = 4,
+	R600_SAVE_FRAMEBUFFER    = 8,
+	R600_DISABLE_RENDER_COND = 16,
 
-	R600_CLEAR         = R600_SAVE_FRAGMENT_STATE,
+	R600_CLEAR         = R600_SAVE_FRAGMENT_STATE | R600_SAVE_FRAGMENT_CONSTANT,
 
 	R600_CLEAR_SURFACE = R600_SAVE_FRAGMENT_STATE | R600_SAVE_FRAMEBUFFER,
 
@@ -61,8 +62,10 @@ static void r600_blitter_begin(struct pipe_context *ctx, enum r600_blitter_op op
 		util_blitter_save_depth_stencil_alpha(rctx->blitter, rctx->dsa_state.cso);
 		util_blitter_save_stencil_ref(rctx->blitter, &rctx->stencil_ref.pipe_state);
                 util_blitter_save_sample_mask(rctx->blitter, rctx->sample_mask.sample_mask, rctx->ps_iter_samples);
-		util_blitter_save_fragment_constant_buffer_slot(rctx->blitter,
-								&rctx->constbuf_state[PIPE_SHADER_FRAGMENT].cb[0]);
+
+		if (op & R600_SAVE_FRAGMENT_CONSTANT)
+			util_blitter_save_fragment_constant_buffer_slot(
+				rctx->blitter, &rctx->constbuf_state[PIPE_SHADER_FRAGMENT].cb[0]);
 	}
 
 	if (op & R600_SAVE_FRAMEBUFFER)
