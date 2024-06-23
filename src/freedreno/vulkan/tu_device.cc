@@ -205,6 +205,7 @@ get_device_extensions(const struct tu_physical_device *device,
       .KHR_shader_integer_dot_product = true,
       .KHR_shader_non_semantic_info = true,
       .KHR_shader_subgroup_extended_types = true,
+      .KHR_shader_subgroup_uniform_control_flow = true,
       .KHR_shader_terminate_invocation = true,
       .KHR_spirv_1_4 = true,
       .KHR_storage_buffer_storage_class = true,
@@ -476,6 +477,9 @@ tu_get_features(struct tu_physical_device *pdevice,
 
    /* VK_KHR_shader_expect_assume */
    features->shaderExpectAssume = true;
+
+   /* VK_KHR_shader_subgroup_uniform_control_flow */
+   features->shaderSubgroupUniformControlFlow = true;
 
    /* VK_KHR_vertex_attribute_divisor */
    features->vertexAttributeInstanceRateDivisor = true;
@@ -773,11 +777,10 @@ static void
 tu_get_physical_device_properties_1_3(struct tu_physical_device *pdevice,
                                       struct vk_properties *p)
 {
-   /* TODO move threadsize_base and max_waves to fd_dev_info and use them here */
-   p->minSubgroupSize = 64; /* threadsize_base */
+   p->minSubgroupSize = pdevice->info->threadsize_base;
    p->maxSubgroupSize =
       pdevice->info->a6xx.supports_double_threadsize ? 128 : 64;
-   p->maxComputeWorkgroupSubgroups = 16; /* max_waves */
+   p->maxComputeWorkgroupSubgroups = pdevice->info->max_waves;
    p->requiredSubgroupSizeStages = VK_SHADER_STAGE_ALL;
 
    p->maxInlineUniformBlockSize = MAX_INLINE_UBO_RANGE;
