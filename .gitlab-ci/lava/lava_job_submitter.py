@@ -400,6 +400,7 @@ class LAVAJobSubmitter(PathResolver):
     kernel_url_prefix: str = None
     kernel_external: str = None
     lava_tags: str = ""  # Comma-separated LAVA tags for the job
+    lava_job_id: str = None
     mesa_job_name: str = "mesa_ci_job"
     pipeline_info: str = ""
     rootfs_url_prefix: str = None
@@ -484,6 +485,15 @@ class LAVAJobSubmitter(PathResolver):
 
             finally:
                 self.finish_script(last_attempt_job)
+
+    def cancel(self) -> None:
+        """
+        Cancel job
+        """
+        job = LAVAJob(self.proxy, None, None)
+        job.job_id(int(self.job_submitter.lava_job_id))
+        job.cancel()
+
 
     def print_log_artifact_url(self):
         relative_log_path = self.structured_log_file.relative_to(pathlib.Path.cwd())
