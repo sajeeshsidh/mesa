@@ -182,7 +182,6 @@ debian-testing-msan:
       -D spirv-to-dxil=true
       -D osmesa=true
       -D tools=drm-shim,etnaviv,freedreno,glsl,intel,intel-ui,nir,nouveau,lima,panfrost,asahi
-      -D b_lto=true
     LLVM_VERSION: 15
     S3_ARTIFACT_NAME: debian-build-testing
   script: |
@@ -313,7 +312,6 @@ fedora-release:
       -D glvnd=enabled
       -D platforms=x11,wayland
     EXTRA_OPTION: >
-      -D b_lto=true
       -D osmesa=true
       -D selinux=true
       -D tools=drm-shim,etnaviv,freedreno,glsl,intel,nir,nouveau,lima,panfrost,imagination

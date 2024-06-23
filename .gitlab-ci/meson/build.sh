@@ -98,6 +98,14 @@ case $CI_JOB_NAME in
         ;;
 esac
 
+case $CI_PIPELINE_SOURCE in
+    schedule)
+      # run LTO builds only for nightly
+      LTO=true;;
+    *)
+      LTO=false;;
+esac
+
 section_switch meson-configure "meson: configure"
 
 rm -rf _build
@@ -123,6 +131,7 @@ meson setup _build \
       -D vulkan-drivers=${VULKAN_DRIVERS:-[]} \
       -D video-codecs=all \
       -D werror=true \
+      -D b_lto=${LTO}
       ${EXTRA_OPTION}
 cd _build
 meson configure
