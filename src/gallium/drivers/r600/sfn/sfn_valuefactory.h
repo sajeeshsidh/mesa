@@ -206,7 +206,8 @@ public:
 
 
    /* Allocate registers */
-   bool allocate_registers(const std::list<nir_intrinsic_instr *>& regs);
+   bool allocate_registers(
+      const std::list<nir_intrinsic_instr *, Allocator<nir_intrinsic_instr *>>& regs);
    PRegister allocate_pinned_register(int sel, int chan);
    RegisterVec4 allocate_pinned_vec4(int sel, bool is_ssa);
 
