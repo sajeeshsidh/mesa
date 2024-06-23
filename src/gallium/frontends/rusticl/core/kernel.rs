@@ -21,6 +21,7 @@ use rusticl_opencl_gen::*;
 
 use std::cmp;
 use std::collections::HashMap;
+use std::collections::HashSet;
 use std::convert::TryInto;
 use std::mem::size_of;
 use std::os::raw::c_void;
@@ -34,7 +35,7 @@ use std::sync::MutexGuard;
 #[derive(Clone)]
 pub enum KernelArgValue {
     None,
-    Buffer(Arc<Buffer>),
+    Buffer(Arc<Buffer>, u64),
     Constant(Vec<u8>),
     Image(Arc<Image>),
     LocalMem(usize),
@@ -309,6 +310,7 @@ pub struct Kernel {
     pub prog: Arc<Program>,
     pub name: String,
     values: Mutex<Vec<Option<KernelArgValue>>>,
+    pub bdas: Mutex<HashSet<Arc<Buffer>>>,
     builds: HashMap<&'static Device, Arc<NirKernelBuild>>,
     pub kernel_info: Arc<KernelInfo>,
 }
@@ -868,6 +870,7 @@ impl Kernel {
             prog: prog,
             name: name,
             values: Mutex::new(values),
+            bdas: Mutex::new(HashSet::new()),
             builds: builds,
             kernel_info: kernel_info,
         })
@@ -944,6 +947,7 @@ impl Kernel {
         let kernel_info = Arc::clone(&self.kernel_info);
         let arg_values = self.arg_values().clone();
         let nir_kernel_build = Arc::clone(&self.builds[q.device]);
+        let bdas = self.bdas.lock().unwrap().clone();
 
         // operations we want to report errors to the clients
         let mut block = create_kernel_arr::<u32>(block, 1)?;
@@ -953,6 +957,7 @@ impl Kernel {
         self.optimize_local_size(q.device, &mut grid, &mut block);
 
         Ok(Box::new(move |q, ctx| {
+            let address_bits = q.device.address_bits();
             let mut workgroup_id_offset_loc = None;
             let mut input = Vec::new();
             // Set it once so we get the alignment padding right
@@ -969,7 +974,7 @@ impl Kernel {
 
             let null_ptr;
             let null_ptr_v3;
-            if q.device.address_bits() == 64 {
+            if address_bits == 64 {
                 null_ptr = [0u8; 8].as_slice();
                 null_ptr_v3 = [0u8; 24].as_slice();
             } else {
@@ -978,20 +983,35 @@ impl Kernel {
             };
 
             let mut resource_info = Vec::new();
+            let mut bdas: Vec<&PipeResource> = bdas
+                .iter()
+                .map(|b| b.get_res_of_dev(q.device).unwrap().as_ref())
+                .collect();
             fn add_global<'a>(
                 q: &Queue,
                 input: &mut Vec<u8>,
                 resource_info: &mut Vec<(&'a PipeResource, usize)>,
+                bdas: &mut Vec<&'a PipeResource>,
                 res: &'a PipeResource,
-                offset: usize,
+                offset: u64,
             ) {
-                resource_info.push((res, input.len()));
-                if q.device.address_bits() == 64 {
-                    let offset: u64 = offset as u64;
-                    input.extend_from_slice(&offset.to_ne_bytes());
+                let address: u64;
+                if let Some(addr) = res.address() {
+                    bdas.push(res);
+                    address = addr.into();
                 } else {
-                    let offset: u32 = offset as u32;
-                    input.extend_from_slice(&offset.to_ne_bytes());
+                    resource_info.push((res, input.len()));
+                    address = 0;
+                }
+
+                // address is 0 for non bda anyway
+                let address = address + offset;
+                if q.device.address_bits() == 64 {
+                    let address: u64 = address;
+                    input.extend_from_slice(&address.to_ne_bytes());
+                } else {
+                    let address: u32 = address as u32;
+                    input.extend_from_slice(&address.to_ne_bytes());
                 }
             }
 
@@ -1009,9 +1029,16 @@ impl Kernel {
                 }
                 match val.as_ref().unwrap() {
                     KernelArgValue::Constant(c) => input.extend_from_slice(c),
-                    KernelArgValue::Buffer(buffer) => {
+                    KernelArgValue::Buffer(buffer, offset) => {
                         let res = buffer.get_res_of_dev(q.device)?;
-                        add_global(q, &mut input, &mut resource_info, res, buffer.offset);
+                        add_global(
+                            q,
+                            &mut input,
+                            &mut resource_info,
+                            &mut bdas,
+                            res,
+                            buffer.offset as u64 + offset,
+                        );
                     }
                     KernelArgValue::Image(image) => {
                         let res = image.get_res_of_dev(q.device)?;
@@ -1066,7 +1093,7 @@ impl Kernel {
                         let pot = cmp::min(*size, 0x80);
                         variable_local_size =
                             align(variable_local_size, pot.next_power_of_two() as u64);
-                        if q.device.address_bits() == 64 {
+                        if address_bits == 64 {
                             let variable_local_size: [u8; 8] = variable_local_size.to_ne_bytes();
                             input.extend_from_slice(&variable_local_size);
                         } else {
@@ -1114,7 +1141,7 @@ impl Kernel {
                     InternalKernelArgType::ConstantBuffer => {
                         assert!(nir_kernel_build.constant_buffer.is_some());
                         let res = nir_kernel_build.constant_buffer.as_ref().unwrap();
-                        add_global(q, &mut input, &mut resource_info, res, 0);
+                        add_global(q, &mut input, &mut resource_info, &mut bdas, res, 0);
                     }
                     InternalKernelArgType::GlobalWorkOffsets => {
                         input.extend_from_slice(unsafe { as_byte_slice(&offsets) });
@@ -1125,7 +1152,7 @@ impl Kernel {
                     }
                     InternalKernelArgType::PrintfBuffer => {
                         let res = printf_buf.as_ref().unwrap();
-                        add_global(q, &mut input, &mut resource_info, res, 0);
+                        add_global(q, &mut input, &mut resource_info, &mut bdas, res, 0);
                     }
                     InternalKernelArgType::InlineSampler(cl) => {
                         samplers.push(Sampler::cl_to_pipe(cl));
@@ -1178,7 +1205,10 @@ impl Kernel {
             ctx.bind_sampler_states(&samplers);
             ctx.set_sampler_views(&mut sviews);
             ctx.set_shader_images(&iviews);
-            ctx.set_global_binding(resources.as_slice(), &mut globals);
+            if !globals.is_empty() {
+                ctx.set_global_binding(resources.as_slice(), &mut globals)
+                    .ok_or(CL_OUT_OF_RESOURCES)?;
+            }
 
             let hw_max_grid: Vec<usize> = q
                 .device
@@ -1214,7 +1244,13 @@ impl Kernel {
                         ];
 
                         ctx.update_cb0(&input);
-                        ctx.launch_grid(work_dim, block, this_grid, variable_local_size as u32);
+                        ctx.launch_grid(
+                            work_dim,
+                            block,
+                            this_grid,
+                            variable_local_size as u32,
+                            &bdas,
+                        );
 
                         if Platform::dbg().sync_every_event {
                             ctx.flush().wait();
@@ -1421,6 +1457,7 @@ impl Clone for Kernel {
             prog: self.prog.clone(),
             name: self.name.clone(),
             values: Mutex::new(self.arg_values().clone()),
+            bdas: Mutex::new(self.bdas.lock().unwrap().clone()),
             builds: self.builds.clone(),
             kernel_info: self.kernel_info.clone(),
         }

@@ -1,8 +1,9 @@
-#include <CL/cl_icd.h>
-#include <GL/gl.h>
-#include <EGL/egl.h>
+#include "CL/cl_icd.h"
+#include "CL/cl_ext_pocl.h"
+#include "GL/gl.h"
+#include "EGL/egl.h"
 #ifdef HAVE_X11_PLATFORM
-#include <GL/glx.h>
+#include "GL/glx.h"
 #endif
 #include "GL/mesa_glinterop.h"
 

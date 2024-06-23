@@ -5390,6 +5390,12 @@ agx_launch(struct agx_batch *batch, const struct pipe_grid_info *info,
       batch->incoherent_writes = true;
    }
 
+   for (int i = 0; i < info->num_globals; i++) {
+      struct agx_resource *buffer = agx_resource(info->globals[i]);
+      agx_batch_writes(batch, buffer, 0);
+      batch->incoherent_writes = true;
+   }
+
    agx_batch_add_bo(batch, cs->bo);
 
    agx_update_descriptors(batch, cs);

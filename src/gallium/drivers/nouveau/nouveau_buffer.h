@@ -138,4 +138,8 @@ void
 nouveau_buffer_transfer_unmap(struct pipe_context *pipe,
                               struct pipe_transfer *transfer);
 
+uint64_t
+nouveau_resource_get_address(struct pipe_screen *screen,
+                             struct pipe_resource *presource);
+
 #endif

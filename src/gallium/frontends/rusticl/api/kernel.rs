@@ -15,6 +15,7 @@ use rusticl_proc_macros::cl_entrypoint;
 use rusticl_proc_macros::cl_info_entrypoint;
 
 use std::cmp;
+use std::collections::HashSet;
 use std::mem::{self, MaybeUninit};
 use std::os::raw::c_void;
 use std::ptr;
@@ -407,7 +408,7 @@ fn set_kernel_arg(
                         if ptr.is_null() || (*ptr).is_null() {
                             KernelArgValue::None
                         } else {
-                            KernelArgValue::Buffer(Buffer::arc_from_raw(*ptr)?)
+                            KernelArgValue::Buffer(Buffer::arc_from_raw(*ptr)?, 0)
                         }
                     }
                     KernelArgType::MemLocal => KernelArgValue::LocalMem(arg_size),
@@ -463,6 +464,36 @@ fn set_kernel_arg_svm_pointer(
     // CL_INVALID_ARG_VALUE if arg_value specified is not a valid value.
 }
 
+#[cl_entrypoint(clSetKernelArgDevicePointerEXT)]
+fn set_kernel_arg_device_pointer(
+    kernel: cl_kernel,
+    arg_index: cl_uint,
+    arg_value: cl_mem_device_address_EXT,
+) -> CLResult<()> {
+    let kernel = Kernel::ref_from_raw(kernel)?;
+    let arg_index = arg_index as usize;
+
+    if let Some(arg) = kernel.kernel_info.args.get(arg_index) {
+        if !matches!(
+            arg.kind,
+            KernelArgType::MemConstant | KernelArgType::MemGlobal
+        ) {
+            return Err(CL_INVALID_ARG_INDEX);
+        }
+
+        let (base, buffer) = kernel
+            .prog
+            .context
+            .find_bda_alloc(arg_value)
+            .ok_or(CL_INVALID_ARG_VALUE)?;
+        let offset = arg_value - base;
+        let arg = KernelArgValue::Buffer(buffer, offset);
+        kernel.set_kernel_arg(arg_index, arg)
+    } else {
+        Err(CL_INVALID_ARG_INDEX)
+    }
+}
+
 #[cl_entrypoint(clSetKernelExecInfo)]
 fn set_kernel_exec_info(
     kernel: cl_kernel,
@@ -473,7 +504,9 @@ fn set_kernel_exec_info(
     let k = Kernel::ref_from_raw(kernel)?;
 
     // CL_INVALID_OPERATION if no devices in the context associated with kernel support SVM.
-    if !k.prog.devs.iter().any(|dev| dev.svm_supported()) {
+    if param_name != CL_KERNEL_EXEC_INFO_DEVICE_PTRS_EXT
+        && !k.prog.devs.iter().any(|dev| dev.svm_supported())
+    {
         return Err(CL_INVALID_OPERATION);
     }
 
@@ -484,6 +517,21 @@ fn set_kernel_exec_info(
 
     // CL_INVALID_VALUE ... if the size specified by param_value_size is not valid.
     match param_name {
+        CL_KERNEL_EXEC_INFO_DEVICE_PTRS_EXT => {
+            let elem_size = mem::size_of::<cl_mem_device_address_EXT>();
+            if param_value_size % elem_size != 0 {
+                return Err(CL_INVALID_VALUE);
+            }
+            let buffers: &[cl_mem_device_address_EXT] =
+                unsafe { slice::from_raw_parts(param_value.cast(), param_value_size / elem_size) };
+
+            let mem_buffers: HashSet<_> = buffers
+                .iter()
+                .filter_map(|buf| k.prog.context.find_bda_alloc(*buf))
+                .map(|(_, buffer)| buffer)
+                .collect();
+            let _ = mem::replace(&mut *k.bdas.lock().unwrap(), mem_buffers);
+        }
         CL_KERNEL_EXEC_INFO_SVM_PTRS | CL_KERNEL_EXEC_INFO_SVM_PTRS_ARM => {
             // it's a list of pointers
             if param_value_size % mem::size_of::<*const c_void>() != 0 {

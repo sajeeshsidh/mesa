@@ -12,6 +12,7 @@ use mesa_rust_util::string::*;
 use std::convert::TryInto;
 use std::ffi::CStr;
 use std::mem::size_of;
+use std::num::NonZeroU64;
 use std::os::raw::c_schar;
 use std::os::raw::c_uchar;
 use std::os::raw::c_void;
@@ -126,11 +127,24 @@ impl PipeScreen {
         )
     }
 
+    pub fn resource_get_address(&self, res: &PipeResource) -> Option<NonZeroU64> {
+        unsafe {
+            if res.target() == pipe_texture_target::PIPE_BUFFER
+                && (res.bind() & PIPE_BIND_GLOBAL) != 0
+            {
+                Some(NonZeroU64::new(self.screen().resource_get_address?(
+                    self.screen.as_ptr(),
+                    res.pipe(),
+                ))?)
+            } else {
+                None
+            }
+        }
+    }
+
     fn resource_create(&self, tmpl: &pipe_resource) -> Option<PipeResource> {
-        PipeResource::new(
-            unsafe { self.screen().resource_create.unwrap()(self.screen.as_ptr(), tmpl) },
-            false,
-        )
+        let res = unsafe { self.screen().resource_create.unwrap()(self.screen.as_ptr(), tmpl) };
+        PipeResource::new(res, self, false)
     }
 
     fn resource_create_from_user(
@@ -138,10 +152,9 @@ impl PipeScreen {
         tmpl: &pipe_resource,
         mem: *mut c_void,
     ) -> Option<PipeResource> {
-        PipeResource::new(
-            unsafe { self.screen().resource_from_user_memory?(self.screen.as_ptr(), tmpl, mem) },
-            true,
-        )
+        let res =
+            unsafe { self.screen().resource_from_user_memory?(self.screen.as_ptr(), tmpl, mem) };
+        PipeResource::new(res, self, true)
     }
 
     pub fn resource_create_buffer(
@@ -269,17 +282,10 @@ impl PipeScreen {
         tmpl.depth0 = depth;
         tmpl.array_size = array_size;
 
-        unsafe {
-            PipeResource::new(
-                self.screen().resource_from_handle.unwrap()(
-                    self.screen.as_ptr(),
-                    &tmpl,
-                    &mut handle,
-                    0,
-                ),
-                false,
-            )
-        }
+        let res = unsafe {
+            self.screen().resource_from_handle.unwrap()(self.screen.as_ptr(), &tmpl, &mut handle, 0)
+        };
+        PipeResource::new(res, self, false)
     }
 
     pub fn param(&self, cap: pipe_cap) -> i32 {
@@ -395,6 +401,10 @@ impl PipeScreen {
                 .get_timestamp
                 .expect("get_timestamp should be required")(self.screen.as_ptr())
         }
+    }
+
+    pub fn is_bda_supported(&self) -> bool {
+        self.screen().resource_get_address.is_some()
     }
 
     pub fn is_res_handle_supported(&self) -> bool {

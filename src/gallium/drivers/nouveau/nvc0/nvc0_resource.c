@@ -169,6 +169,7 @@ nvc0_screen_init_resource_functions(struct pipe_screen *pscreen)
 {
    pscreen->resource_create = nvc0_resource_create;
    pscreen->resource_create_with_modifiers = nvc0_resource_create_with_modifiers;
+   pscreen->resource_get_address = nouveau_resource_get_address;
    pscreen->query_dmabuf_modifiers = nvc0_query_dmabuf_modifiers;
    pscreen->is_dmabuf_modifier_supported = nvc0_is_dmabuf_modifier_supported;
    pscreen->resource_from_handle = nvc0_resource_from_handle;

@@ -568,6 +568,14 @@ nv50_launch_grid(struct pipe_context *pipe, const struct pipe_grid_info *info)
    bool ret;
 
    simple_mtx_lock(&nv50->screen->state_lock);
+
+   for (int i = 0; i < info->num_globals; i++) {
+      if (i == 0)
+         nouveau_bufctx_reset(nv50->bufctx_cp, NV50_BIND_CP_GLOBAL);
+      nv50_add_bufctx_resident(nv50->bufctx_cp, NV50_BIND_CP_GLOBAL,
+                               nv04_resource(info->globals[i]), NOUVEAU_BO_RDWR);
+   }
+
    ret = !nv50_state_validate_cp(nv50, ~0);
    if (ret) {
       NOUVEAU_ERR("Failed to launch grid !\n");

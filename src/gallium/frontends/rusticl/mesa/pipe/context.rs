@@ -452,30 +452,25 @@ impl PipeContext {
         block: [u32; 3],
         grid: [u32; 3],
         variable_local_mem: u32,
+        globals: &[&PipeResource],
     ) {
+        let mut globals: Vec<*mut pipe_resource> = globals.iter().map(|res| res.pipe()).collect();
         let info = pipe_grid_info {
-            pc: 0,
-            input: ptr::null(),
             variable_shared_mem: variable_local_mem,
             work_dim: work_dim,
             block: block,
-            last_block: [0; 3],
             grid: grid,
-            grid_base: [0; 3],
-            indirect: ptr::null_mut(),
-            indirect_offset: 0,
-            indirect_stride: 0,
-            draw_count: 0,
-            indirect_draw_count_offset: 0,
-            indirect_draw_count: ptr::null_mut(),
+            globals: globals.as_mut_ptr(),
+            num_globals: globals.len() as u32,
+            ..Default::default()
         };
         unsafe { self.pipe.as_ref().launch_grid.unwrap()(self.pipe.as_ptr(), &info) }
     }
 
-    pub fn set_global_binding(&self, res: &[&PipeResource], out: &mut [*mut u32]) {
+    pub fn set_global_binding(&self, res: &[&PipeResource], out: &mut [*mut u32]) -> Option<()> {
         let mut res: Vec<_> = res.iter().copied().map(PipeResource::pipe).collect();
         unsafe {
-            self.pipe.as_ref().set_global_binding.unwrap()(
+            self.pipe.as_ref().set_global_binding?(
                 self.pipe.as_ptr(),
                 0,
                 res.len() as u32,
@@ -483,6 +478,7 @@ impl PipeContext {
                 out.as_mut_ptr(),
             )
         }
+        Some(())
     }
 
     pub fn create_sampler_view(
@@ -505,14 +501,17 @@ impl PipeContext {
     }
 
     pub fn clear_global_binding(&self, count: u32) {
-        unsafe {
-            self.pipe.as_ref().set_global_binding.unwrap()(
-                self.pipe.as_ptr(),
-                0,
-                count,
-                ptr::null_mut(),
-                ptr::null_mut(),
-            )
+        let pipe = unsafe { self.pipe.as_ref() };
+        if let Some(set_global_binding) = pipe.set_global_binding {
+            unsafe {
+                set_global_binding(
+                    self.pipe.as_ptr(),
+                    0,
+                    count,
+                    ptr::null_mut(),
+                    ptr::null_mut(),
+                )
+            }
         }
     }
 
@@ -547,6 +546,10 @@ impl PipeContext {
 
     pub fn sampler_view_destroy(&self, view: *mut pipe_sampler_view) {
         unsafe { self.pipe.as_ref().sampler_view_destroy.unwrap()(self.pipe.as_ptr(), view) }
+    }
+
+    pub fn screen(&self) -> &PipeScreen {
+        &self.screen
     }
 
     pub fn set_shader_images(&self, images: &[PipeImageView]) {
@@ -664,6 +667,8 @@ impl Drop for PipeContext {
 }
 
 fn has_required_cbs(context: &pipe_context) -> bool {
+    let has_resource_get_address = unsafe { *context.screen }.resource_get_address.is_some();
+
     // Use '&' to evaluate all features and to not stop
     // on first missing one to list all missing features.
     has_required_feature!(context, destroy)
@@ -686,7 +691,7 @@ fn has_required_cbs(context: &pipe_context) -> bool {
         & has_required_feature!(context, resource_copy_region)
         & has_required_feature!(context, sampler_view_destroy)
         & has_required_feature!(context, set_constant_buffer)
-        & has_required_feature!(context, set_global_binding)
+        & (has_resource_get_address || has_required_feature!(context, set_global_binding))
         & has_required_feature!(context, set_sampler_views)
         & has_required_feature!(context, set_shader_images)
         & has_required_feature!(context, texture_map)

@@ -25,6 +25,7 @@ use std::collections::HashMap;
 use std::convert::TryInto;
 use std::mem;
 use std::mem::size_of;
+use std::num::NonZeroU64;
 use std::ops::Deref;
 use std::os::raw::c_void;
 use std::ptr;
@@ -224,6 +225,7 @@ pub struct MemBase {
 
 pub struct Buffer {
     base: MemBase,
+    pub address: cl_mem_device_address_EXT,
     pub offset: usize,
 }
 
@@ -410,10 +412,18 @@ impl MemBase {
             ResourceType::Normal
         };
 
+        if bit_check(flags, CL_MEM_DEVICE_ADDRESS_EXT) {
+            if context.devs.len() > 1 {
+                // TODO: place memory at same address for each device
+                return Err(CL_INVALID_VALUE);
+            }
+        }
+
         let buffer = context.create_buffer(
             size,
             host_ptr,
             bit_check(flags, CL_MEM_COPY_HOST_PTR),
+            bit_check(flags, CL_MEM_DEVICE_ADDRESS_EXT | CL_MEM_DEVICE_PRIVATE_EXT),
             res_type,
         )?;
 
@@ -423,7 +433,11 @@ impl MemBase {
             0
         };
 
-        Ok(Arc::new(Buffer {
+        let address = buffer[context.devs[0]]
+            .address()
+            .map(NonZeroU64::get)
+            .unwrap_or_default();
+        let buffer = Arc::new(Buffer {
             base: Self {
                 base: CLObjectBase::new(RusticlTypes::Buffer),
                 context: context,
@@ -438,8 +452,15 @@ impl MemBase {
                 res: Some(buffer),
                 maps: Mappings::new(),
             },
+            address: address,
             offset: 0,
-        }))
+        });
+
+        if bit_check(flags, CL_MEM_DEVICE_ADDRESS_EXT | CL_MEM_DEVICE_PRIVATE_EXT) {
+            buffer.context.add_bda_ptr(address, &buffer);
+        }
+
+        Ok(buffer)
     }
 
     pub fn new_sub_buffer(
@@ -452,6 +473,11 @@ impl MemBase {
             0
         } else {
             unsafe { parent.host_ptr().add(offset) as usize }
+        };
+
+        let address = match parent.address {
+            0 => 0,
+            a => a + offset as cl_mem_device_address_EXT,
         };
 
         Arc::new(Buffer {
@@ -469,6 +495,7 @@ impl MemBase {
                 res: None,
                 maps: Mappings::new(),
             },
+            address: address,
             offset: offset,
         })
     }
@@ -662,6 +689,7 @@ impl MemBase {
         Ok(if rusticl_type == RusticlTypes::Buffer {
             Arc::new(Buffer {
                 base: base,
+                address: 0,
                 offset: gl_mem_props.offset as usize,
             })
             .into_cl()
@@ -893,6 +921,30 @@ impl Buffer {
             size.try_into().map_err(|_| CL_OUT_OF_HOST_MEMORY)?,
         );
         Ok(())
+    }
+
+    pub fn get_address_of_res(&self) -> CLResult<Vec<cl_mem_device_address_pair_EXT>> {
+        if !bit_check(
+            self.flags,
+            CL_MEM_DEVICE_ADDRESS_EXT | CL_MEM_DEVICE_PRIVATE_EXT,
+        ) {
+            return Err(CL_INVALID_MEM_OBJECT);
+        }
+
+        let Some(res) = self.res.as_ref() else {
+            return Err(CL_INVALID_MEM_OBJECT);
+        };
+
+        let res = res
+            .iter()
+            .filter_map(|(&dev, res)| {
+                Some(cl_mem_device_address_pair_EXT {
+                    address: res.address()?.get(),
+                    device: cl_device_id::from_ptr(dev),
+                })
+            })
+            .collect();
+        Ok(res)
     }
 
     pub fn map(&self, dev: &'static Device, offset: usize) -> CLResult<MutMemoryPtr> {
@@ -1141,6 +1193,17 @@ impl Buffer {
         );
 
         Ok(())
+    }
+}
+
+impl Drop for Buffer {
+    fn drop(&mut self) {
+        if bit_check(
+            self.flags,
+            CL_MEM_DEVICE_ADDRESS_EXT | CL_MEM_DEVICE_PRIVATE_EXT,
+        ) {
+            self.context.remove_bda_ptr(self.address)
+        }
     }
 }
 

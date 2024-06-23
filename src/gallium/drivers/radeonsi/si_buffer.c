@@ -248,11 +248,16 @@ static bool si_invalidate_buffer(struct si_context *sctx, struct si_resource *bu
    if (buf->flags & RADEON_FLAG_SPARSE)
       return false;
 
+   /* BDA buffers can't be reallocated */
+   if (buf->b.b.bind & PIPE_BIND_GLOBAL_BDA)
+      return false;
+
    /* In AMD_pinned_memory, the user pointer association only gets
     * broken when the buffer is explicitly re-allocated.
     */
    if (buf->b.is_user_ptr)
       return false;
+
 
    /* Check if mapping this buffer would cause waiting for the GPU. */
    if (si_cs_is_buffer_referenced(sctx, buf->buf, RADEON_USAGE_READWRITE) ||
@@ -714,6 +719,15 @@ static struct pipe_resource *si_resource_create(struct pipe_screen *screen,
    }
 }
 
+static uint64_t si_resource_get_address(struct pipe_screen *screen,
+                                        struct pipe_resource *res)
+{
+   if (res->bind & PIPE_BIND_GLOBAL_BDA)
+      return si_resource(res)->gpu_address;
+   else
+      return 0;
+}
+
 static bool si_buffer_commit(struct si_context *ctx, struct si_resource *res,
                              struct pipe_box *box, bool commit)
 {
@@ -748,6 +762,7 @@ static bool si_resource_commit(struct pipe_context *pctx, struct pipe_resource *
 void si_init_screen_buffer_functions(struct si_screen *sscreen)
 {
    sscreen->b.resource_create = si_resource_create;
+   sscreen->b.resource_get_address = si_resource_get_address;
    sscreen->b.resource_destroy = si_resource_destroy;
    sscreen->b.resource_from_user_memory = si_buffer_from_user_memory;
 }

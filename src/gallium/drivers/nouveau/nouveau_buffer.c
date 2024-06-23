@@ -1083,3 +1083,11 @@ nouveau_scratch_get(struct nouveau_context *nv,
    *gpu_addr = nv->scratch.current->offset + bgn;
    return nv->scratch.map + bgn;
 }
+
+uint64_t
+nouveau_resource_get_address(struct pipe_screen *screen,
+                             struct pipe_resource *presource)
+{
+   struct nv04_resource *res = nv04_resource(presource);
+   return res->address;
+}

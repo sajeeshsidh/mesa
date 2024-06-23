@@ -367,6 +367,23 @@ struct pipe_screen {
                              unsigned *offset);
 
    /**
+    * Returns the for the lifetime of this resource valid GPU's address of it.
+    * Only valid for resources with PIPE_BIND_GLOBAL or PIPE_BIND_GLOBAL_BDA.
+    *
+    * Implementing this function advertizes support for PIPE_BIND_GLOBAL_BDA.
+    *
+    * Resources for which a non 0 address is returned by this is valid to be
+    * passed through launch_grid::globals.
+    *
+    * If this guarantee comes at a significant cost, it's advised to return 0
+    * for PIPE_BIND_GLOBAL resources and to implement set_global_binding
+    * additionally. It's not allowed to return 0 for PIPE_BIND_GLOBAL_BDA
+    * resources.
+    */
+   uint64_t (*resource_get_address)(struct pipe_screen *screen,
+                                    struct pipe_resource *resource);
+
+   /**
     * Mark the resource as changed so derived internal resources will be
     * recreated on next use.
     *

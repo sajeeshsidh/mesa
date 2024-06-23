@@ -116,6 +116,7 @@ cl_prop_for_type!(usize);
 cl_prop_for_type!(cl_device_integer_dot_product_acceleration_properties_khr);
 cl_prop_for_type!(cl_device_pci_bus_info_khr);
 cl_prop_for_type!(cl_image_format);
+cl_prop_for_type!(cl_mem_device_address_pair_EXT);
 cl_prop_for_type!(cl_name_version);
 
 impl CLProp for bool {

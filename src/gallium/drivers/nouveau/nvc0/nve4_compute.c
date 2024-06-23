@@ -822,7 +822,13 @@ nve4_launch_grid(struct pipe_context *pipe, const struct pipe_grid_info *info)
                         resident->flags);
    }
 
+   for (int i = 0; i < info->num_globals; i++)
+      nvc0_add_resident(nvc0->bufctx_cp, NVC0_BIND_CP_GLOBAL,
+                        nv04_resource(info->globals[i]), NOUVEAU_BO_RDWR);
+
    simple_mtx_lock(&screen->state_lock);
+
+
    ret = !nve4_state_validate_cp(nvc0, ~0);
    if (ret)
       goto out_unlock;
@@ -906,6 +912,7 @@ out:
    nouveau_scratch_done(&nvc0->base);
    nouveau_bufctx_reset(nvc0->bufctx_cp, NVC0_BIND_CP_DESC);
    nouveau_bufctx_reset(nvc0->bufctx_cp, NVC0_BIND_CP_BINDLESS);
+   nouveau_bufctx_reset(nvc0->bufctx_cp, NVC0_BIND_CP_GLOBAL);
 }
 
 

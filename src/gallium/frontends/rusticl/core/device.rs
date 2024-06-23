@@ -690,6 +690,10 @@ impl Device {
             add_ext(1, 0, 0, "cl_arm_shared_virtual_memory");
         }
 
+        if self.bda_supported() {
+            add_ext(1, 0, 0, "cl_ext_buffer_device_address");
+        }
+
         self.extensions = exts;
         self.clc_features = feats;
         self.extension_string = format!("{} {}", PLATFORM_EXTENSION_STR, exts_str.join(" "));
@@ -708,6 +712,10 @@ impl Device {
     pub fn address_bits(&self) -> cl_uint {
         self.screen
             .compute_param(pipe_compute_cap::PIPE_COMPUTE_CAP_ADDRESS_BITS)
+    }
+
+    pub fn bda_supported(&self) -> bool {
+        self.screen.is_bda_supported()
     }
 
     pub fn const_max_size(&self) -> cl_ulong {
