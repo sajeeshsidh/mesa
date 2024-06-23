@@ -439,8 +439,8 @@ lp_build_create_jit_compiler_for_module(LLVMExecutionEngineRef *OutJIT,
 #if DETECT_ARCH_ARM
    if (!util_get_cpu_caps()->has_neon) {
       MAttrs.push_back("-neon");
-      MAttrs.push_back("-crypto");
-      MAttrs.push_back("-vfp2");
+      MAttrs.push_back("+fp64");
+      MAttrs.push_back("-d32");
    }
 #endif
 
