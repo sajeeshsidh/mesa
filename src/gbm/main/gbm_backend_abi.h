@@ -72,7 +72,7 @@ struct gbm_backend_desc;
  * Core ABI version: 4
  * ABI version of a buffer object created by a device from the backend: 4
  */
-#define GBM_BACKEND_ABI_VERSION 1
+#define GBM_BACKEND_ABI_VERSION 2
 
 /**
  * GBM device interface corresponding to GBM_BACKEND_ABI_VERSION = 0
@@ -217,6 +217,11 @@ struct gbm_surface_v0 {
    };
 };
 
+struct gbm_surface_v2 {
+   void *user_data;
+   struct gbm_surface_overrides overrides;
+};
+
 /**
  * An allocated GBM surface.
  *
@@ -226,6 +231,7 @@ struct gbm_surface_v0 {
 struct gbm_surface {
    struct gbm_device *gbm;
    struct gbm_surface_v0 v0;
+   struct gbm_surface_v2 v2;
 };
 
 /**

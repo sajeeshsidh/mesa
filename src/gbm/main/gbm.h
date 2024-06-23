@@ -516,6 +516,17 @@ gbm_surface_create_with_modifiers2(struct gbm_device *gbm,
                                    const unsigned int count,
                                    uint32_t flags);
 
+struct gbm_surface_overrides {
+	int (*surface_overrides_init)(void *user_surface, struct gbm_device *gbm, uint32_t width, uint32_t height, uint32_t format, const uint64_t *modifiers, size_t count, uint32_t flags);
+	struct gbm_bo *(*surface_lock_front_buffer)(void *user_surface);
+	void (*surface_release_buffer)(void *user_surface, struct gbm_bo *bo);
+	int (*surface_has_free_buffers)(void *user_surface);
+	void (*surface_destroy)(void *user_interface);
+};
+
+int
+gbm_surface_set_overrides(struct gbm_surface *surface, void *user_data, struct gbm_surface_overrides overrides);
+
 struct gbm_bo *
 gbm_surface_lock_front_buffer(struct gbm_surface *surface);
 

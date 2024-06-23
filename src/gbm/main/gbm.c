@@ -723,7 +723,26 @@ gbm_surface_create_with_modifiers2(struct gbm_device *gbm,
 GBM_EXPORT void
 gbm_surface_destroy(struct gbm_surface *surf)
 {
+   if (surf->v2.user_data != NULL)
+      surf->v2.overrides.surface_destroy(surf->v2.user_data);
    surf->gbm->v0.surface_destroy(surf);
+}
+
+GBM_EXPORT int
+gbm_surface_set_overrides(struct gbm_surface *surf, void *user_data,
+                          struct gbm_surface_overrides overrides)
+{
+   if (user_data != NULL) {
+      if (!overrides.surface_overrides_init(user_data, surf->gbm,
+                                            surf->v0.width, surf->v0.height,
+                                            surf->v0.format,
+                                            surf->v0.modifiers, surf->v0.count,
+                                            surf->v0.flags))
+         return 0;
+   }
+   surf->v2.user_data = user_data;
+   surf->v2.overrides = overrides;
+   return 1;
 }
 
 /**
@@ -748,6 +767,8 @@ gbm_surface_destroy(struct gbm_surface *surf)
 GBM_EXPORT struct gbm_bo *
 gbm_surface_lock_front_buffer(struct gbm_surface *surf)
 {
+   if (surf->v2.user_data != NULL)
+      return surf->v2.overrides.surface_lock_front_buffer(surf->v2.user_data);
    return surf->gbm->v0.surface_lock_front_buffer(surf);
 }
 
@@ -766,6 +787,10 @@ gbm_surface_lock_front_buffer(struct gbm_surface *surf)
 GBM_EXPORT void
 gbm_surface_release_buffer(struct gbm_surface *surf, struct gbm_bo *bo)
 {
+   if (surf->v2.user_data != NULL) {
+      surf->v2.overrides.surface_release_buffer(surf->v2.user_data, bo);
+      return;
+   }
    surf->gbm->v0.surface_release_buffer(surf, bo);
 }
 
@@ -788,6 +813,8 @@ gbm_surface_release_buffer(struct gbm_surface *surf, struct gbm_bo *bo)
 GBM_EXPORT int
 gbm_surface_has_free_buffers(struct gbm_surface *surf)
 {
+   if (surf->v2.user_data != NULL)
+      return surf->v2.overrides.surface_has_free_buffers(surf->v2.user_data);
    return surf->gbm->v0.surface_has_free_buffers(surf);
 }
 

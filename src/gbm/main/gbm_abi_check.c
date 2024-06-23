@@ -152,6 +152,11 @@ struct gbm_surface_v0_abi0 {
    };
 };
 
+struct gbm_surface_v2_abi0 {
+   void *user_data;
+   struct gbm_surface_overrides overrides;
+};
+
 /**
  * An allocated GBM surface.
  *
@@ -161,6 +166,7 @@ struct gbm_surface_v0_abi0 {
 struct gbm_surface_abi0 {
    struct gbm_device *gbm;
    struct gbm_surface_v0_abi0 v0;
+   struct gbm_surface_v2_abi0 v2;
 };
 
 /**
@@ -387,6 +393,7 @@ int main(int argc, char **argv)
    /* Check current gbm_surface ABI against gbm_surface_abi0 */
    CHECK_MEMBER_CURRENT(gbm_surface, _abi0, gbm);
    CHECK_MEMBER_CURRENT_NO_TYPE(gbm_surface, _abi0, v0);
+   CHECK_MEMBER_CURRENT_NO_TYPE(gbm_surface, _abi0, v2);
 
    CHECK_MEMBER_CURRENT(gbm_surface_v0, _abi0, width);
    CHECK_MEMBER_CURRENT(gbm_surface_v0, _abi0, height);
@@ -395,9 +402,11 @@ int main(int argc, char **argv)
    CHECK_MEMBER_CURRENT(gbm_surface_v0, _abi0, modifiers);
    CHECK_MEMBER_CURRENT(gbm_surface_v0, _abi0, count);
 
+   CHECK_MEMBER_CURRENT(gbm_surface_v2, _abi0, user_data);
+   CHECK_MEMBER_CURRENT(gbm_surface_v2, _abi0, overrides);
+
    /* Size of ABI-versioned substructures verified by above member checks */
    CHECK_SIZE_CURRENT  (gbm_surface, _abi0);
-
 
    /* Check current gbm_backend ABI against gbm_backend_abi0 */
    CHECK_MEMBER_CURRENT_NO_TYPE(gbm_backend, _abi0, v0);

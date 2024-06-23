@@ -36,3 +36,4 @@ gbm_surface_destroy
 gbm_surface_has_free_buffers
 gbm_surface_lock_front_buffer
 gbm_surface_release_buffer
+gbm_surface_set_overrides
