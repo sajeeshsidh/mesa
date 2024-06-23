@@ -72,6 +72,21 @@ python-test:
     - changes: *bin_ci_files
       when: manual
 
+vulkaninfo:
+  extends:
+    - .formatting-check
+  needs:
+    - debian-build-testing
+  variables:
+    HWCI_START_WESTON: 1
+  before_script:
+    - set -e
+    - python bin/vulkaninfo_check.py
+  artifacts:
+    when: always
+    paths:
+      - src/**/vulkaninfo*.json
+
 .test-gl:
   extends:
     - .test
