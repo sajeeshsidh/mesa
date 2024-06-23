@@ -454,8 +454,8 @@ try_optimize_branching_sequence(ssa_elimination_ctx& ctx, Block& block, const in
             return;
          } else {
             aco_ptr<Instruction> tmp = std::move(exec_val);
-            exec_val.reset(create_instruction(tmp->opcode, tmp->format, tmp->operands.size(),
-                                              tmp->definitions.size() + 1));
+            exec_val = create_instruction(tmp->opcode, tmp->format, tmp->operands.size(),
+                                          tmp->definitions.size() + 1);
             std::copy(tmp->operands.cbegin(), tmp->operands.cend(), exec_val->operands.begin());
             std::copy(tmp->definitions.cbegin(), tmp->definitions.cend(),
                       exec_val->definitions.begin());
@@ -500,10 +500,10 @@ try_optimize_branching_sequence(ssa_elimination_ctx& ctx, Block& block, const in
 
    if (can_remove_copy) {
       /* Remove the copy. */
-      exec_copy.reset();
+      exec_copy = nullptr;
    } else {
       /* Reassign the copy to write the register of the original value. */
-      exec_copy.reset(create_instruction(aco_opcode::p_parallelcopy, Format::PSEUDO, 1, 1));
+      exec_copy = create_instruction(aco_opcode::p_parallelcopy, Format::PSEUDO, 1, 1);
       exec_copy->definitions[0] = exec_wr_def;
       exec_copy->operands[0] = Operand(exec, ctx.program->lane_mask);
    }
@@ -515,7 +515,7 @@ try_optimize_branching_sequence(ssa_elimination_ctx& ctx, Block& block, const in
       /* Remove the branch instruction when exec is constant non-zero. */
       aco_ptr<Instruction>& branch = block.instructions.back();
       if (branch->opcode == aco_opcode::p_cbranch_z && branch->operands[0].physReg() == exec)
-         block.instructions.back().reset();
+         block.instructions.pop_back();
    }
 
    if (save_original_exec) {
@@ -579,10 +579,9 @@ eliminate_useless_exec_writes_in_block(ssa_elimination_ctx& ctx, Block& block)
          break;
 
       /* See if the current instruction needs or writes exec. */
-      bool needs_exec =
-         needs_exec_mask(instr.get()) ||
-         (instr->opcode == aco_opcode::p_logical_end && !ctx.logical_phi_info[block.index].empty());
-      bool writes_exec = instr_writes_exec(instr.get());
+      bool needs_exec = needs_exec_mask(instr) || (instr->opcode == aco_opcode::p_logical_end &&
+                                                   !ctx.logical_phi_info[block.index].empty());
+      bool writes_exec = instr_writes_exec(instr);
 
       /* See if we found an unused exec write. */
       if (writes_exec && !exec_write_used) {
@@ -594,7 +593,7 @@ eliminate_useless_exec_writes_in_block(ssa_elimination_ctx& ctx, Block& block)
                                          [](const Definition& def) -> bool
                                          { return def.physReg() != exec && def.physReg() != scc; });
          if (!writes_other) {
-            instr.reset();
+            instr = nullptr;
             continue;
          }
       }

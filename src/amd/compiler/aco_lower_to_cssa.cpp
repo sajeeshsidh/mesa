@@ -203,7 +203,7 @@ intersects(cssa_ctx& ctx, Temp var, Temp parent)
    const Block& block = ctx.program->blocks[block_idx];
    for (auto it = block.instructions.crbegin(); it != block.instructions.crend(); ++it) {
       /* if the parent was not encountered yet, it can only be used by a phi */
-      if (is_phi(it->get()))
+      if (is_phi(*it))
          break;
 
       for (const Definition& def : (*it)->definitions) {

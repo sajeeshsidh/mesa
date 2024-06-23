@@ -920,7 +920,7 @@ aco_print_block(enum amd_gfx_level gfx_level, const Block* block, FILE* output, 
       if (flags & print_perf_info)
          fprintf(output, "(%3u clk)   ", instr->pass_flags);
 
-      aco_print_instr(gfx_level, instr.get(), output, flags);
+      aco_print_instr(gfx_level, instr, output, flags);
       fprintf(output, "\n");
       index++;
    }

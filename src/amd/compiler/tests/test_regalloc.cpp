@@ -559,7 +559,7 @@ BEGIN_TEST(regalloc.linear_vgpr.compact_for_future_def)
       //~gfx8_cbranch>> lv1: %ltmp2_2:v[29] = p_parallelcopy %ltmp2:v[28] scc:1 scratch:s1
       //~gfx8_branch>> lv1: %ltmp2_2:v[29] = p_parallelcopy %ltmp2:v[28] scc:0 scratch:s0
       aco_ptr<Instruction>& parallelcopy = program->blocks[0].instructions[6];
-      aco_print_instr(program->gfx_level, parallelcopy.get(), output);
+      aco_print_instr(program->gfx_level, parallelcopy, output);
       if (parallelcopy->isPseudo()) {
          fprintf(output, " scc:%u scratch:s%u\n", parallelcopy->pseudo().tmp_in_scc,
                  parallelcopy->pseudo().scratch_sgpr.reg());

@@ -63,11 +63,11 @@ get_temp_registers(aco_ptr<Instruction>& instr)
          temp_registers += op.getTemp();
    }
 
-   int op_idx = get_op_fixed_to_def(instr.get());
+   int op_idx = get_op_fixed_to_def(instr);
    if (op_idx != -1 && !instr->operands[op_idx].isKill()) {
       RegisterDemand before_instr;
       before_instr -= get_live_changes(instr);
-      handle_def_fixed_to_op(&temp_registers, before_instr, instr.get(), op_idx);
+      handle_def_fixed_to_op(&temp_registers, before_instr, instr, op_idx);
    }
 
    return temp_registers;
@@ -124,7 +124,7 @@ process_live_temps_per_block(Program* program, Block* block, unsigned& worklist,
    /* traverse the instructions backwards */
    int idx;
    for (idx = block->instructions.size() - 1; idx >= 0; idx--) {
-      Instruction* insn = block->instructions[idx].get();
+      Instruction* insn = block->instructions[idx];
       if (is_phi(insn))
          break;
 
@@ -197,7 +197,7 @@ process_live_temps_per_block(Program* program, Block* block, unsigned& worklist,
    int phi_idx = idx;
    while (phi_idx >= 0) {
       register_demand[phi_idx] = new_demand;
-      Instruction* insn = block->instructions[phi_idx].get();
+      Instruction* insn = block->instructions[phi_idx];
 
       assert(is_phi(insn) && insn->definitions.size() == 1);
       if (!insn->definitions[0].isTemp()) {
@@ -264,7 +264,7 @@ process_live_temps_per_block(Program* program, Block* block, unsigned& worklist,
    /* handle phi operands */
    phi_idx = idx;
    while (phi_idx >= 0) {
-      Instruction* insn = block->instructions[phi_idx].get();
+      Instruction* insn = block->instructions[phi_idx];
       assert(is_phi(insn));
       /* directly insert into the predecessors live-out set */
       Block::edge_vec& preds =

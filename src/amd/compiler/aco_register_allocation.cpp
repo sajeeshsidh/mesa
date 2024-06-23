@@ -115,8 +115,8 @@ struct ra_ctx {
        : program(program_), assignments(program->peekAllocationId()),
          renames(program->blocks.size()), policy(policy_)
    {
-      pseudo_dummy.reset(create_instruction(aco_opcode::p_parallelcopy, Format::PSEUDO, 0, 0));
-      phi_dummy.reset(create_instruction(aco_opcode::p_linear_phi, Format::PSEUDO, 0, 0));
+      pseudo_dummy = create_instruction(aco_opcode::p_parallelcopy, Format::PSEUDO, 0, 0);
+      phi_dummy = create_instruction(aco_opcode::p_linear_phi, Format::PSEUDO, 0, 0);
       sgpr_limit = get_addr_sgpr_from_waves(program, program->min_waves);
       vgpr_limit = get_addr_vgpr_from_waves(program, program->min_waves);
 
@@ -2170,7 +2170,7 @@ get_reg_phi(ra_ctx& ctx, IDSet& live_in, RegisterFile& register_file,
       std::vector<aco_ptr<Instruction>>::iterator phi_it;
       for (phi_it = instructions.begin(); phi_it != instructions.end(); ++phi_it) {
          if ((*phi_it)->definitions[0].tempId() == pc.first.tempId())
-            prev_phi = phi_it->get();
+            prev_phi = *phi_it;
       }
       if (prev_phi) {
          /* if so, just update that phi's register */
@@ -2633,15 +2633,15 @@ get_affinities(ra_ctx& ctx, std::vector<IDSet>& live_out_per_block)
             for (const Operand& op : instr->operands) {
                if (op.isTemp() && op.isFirstKill() &&
                    op.getTemp().type() == instr->definitions[0].getTemp().type())
-                  ctx.vectors[op.tempId()] = instr.get();
+                  ctx.vectors[op.tempId()] = instr;
             }
          } else if (instr->format == Format::MIMG && instr->operands.size() > 4 &&
                     !instr->mimg().strict_wqm && ctx.program->gfx_level < GFX12) {
             for (unsigned i = 3; i < instr->operands.size(); i++)
-               ctx.vectors[instr->operands[i].tempId()] = instr.get();
+               ctx.vectors[instr->operands[i].tempId()] = instr;
          } else if (instr->opcode == aco_opcode::p_split_vector &&
                     instr->operands[0].isFirstKillBeforeDef()) {
-            ctx.split_vectors[instr->operands[0].tempId()] = instr.get();
+            ctx.split_vectors[instr->operands[0].tempId()] = instr;
          } else if (instr->isVOPC() && !instr->isVOP3()) {
             if (!instr->isSDWA() || ctx.program->gfx_level == GFX8)
                ctx.assignments[instr->definitions[0].tempId()].vcc = true;
@@ -2670,7 +2670,7 @@ get_affinities(ra_ctx& ctx, std::vector<IDSet>& live_out_per_block)
          }
 
          /* erase definitions from live */
-         int op_fixed_to_def0 = get_op_fixed_to_def(instr.get());
+         int op_fixed_to_def0 = get_op_fixed_to_def(instr);
          for (unsigned i = 0; i < instr->definitions.size(); i++) {
             const Definition& def = instr->definitions[i];
             if (!def.isTemp())
@@ -2688,9 +2688,9 @@ get_affinities(ra_ctx& ctx, std::vector<IDSet>& live_out_per_block)
                   op = instr->operands[i];
                } else if (i == 0 && op_fixed_to_def0 != -1) {
                   op = instr->operands[op_fixed_to_def0];
-               } else if (vop3_can_use_vop2acc(ctx, instr.get())) {
+               } else if (vop3_can_use_vop2acc(ctx, instr)) {
                   op = instr->operands[2];
-               } else if (sop2_can_use_sopk(ctx, instr.get())) {
+               } else if (sop2_can_use_sopk(ctx, instr)) {
                   op = instr->operands[instr->operands[0].isLiteral()];
                } else {
                   continue;
@@ -2779,7 +2779,7 @@ get_affinities(ra_ctx& ctx, std::vector<IDSet>& live_out_per_block)
 void
 optimize_encoding_vop2(ra_ctx& ctx, RegisterFile& register_file, aco_ptr<Instruction>& instr)
 {
-   if (!vop3_can_use_vop2acc(ctx, instr.get()))
+   if (!vop3_can_use_vop2acc(ctx, instr))
       return;
 
    for (unsigned i = ctx.program->gfx_level < GFX11 ? 0 : 2; i < 3; i++) {
@@ -2827,7 +2827,7 @@ void
 optimize_encoding_sopk(ra_ctx& ctx, RegisterFile& register_file, aco_ptr<Instruction>& instr)
 {
    /* try to optimize sop2 with literal source to sopk */
-   if (!sop2_can_use_sopk(ctx, instr.get()))
+   if (!sop2_can_use_sopk(ctx, instr))
       return;
    unsigned literal_idx = instr->operands[1].isLiteral();
 
@@ -2878,8 +2878,8 @@ emit_parallel_copy_internal(ra_ctx& ctx, std::vector<std::pair<Operand, Definiti
       return;
 
    aco_ptr<Instruction> pc;
-   pc.reset(create_instruction(aco_opcode::p_parallelcopy, Format::PSEUDO, parallelcopy.size(),
-                               parallelcopy.size()));
+   pc = create_instruction(aco_opcode::p_parallelcopy, Format::PSEUDO, parallelcopy.size(),
+                           parallelcopy.size());
    bool linear_vgpr = false;
    bool sgpr_operands_alias_defs = false;
    uint64_t sgpr_operands[4] = {0, 0, 0, 0};
@@ -2925,7 +2925,7 @@ emit_parallel_copy_internal(ra_ctx& ctx, std::vector<std::pair<Operand, Definiti
             tmp_file.block(op.physReg(), op.regClass());
       }
 
-      handle_pseudo(ctx, tmp_file, pc.get());
+      handle_pseudo(ctx, tmp_file, pc);
    } else {
       pc->pseudo().needs_scratch_reg = sgpr_operands_alias_defs || linear_vgpr;
       pc->pseudo().tmp_in_scc = false;
@@ -3126,7 +3126,7 @@ register_allocation(Program* program, ra_test_policy policy)
           * We can't read from the old location because it's corrupted, and we can't write the new
           * location because that's used by a live-through operand.
           */
-         int op_fixed_to_def = get_op_fixed_to_def(instr.get());
+         int op_fixed_to_def = get_op_fixed_to_def(instr);
          if (op_fixed_to_def != -1)
             instr->definitions[0].setFixed(instr->operands[op_fixed_to_def].physReg());
 
@@ -3249,7 +3249,7 @@ register_allocation(Program* program, ra_test_policy policy)
             register_file.fill(*definition);
          }
 
-         handle_pseudo(ctx, register_file, instr.get());
+         handle_pseudo(ctx, register_file, instr);
 
          /* kill definitions and late-kill operands and ensure that sub-dword operands can actually
           * be read */
@@ -3312,9 +3312,9 @@ register_allocation(Program* program, ra_test_policy policy)
 
                aco_ptr<Instruction> mov;
                if (can_sgpr)
-                  mov.reset(create_instruction(aco_opcode::s_mov_b32, Format::SOP1, 1, 1));
+                  mov = create_instruction(aco_opcode::s_mov_b32, Format::SOP1, 1, 1);
                else
-                  mov.reset(create_instruction(aco_opcode::v_mov_b32, Format::VOP1, 1, 1));
+                  mov = create_instruction(aco_opcode::v_mov_b32, Format::VOP1, 1, 1);
                mov->operands[0] = instr->operands[0];
                mov->definitions[0] = Definition(tmp);
                mov->definitions[0].setFixed(reg);

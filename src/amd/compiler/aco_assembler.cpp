@@ -1385,7 +1385,7 @@ emit_block(asm_context& ctx, std::vector<uint32_t>& out, Block& block)
       aco_print_instr(&*instr, stderr);
       std::cerr << std::endl;
 #endif
-      emit_instruction(ctx, out, instr.get());
+      emit_instruction(ctx, out, instr);
 #if 0
       for (int i = start_idx; i < out.size(); i++)
          std::cerr << "encoding: " << "0x" << std::setfill('0') << std::setw(8) << std::hex << out[i] << std::endl;
@@ -1542,35 +1542,34 @@ emit_long_jump(asm_context& ctx, SALU_instruction* branch, bool backwards,
       default: unreachable("Unhandled long jump.");
       }
       unsigned size = ctx.gfx_level >= GFX12 ? 7 : 6;
-      instr.reset(bld.sopp(inv, size));
-      emit_sopp_instruction(ctx, out, instr.get(), true);
+      instr = bld.sopp(inv, size);
+      emit_sopp_instruction(ctx, out, instr, true);
    }
 
    /* create the new PC and stash SCC in the LSB */
-   instr.reset(bld.sop1(aco_opcode::s_getpc_b64, def).instr);
-   emit_instruction(ctx, out, instr.get());
+   instr = bld.sop1(aco_opcode::s_getpc_b64, def);
+   emit_instruction(ctx, out, instr);
 
    if (ctx.gfx_level >= GFX12) {
-      instr.reset(bld.sop1(aco_opcode::s_sext_i32_i16, def_tmp_hi, op_tmp_hi).instr);
-      emit_instruction(ctx, out, instr.get());
+      instr = bld.sop1(aco_opcode::s_sext_i32_i16, def_tmp_hi, op_tmp_hi).instr;
+      emit_instruction(ctx, out, instr);
    }
 
-   instr.reset(
-      bld.sop2(aco_opcode::s_addc_u32, def_tmp_lo, op_tmp_lo, Operand::literal32(0)).instr);
-   emit_instruction(ctx, out, instr.get());
+   instr = bld.sop2(aco_opcode::s_addc_u32, def_tmp_lo, op_tmp_lo, Operand::literal32(0)).instr;
+   emit_instruction(ctx, out, instr);
    branch->pass_flags = out.size();
 
    /* s_addc_u32 for high 32 bits not needed because the program is in a 32-bit VA range */
 
    /* restore SCC and clear the LSB of the new PC */
-   instr.reset(bld.sopc(aco_opcode::s_bitcmp1_b32, def_tmp_lo, op_tmp_lo, Operand::zero()).instr);
-   emit_instruction(ctx, out, instr.get());
-   instr.reset(bld.sop1(aco_opcode::s_bitset0_b32, def_tmp_lo, Operand::zero()).instr);
-   emit_instruction(ctx, out, instr.get());
+   instr = bld.sopc(aco_opcode::s_bitcmp1_b32, def_tmp_lo, op_tmp_lo, Operand::zero());
+   emit_instruction(ctx, out, instr);
+   instr = bld.sop1(aco_opcode::s_bitset0_b32, def_tmp_lo, Operand::zero());
+   emit_instruction(ctx, out, instr);
 
    /* create the s_setpc_b64 to jump */
-   instr.reset(bld.sop1(aco_opcode::s_setpc_b64, Operand(def.physReg(), s2)).instr);
-   emit_instruction(ctx, out, instr.get());
+   instr = bld.sop1(aco_opcode::s_setpc_b64, Operand(def.physReg(), s2));
+   emit_instruction(ctx, out, instr);
 }
 
 void
@@ -1657,12 +1656,12 @@ align_block(asm_context& ctx, std::vector<uint32_t>& code, Block& block)
          Builder bld(ctx.program);
          int16_t prefetch_mode = loop_num_cl == 3 ? 0x1 : 0x2;
          aco_ptr<Instruction> instr(bld.sopp(aco_opcode::s_inst_prefetch, prefetch_mode));
-         emit_instruction(ctx, nops, instr.get());
+         emit_instruction(ctx, nops, instr);
          insert_code(ctx, code, loop_header->offset, nops.size(), nops.data());
 
          /* Change prefetch mode back to default (0x3). */
          instr->salu().imm = 0x3;
-         emit_instruction(ctx, code, instr.get());
+         emit_instruction(ctx, code, instr);
       }
 
       const unsigned loop_start_cl = loop_header->offset >> 4;
