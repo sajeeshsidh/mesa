@@ -27,6 +27,7 @@
 
 #include "c11/threads.h"
 #include "util/macros.h"
+#include "util/perf/u_trace.h"
 
 /* perfetto requires string literals */
 #define UTIL_PERFETTO_CATEGORY_DEFAULT_STR "mesa.default"
@@ -44,6 +45,8 @@ static uint64_t util_perfetto_unique_id = 1;
 static void
 util_perfetto_update_tracing_state(void)
 {
+   if (!u_trace_is_enabled(U_TRACE_TYPE_PERFETTO))
+      return;
    p_atomic_set(&util_perfetto_tracing_state,
                 TRACE_EVENT_CATEGORY_ENABLED(UTIL_PERFETTO_CATEGORY_DEFAULT_STR));
 }
@@ -51,6 +54,8 @@ util_perfetto_update_tracing_state(void)
 void
 util_perfetto_trace_begin(const char *name)
 {
+   if (!u_trace_is_enabled(U_TRACE_TYPE_PERFETTO))
+      return;
    TRACE_EVENT_BEGIN(
       UTIL_PERFETTO_CATEGORY_DEFAULT_STR, nullptr,
       [&](perfetto::EventContext ctx) { ctx.event()->set_name(name); });
@@ -59,6 +64,8 @@ util_perfetto_trace_begin(const char *name)
 void
 util_perfetto_trace_end(void)
 {
+   if (!u_trace_is_enabled(U_TRACE_TYPE_PERFETTO))
+      return;
    TRACE_EVENT_END(UTIL_PERFETTO_CATEGORY_DEFAULT_STR);
 
    util_perfetto_update_tracing_state();
@@ -67,6 +74,8 @@ util_perfetto_trace_end(void)
 void
 util_perfetto_trace_begin_flow(const char *fname, uint64_t id)
 {
+   if (!u_trace_is_enabled(U_TRACE_TYPE_PERFETTO))
+      return;
    TRACE_EVENT_BEGIN(
       UTIL_PERFETTO_CATEGORY_DEFAULT_STR, nullptr, perfetto::Flow::ProcessScoped(id),
       [&](perfetto::EventContext ctx) { ctx.event()->set_name(fname); });
@@ -75,6 +84,8 @@ util_perfetto_trace_begin_flow(const char *fname, uint64_t id)
 void
 util_perfetto_trace_full_begin(const char *fname, uint64_t track_id, uint64_t id, uint64_t timestamp)
 {
+   if (!u_trace_is_enabled(U_TRACE_TYPE_PERFETTO))
+      return;
    TRACE_EVENT_BEGIN(
       UTIL_PERFETTO_CATEGORY_DEFAULT_STR, nullptr, perfetto::Track(track_id),
       timestamp, perfetto::Flow::ProcessScoped(id),
@@ -84,6 +95,8 @@ util_perfetto_trace_full_begin(const char *fname, uint64_t track_id, uint64_t id
 uint64_t
 util_perfetto_new_track(const char *name)
 {
+   if (!u_trace_is_enabled(U_TRACE_TYPE_PERFETTO))
+      return 0;
    uint64_t track_id = util_perfetto_next_id();
    auto track = perfetto::Track(track_id);
    auto desc = track.Serialize();
@@ -95,6 +108,8 @@ util_perfetto_new_track(const char *name)
 void
 util_perfetto_trace_full_end(const char *name, uint64_t track_id, uint64_t timestamp)
 {
+   if (!u_trace_is_enabled(U_TRACE_TYPE_PERFETTO))
+      return;
    TRACE_EVENT_END(UTIL_PERFETTO_CATEGORY_DEFAULT_STR, perfetto::Track(track_id), timestamp);
 
    util_perfetto_update_tracing_state();
@@ -103,6 +118,8 @@ util_perfetto_trace_full_end(const char *name, uint64_t track_id, uint64_t times
 void
 util_perfetto_counter_set(const char *name, double value)
 {
+   if (!u_trace_is_enabled(U_TRACE_TYPE_PERFETTO))
+      return;
    TRACE_COUNTER(UTIL_PERFETTO_CATEGORY_DEFAULT_STR, name, value);
 }
 
@@ -151,5 +168,8 @@ static once_flag perfetto_once_flag = ONCE_FLAG_INIT;
 void
 util_perfetto_init(void)
 {
+   u_trace_state_init();
+   if (!u_trace_is_enabled(U_TRACE_TYPE_PERFETTO))
+      return;
    call_once(&perfetto_once_flag, util_perfetto_init_once);
 }
