@@ -594,6 +594,7 @@ i915_bind_fs_state(struct pipe_context *pipe, void *shader)
 static void
 i915_delete_fs_state(struct pipe_context *pipe, void *shader)
 {
+   struct i915_context *i915 = i915_context(pipe);
    struct i915_fragment_shader *ifs = (struct i915_fragment_shader *)shader;
 
    ralloc_free(ifs->error);
@@ -601,6 +602,9 @@ i915_delete_fs_state(struct pipe_context *pipe, void *shader)
    ifs->program = NULL;
    FREE((struct tgsi_token *)ifs->state.tokens);
    ifs->state.tokens = NULL;
+
+   if (ifs->draw_data)
+      draw_delete_fragment_shader(i915->draw, ifs->draw_data);
 
    ifs->program_len = 0;
 
@@ -643,6 +647,7 @@ i915_create_vs_state(struct pipe_context *pipe,
                      const struct pipe_shader_state *templ)
 {
    struct i915_context *i915 = i915_context(pipe);
+   void *vertex_shader;
 
    struct pipe_shader_state from_nir = {PIPE_SHADER_IR_TGSI};
    if (templ->type == PIPE_SHADER_IR_NIR) {
@@ -659,7 +664,11 @@ i915_create_vs_state(struct pipe_context *pipe,
       templ = &from_nir;
    }
 
-   return draw_create_vertex_shader(i915->draw, templ);
+   vertex_shader = draw_create_vertex_shader(i915->draw, templ);
+
+   FREE((void *)from_nir.tokens);
+
+   return vertex_shader;
 }
 
 static void
