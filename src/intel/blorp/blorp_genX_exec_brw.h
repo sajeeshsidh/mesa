@@ -779,12 +779,13 @@ blorp_emit_ps_config(struct blorp_batch *batch,
       switch (params->fast_clear_op) {
       case ISL_AUX_OP_NONE:
          break;
+#if GFX_VER < 20
 #if GFX_VER >= 10
       case ISL_AUX_OP_AMBIGUATE:
          ps.RenderTargetFastClearEnable = true;
          ps.RenderTargetResolveType = FAST_CLEAR_0;
          break;
-#endif
+#endif /* GFX_VER >= 10 */
       case ISL_AUX_OP_PARTIAL_RESOLVE:
          ps.RenderTargetResolveType = RESOLVE_PARTIAL;
          break;
@@ -800,6 +801,7 @@ blorp_emit_ps_config(struct blorp_batch *batch,
 #endif
          ps.RenderTargetResolveType = RESOLVE_FULL;
          break;
+#endif /* GFX_VER < 20 */
       case ISL_AUX_OP_FAST_CLEAR:
          /* WA 1406738321:
           * 3D/Volumetric surfaces do not support Fast Clear operation.
@@ -861,6 +863,17 @@ blorp_emit_ps_config(struct blorp_batch *batch,
                                   brw_wm_prog_data_prog_offset(prog_data, ps, 2);
 #endif
       }
+#if GFX_VER >= 20
+      /* Bspec 57340 (r59562):
+       *
+       *   Clearing shader must use SIMD16 dispatch mode.
+       */
+      if (params->fast_clear_op == ISL_AUX_OP_FAST_CLEAR) {
+         assert(ps.Kernel0Enable);
+         assert(ps.Kernel0SIMDWidth == PS_SIMD16);
+         assert(!ps.Kernel1Enable);
+      }
+#endif
    }
 
    blorp_emit(batch, GENX(3DSTATE_PS_EXTRA), psx) {
@@ -870,6 +883,30 @@ blorp_emit_ps_config(struct blorp_batch *batch,
          psx.AttributeEnable = prog_data->num_varying_inputs > 0;
 #endif
          psx.PixelShaderIsPerSample = prog_data->persample_dispatch;
+#if GFX_VER >= 20
+         /* Bspec 57340 (r59562):
+          *
+          *   For MSAA fast clear, it (clear shader) must be in per-pixel
+          *   dispatch mode.
+          *
+          * Bspec 56424 (r58933):
+          *
+          *   Bit 6 of Bit Group 0: Pixel Shader Is Per Sample
+          *   If this bit is DISABLED, the dispatch rate is determined by the
+          *   value of Pixel Shader Is Per Coarse Pixel.
+          *
+          *   Bit 4 of Bit Group 0: Pixel Shader Is Per Coarse Pixel
+          *   If Pixel Shader Is Per Sample is DISABLED and this bit is
+          *   DISABLED, the pixel shader is dispatched at the per pixel
+          *   shading rate.
+          *
+          * The below assertion ensures the MSAA clear shader is in per-pixel
+          * dispatch mode.
+          */
+         if (params->fast_clear_op == ISL_AUX_OP_FAST_CLEAR &&
+             params->num_samples > 1)
+            assert(!psx.PixelShaderIsPerSample && !psx.PixelShaderIsPerCoarsePixel);
+#endif
          psx.PixelShaderComputedDepthMode = prog_data->computed_depth_mode;
          psx.PixelShaderComputesStencil = prog_data->computed_stencil;
       }

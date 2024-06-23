@@ -41,7 +41,7 @@
  * This causes a self-dependency, where both rendering and sampling may
  * concurrently read or write the CCS buffer, causing incorrect pixels.
  */
-static bool
+static void
 disable_rb_aux_buffer(struct iris_context *ice,
                       bool *draw_aux_buffer_disabled,
                       struct iris_resource *tex_res,
@@ -49,14 +49,23 @@ disable_rb_aux_buffer(struct iris_context *ice,
                       const char *usage)
 {
    struct pipe_framebuffer_state *cso_fb = &ice->state.framebuffer;
-   bool found = false;
+   struct iris_screen *screen = (void *) ice->ctx.screen;
+   const struct intel_device_info *devinfo = screen->devinfo;
+
+   if (devinfo->ver >= 20) {
+      for (unsigned i = 0; i < cso_fb->nr_cbufs; i++) {
+         draw_aux_buffer_disabled[i] = false;
+      }
+      return;
+   }
 
    /* We only need to worry about color compression and fast clears. */
    if (tex_res->aux.usage != ISL_AUX_USAGE_CCS_D &&
        tex_res->aux.usage != ISL_AUX_USAGE_CCS_E &&
        tex_res->aux.usage != ISL_AUX_USAGE_FCV_CCS_E)
-      return false;
+      return;
 
+   bool found = false;
    for (unsigned i = 0; i < cso_fb->nr_cbufs; i++) {
       struct iris_surface *surf = (void *) cso_fb->cbufs[i];
       if (!surf)
@@ -76,8 +85,6 @@ disable_rb_aux_buffer(struct iris_context *ice,
                  "Disabling CCS because a renderbuffer is also bound %s.\n",
                  usage);
    }
-
-   return found;
 }
 
 static void
