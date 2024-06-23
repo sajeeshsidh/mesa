@@ -256,6 +256,21 @@ struct ir3_register {
       arr[arr##_count++] = __VA_ARGS__;                                        \
    } while (0)
 
+/* Remove the first occurrence of an element from an array.
+ * NOTE: this does not preserve the order of elements in the array.
+ */
+#define array_remove(arr, ...)                                                 \
+   do {                                                                        \
+      for (unsigned i = 0; i < arr##_count; i++) {                             \
+         if (arr[i] == __VA_ARGS__) {                                          \
+            if (i < arr##_count - 1)                                           \
+               arr[i] = arr[arr##_count - 1];                                  \
+            arr##_count--;                                                     \
+            break;                                                             \
+         }                                                                     \
+      }                                                                        \
+   } while (0)
+
 typedef enum {
    REDUCE_OP_ADD_U,
    REDUCE_OP_ADD_F,
@@ -766,8 +781,11 @@ ir3_after_preamble(struct ir3 *ir)
 
 void ir3_block_add_predecessor(struct ir3_block *block, struct ir3_block *pred);
 void ir3_block_link_physical(struct ir3_block *pred, struct ir3_block *succ);
+void ir3_block_unlink_physical(struct ir3_block *pred, struct ir3_block *succ);
 void ir3_block_remove_predecessor(struct ir3_block *block,
                                   struct ir3_block *pred);
+void ir3_block_remove_physical_predecessor(struct ir3_block *block,
+                                           struct ir3_block *pred);
 unsigned ir3_block_get_pred_index(struct ir3_block *block,
                                   struct ir3_block *pred);
 
