@@ -2926,7 +2926,7 @@ visit_alu_instr(isel_context* ctx, nir_alu_instr* instr)
          /* We emit s_round_mode/s_setreg_imm32 in lower_to_hw_instr to
           * keep value numbering and the scheduler simpler.
           */
-         bld.vop1(aco_opcode::p_cvt_f16_f32_rtne, Definition(dst), src);
+         bld.vop1(aco_opcode::v_cvt_f16_f32_rtne_pseudo, Definition(dst), src);
       else
          bld.vop1(aco_opcode::v_cvt_f16_f32, Definition(dst), src);
       break;
@@ -3104,7 +3104,11 @@ visit_alu_instr(isel_context* ctx, nir_alu_instr* instr)
             }
          }
       } else if (instr->src[0].src.ssa->bit_size == 32) {
-         emit_vop1_instruction(ctx, instr, aco_opcode::v_cvt_u32_f32, dst);
+         if (dst.regClass() == v1b && ctx->program->gfx_level >= GFX8)
+            bld.vop3(aco_opcode::v_cvt_pk_u8_f32_pseudo, Definition(dst),
+                     get_alu_src(ctx, instr->src[0]));
+         else
+            emit_vop1_instruction(ctx, instr, aco_opcode::v_cvt_u32_f32, dst);
       } else {
          emit_vop1_instruction(ctx, instr, aco_opcode::v_cvt_u32_f64, dst);
       }
@@ -3449,7 +3453,7 @@ visit_alu_instr(isel_context* ctx, nir_alu_instr* instr)
       Temp src = get_alu_src(ctx, instr->src[0]);
       Temp f16;
       if (ctx->block->fp_mode.round16_64 != fp_round_ne)
-         f16 = bld.vop1(aco_opcode::p_cvt_f16_f32_rtne, bld.def(v2b), src);
+         f16 = bld.vop1(aco_opcode::v_cvt_f16_f32_rtne_pseudo, bld.def(v2b), src);
       else
          f16 = bld.vop1(aco_opcode::v_cvt_f16_f32, bld.def(v2b), src);
       Temp f32, cmp_res;

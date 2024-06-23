@@ -2947,7 +2947,7 @@ lower_to_hw_instr(Program* program)
             } else if (emit_s_barrier) {
                bld.sopp(aco_opcode::s_barrier);
             }
-         } else if (instr->opcode == aco_opcode::p_cvt_f16_f32_rtne) {
+         } else if (instr->opcode == aco_opcode::v_cvt_f16_f32_rtne_pseudo) {
             float_mode new_mode = block->fp_mode;
             new_mode.round16_64 = fp_round_ne;
             bool set_round = new_mode.round != block->fp_mode.round;
@@ -2958,6 +2958,14 @@ lower_to_hw_instr(Program* program)
             ctx.instructions.emplace_back(std::move(instr));
 
             emit_set_mode(bld, block->fp_mode, set_round, false);
+         } else if (instr->opcode == aco_opcode::v_cvt_pk_u8_f32_pseudo) {
+            Definition def = instr->definitions[0];
+            VALU_instruction& valu =
+               bld.vop3(aco_opcode::v_cvt_pk_u8_f32, def, instr->operands[0],
+                        Operand::c32(def.physReg().byte()), Operand(def.physReg(), v1))
+                  ->valu();
+            valu.abs = instr->valu().abs;
+            valu.neg = instr->valu().neg;
          } else if (instr->isMIMG() && instr->mimg().strict_wqm) {
             lower_image_sample(&ctx, instr);
             ctx.instructions.emplace_back(std::move(instr));

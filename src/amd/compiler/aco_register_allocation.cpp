@@ -621,7 +621,8 @@ get_subdword_definition_info(Program* program, const aco_ptr<Instruction>& instr
    if (instr->isVALU()) {
       assert(rc.bytes() <= 2);
 
-      if (can_use_SDWA(gfx_level, instr, false))
+      if (can_use_SDWA(gfx_level, instr, false) ||
+          instr->opcode == aco_opcode::v_cvt_pk_u8_f32_pseudo)
          return std::make_pair(rc.bytes(), rc.bytes());
 
       unsigned bytes_written = 4u;
@@ -691,6 +692,9 @@ add_subdword_definition(Program* program, aco_ptr<Instruction>& instr, PhysReg r
    if (instr->isVALU()) {
       amd_gfx_level gfx_level = program->gfx_level;
       assert(instr->definitions[0].bytes() <= 2);
+
+      if (instr->opcode == aco_opcode::v_cvt_pk_u8_f32_pseudo)
+         return;
 
       if (reg.byte() == 0 && allow_16bit_write && instr_is_16bit(gfx_level, instr->opcode))
          return;

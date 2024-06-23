@@ -986,7 +986,7 @@ VOP1 = {
    ("v_cvt_u32_f32",              True, False, dst(1), src(1), op(0x07)),
    ("v_cvt_i32_f32",              True, False, dst(1), src(1), op(0x08)),
    ("v_cvt_f16_f32",              True, True, dst(1), src(1), op(0x0a)),
-   ("p_cvt_f16_f32_rtne",         True, True, dst(1), src(1), op(-1)),
+   ("v_cvt_f16_f32_rtne_pseudo",  True, True, dst(1), src(1), op(-1)),
    ("v_cvt_f32_f16",              True, True, dst(1), src(1), op(0x0b)),
    ("v_cvt_rpi_i32_f32",          True, False, dst(1), src(1), op(0x0c)), #v_cvt_nearest_i32_f32 in GFX11
    ("v_cvt_flr_i32_f32",          True, False, dst(1), src(1), op(0x0d)),#v_cvt_floor_i32_f32 in GFX11
@@ -1280,6 +1280,7 @@ VOP3 = {
    ("v_sad_u16",               False, False, dst(1), src(1, 1, 1), op(0x15c, gfx8=0x1db, gfx10=0x15c, gfx11=0x224)),
    ("v_sad_u32",               False, False, dst(1), src(1, 1, 1), op(0x15d, gfx8=0x1dc, gfx10=0x15d, gfx11=0x225)),
    ("v_cvt_pk_u8_f32",         True, False, dst(1), src(1, 1, 1), op(0x15e, gfx8=0x1dd, gfx10=0x15e, gfx11=0x226)),
+   ("v_cvt_pk_u8_f32_pseudo",  True, False, dst(1), src(1), op(-1)),
    ("v_div_fixup_f32",         True, True, dst(1), src(1, 1, 1), op(0x15f, gfx8=0x1de, gfx10=0x15f, gfx11=0x227)),
    ("v_div_fixup_f64",         True, True, dst(2), src(2, 2, 2), op(0x160, gfx8=0x1df, gfx10=0x160, gfx11=0x228)),
    ("v_lshl_b64",              False, False, dst(2), src(2, 1), op(0x161, gfx8=-1), InstrClass.Valu64),
