@@ -29,6 +29,7 @@ pub struct PlatformDebug {
 pub struct PlatformFeatures {
     pub fp16: bool,
     pub fp64: bool,
+    pub generic: bool,
 }
 
 static PLATFORM_ENV_ONCE: Once = Once::new();
@@ -74,6 +75,7 @@ static mut PLATFORM_DBG: PlatformDebug = PlatformDebug {
 static mut PLATFORM_FEATURES: PlatformFeatures = PlatformFeatures {
     fp16: false,
     fp64: false,
+    generic: false,
 };
 
 fn load_env() {
@@ -105,6 +107,7 @@ fn load_env() {
             match flag {
                 "fp16" => features.fp16 = true,
                 "fp64" => features.fp64 = true,
+                "generic" => features.generic = true,
                 "" => (),
                 _ => eprintln!("Unknown RUSTICL_FEATURES flag found: {}", flag),
             }
