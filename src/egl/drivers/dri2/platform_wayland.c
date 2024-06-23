@@ -202,6 +202,19 @@ dri2_wl_visual_idx_from_fourcc(uint32_t fourcc)
    return -1;
 }
 
+static uint32_t
+dri2_wl_opaque_drm_format_from_fourcc(uint32_t fourcc)
+{
+   for (int i = 0; i < ARRAY_SIZE(dri2_wl_visuals); i++) {
+      /* wl_drm format codes overlap with DRIImage FourCC codes for all formats
+       * we support. */
+      if (dri2_wl_visuals[i].wl_drm_format == fourcc)
+         return dri2_wl_visuals[i].opaque_wl_drm_format;
+   }
+
+   return fourcc;
+}
+
 static int
 dri2_wl_shm_format_from_visual_idx(int idx)
 {
@@ -530,10 +543,14 @@ surface_dmabuf_feedback_tranche_formats(
 {
    struct dri2_egl_surface *dri2_surf = data;
    struct dmabuf_feedback *feedback = &dri2_surf->pending_dmabuf_feedback;
+   uint32_t present_format = dri2_surf->format;
    uint64_t *modifier_ptr, modifier;
    uint32_t format;
    uint16_t *index;
    int visual_idx;
+
+   if (dri2_surf->base.PresentOpaque)
+      present_format = dri2_wl_opaque_drm_format_from_fourcc(present_format);
 
    /* Compositor may advertise or not a format table. If it does, we use it.
     * Otherwise, we steal the most recent advertised format table. If we don't
@@ -564,7 +581,7 @@ surface_dmabuf_feedback_tranche_formats(
 
       /* Skip formats that are not the one the surface is already using. We
        * can't switch to another format. */
-      if (format != dri2_surf->format)
+      if (format != present_format)
          continue;
 
       /* We are sure that the format is supported because of the check above. */
@@ -1013,6 +1030,7 @@ create_dri_image_from_dmabuf_feedback(struct dri2_egl_surface *dri2_surf,
                                       uint64_t *surf_modifiers,
                                       int surf_modifiers_count)
 {
+   uint32_t present_format = dri2_surf->format;
    int visual_idx;
    uint32_t flags;
 
@@ -1020,7 +1038,12 @@ create_dri_image_from_dmabuf_feedback(struct dri2_egl_surface *dri2_surf,
    if (dri2_surf->dmabuf_feedback.main_device == 0)
       return;
 
-   visual_idx = dri2_wl_visual_idx_from_fourcc(dri2_surf->format);
+   /* Make sure we select the correct tranche according to the actual format
+    * used for presentation (if different from image format). */
+   if (dri2_surf->base.PresentOpaque)
+      present_format = dri2_wl_opaque_drm_format_from_fourcc(present_format);
+
+   visual_idx = dri2_wl_visual_idx_from_fourcc(present_format);
    assert(visual_idx != -1);
 
    /* Iterates through the dma-buf feedback to pick a new set of modifiers. The
@@ -1035,7 +1058,7 @@ create_dri_image_from_dmabuf_feedback(struct dri2_egl_surface *dri2_surf,
     * incompatible with the main device. */
    util_dynarray_foreach (&dri2_surf->dmabuf_feedback.tranches,
                           struct dmabuf_feedback_tranche, tranche) {
-      /* Ignore tranches that do not contain dri2_surf->format */
+      /* Ignore tranches that do not contain the presentation format */
       if (!BITSET_TEST(tranche->formats.formats_bitmap, visual_idx))
          continue;
 
