@@ -551,6 +551,12 @@ fd_screen_get_param(struct pipe_screen *pscreen, enum pipe_cap param)
 
    /* Texturing. */
    case PIPE_CAP_MAX_TEXTURE_2D_SIZE:
+      if (is_a6xx(screen))
+         return 65535;
+      else if (is_a5xx(screen) || is_a4xx(screen))
+         return 16384;
+      return 8192;
+   case PIPE_CAP_MAX_REGULAR_TEXTURE_2D_SIZE:
       if (is_a6xx(screen) || is_a5xx(screen) || is_a4xx(screen))
          return 16384;
       else

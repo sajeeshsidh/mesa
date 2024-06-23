@@ -39,6 +39,9 @@ The integer capabilities:
 * ``PIPE_CAP_TEXTURE_SWIZZLE``: Whether swizzling through sampler views is
   supported.
 * ``PIPE_CAP_MAX_TEXTURE_2D_SIZE``: The maximum size of 2D (and 1D) textures.
+  This value is only valid for the non sampled and non mipmaped images.
+* ``PIPE_CAP_MAX_REGULAR_TEXTURE_2D_SIZE``: The maximum size of 2D (and 1D) textures.
+  This value cover all images, including sampled and mipmapped images.
 * ``PIPE_CAP_MAX_TEXTURE_3D_LEVELS``: The maximum number of mipmap levels available
   for a 3D texture.
 * ``PIPE_CAP_MAX_TEXTURE_CUBE_LEVELS``: The maximum number of mipmap levels available
