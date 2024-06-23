@@ -61,6 +61,9 @@ void ir3_nir_lower_tess_eval(nir_shader *shader, struct ir3_shader_variant *v,
                              unsigned topology);
 void ir3_nir_lower_gs(nir_shader *shader);
 
+bool ir3_supports_vectorized_nir_op(nir_op op);
+uint8_t ir3_nir_vectorize_filter(const nir_instr *instr, const void *data);
+
 /*
  * 64b related lowering:
  */
@@ -150,6 +153,7 @@ is_intrinsic_load(nir_intrinsic_op op)
    case nir_intrinsic_load_shared:
    case nir_intrinsic_load_global:
    case nir_intrinsic_load_global_ir3:
+   case nir_intrinsic_load_const_ir3:
       return true;
    default:
       return false;

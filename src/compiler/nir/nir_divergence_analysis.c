@@ -580,6 +580,7 @@ visit_intrinsic(nir_intrinsic_instr *instr, struct divergence_state *state)
    case nir_intrinsic_resource_intel:
    case nir_intrinsic_load_reg:
    case nir_intrinsic_load_reg_indirect:
+   case nir_intrinsic_load_const_ir3:
    case nir_intrinsic_load_frag_size_ir3:
    case nir_intrinsic_load_frag_offset_ir3:
    case nir_intrinsic_bindless_resource_ir3: {

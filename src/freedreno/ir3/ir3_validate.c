@@ -183,9 +183,27 @@ validate_dst(struct ir3_validate_ctx *ctx, struct ir3_instruction *instr,
       ctx, (type_size(type) <= 16) == !!((reg)->flags & IR3_REG_HALF))
 
 static void
+validate_rpt(struct ir3_validate_ctx *ctx, struct ir3_instruction *instr)
+{
+   if (ir3_instr_is_first_rpt(instr)) {
+      /* All instructions in a repeat group should be in the same block as the
+       * first one.
+       */
+      foreach_instr_rpt_excl (rpt, instr) {
+         validate_assert(ctx, rpt->block == instr->block);
+      }
+   } else if (instr->repeat) {
+      validate_assert(ctx, ir3_supports_rpt(instr->opc));
+      validate_assert(ctx, !instr->nop);
+   }
+}
+
+static void
 validate_instr(struct ir3_validate_ctx *ctx, struct ir3_instruction *instr)
 {
    struct ir3_register *last_reg = NULL;
+
+   validate_rpt(ctx, instr);
 
    foreach_src_n (reg, n, instr) {
       if (reg->flags & IR3_REG_RELATIV)

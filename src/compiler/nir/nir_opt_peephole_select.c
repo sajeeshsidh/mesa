@@ -171,6 +171,7 @@ block_check_for_allowed_instrs(nir_block *block, unsigned *count,
          case nir_intrinsic_quad_swizzle_amd:
          case nir_intrinsic_masked_swizzle_amd:
          case nir_intrinsic_lane_permute_16_amd:
+         case nir_intrinsic_load_const_ir3:
             if (!alu_ok)
                return false;
             break;
