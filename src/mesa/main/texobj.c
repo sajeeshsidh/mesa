@@ -1640,8 +1640,7 @@ _mesa_tex_target_to_index(const struct gl_context *ctx, GLenum target)
               _mesa_has_OES_texture_buffer(ctx)) ?
              TEXTURE_BUFFER_INDEX : -1;
    case GL_TEXTURE_EXTERNAL_OES:
-      return _mesa_is_gles(ctx) && ctx->Extensions.OES_EGL_image_external
-         ? TEXTURE_EXTERNAL_INDEX : -1;
+      return ctx->Extensions.OES_EGL_image_external ? TEXTURE_EXTERNAL_INDEX : -1;
    case GL_TEXTURE_CUBE_MAP_ARRAY:
       return _mesa_has_texture_cube_map_array(ctx)
          ? TEXTURE_CUBE_ARRAY_INDEX : -1;
