@@ -42,6 +42,7 @@ struct nv30_screen {
    nir_shader_compiler_options fs_compiler_options;
 
    unsigned max_sample_count;
+   bool arb_framebuffer_object;
 };
 
 static inline struct nv30_screen *
