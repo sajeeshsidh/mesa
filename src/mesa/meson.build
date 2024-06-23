@@ -140,7 +140,6 @@ files_libmesa = files(
   'main/matrix.c',
   'main/matrix.h',
   'main/menums.h',
-  'main/mesa_private.h',
   'main/mipmap.c',
   'main/mipmap.h',
   'main/mtypes.h',
