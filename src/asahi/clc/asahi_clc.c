@@ -335,11 +335,12 @@ main(int argc, char **argv)
       {"in", required_argument, 0, 'i'},
       {"out", required_argument, 0, 'o'},
       {"spv", required_argument, 0, 's'},
+      {"depfile", required_argument, 0, 'd'},
       {"verbose", no_argument, 0, 'v'},
       {0, 0, 0, 0},
    };
 
-   char *outfile = NULL, *spv_outfile = NULL, *prefix = NULL;
+   char *outfile = NULL, *spv_outfile = NULL, *prefix = NULL, *depfile = NULL;
    struct util_dynarray clang_args;
    struct util_dynarray input_files;
    struct util_dynarray spirv_objs;
@@ -352,8 +353,10 @@ main(int argc, char **argv)
    util_dynarray_init(&spirv_objs, mem_ctx);
    util_dynarray_init(&spirv_ptr_objs, mem_ctx);
 
+   const char **cl_deps = ralloc_array(mem_ctx, const char *, 0);
+
    int ch;
-   while ((ch = getopt_long(argc, argv, "he:p:s:i:o:v", long_options, NULL)) !=
+   while ((ch = getopt_long(argc, argv, "he:p:s:i:o:d:v", long_options, NULL)) !=
           -1) {
       switch (ch) {
       case 'h':
@@ -367,6 +370,9 @@ main(int argc, char **argv)
          break;
       case 's':
          spv_outfile = optarg;
+         break;
+      case 'd':
+         depfile = optarg;
          break;
       case OPT_PREFIX:
          prefix = optarg;
@@ -446,7 +452,7 @@ main(int argc, char **argv)
       struct clc_binary *spirv_out =
          util_dynarray_grow(&spirv_objs, struct clc_binary, 1);
 
-      if (!clc_compile_c_to_spirv(&clc_args, &logger, spirv_out)) {
+      if (!clc_compile_c_to_spirv(&clc_args, &logger, spirv_out, &cl_deps)) {
          ralloc_free(mem_ctx);
          return 1;
       }
@@ -556,6 +562,17 @@ main(int argc, char **argv)
 
    if (fp != stdout)
       fclose(fp);
+
+   if (depfile) {
+      FILE *fp = fopen(depfile, "w");
+      fprintf(fp, "%s:", outfile);
+      for (unsigned i = 0; cl_deps[i] != NULL; ++i) {
+         fprintf(fp, " %s", cl_deps[i]);
+      }
+      fprintf(fp, "\n");
+      fclose(fp);
+   }
+
 
    util_dynarray_foreach(&spirv_objs, struct clc_binary, p) {
       clc_free_spirv(p);

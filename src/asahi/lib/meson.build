@@ -73,7 +73,8 @@ libagx_shaders = custom_target(
   output : 'libagx_shaders.h',
   command : [
     prog_asahi_clc, '--prefix', 'libagx_shaders',
-    prepended_input_args, '-o', '@OUTPUT@', '--',
+    prepended_input_args, '-o', '@OUTPUT@',
+    '--depfile', '@DEPFILE@', '--',
     '-cl-std=cl2.0', '-D__OPENCL_VERSION__=200',
     '-I' + join_paths(meson.current_source_dir(), '.'),
     '-I' + join_paths(meson.current_source_dir(), '../../'),
@@ -82,6 +83,7 @@ libagx_shaders = custom_target(
     ],
   env: ['MESA_SHADER_CACHE_DISABLE=true'],
   depends : [prog_asahi_clc, agx_pack],
+  depfile : 'libagx_shaders.h.d',
 )
 
 libasahi_lib = static_library(

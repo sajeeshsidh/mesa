@@ -61,7 +61,9 @@ foreach gen : intel_shaders_gens
       prog_intel_clc, intel_shaders_clc_wa_args, '--nir',
       '--gfx-version=@0@'.format(gen[0] / 10),
       '--prefix', 'gfx@0@_intel_shaders'.format(gen[1]),
-      prepended_input_args, '-o', '@OUTPUT@', '--',
+      prepended_input_args, '-o', '@OUTPUT@',
+      '--depfile', '@DEPFILE@',
+      '--',
       '-cl-std=cl2.0', '-D__OPENCL_VERSION__=200',
       '-DGFX_VERx10=@0@'.format(gen[0]),
       '-I' + join_paths(meson.current_source_dir(), '.'),
@@ -72,6 +74,7 @@ foreach gen : intel_shaders_gens
     ],
     env: ['MESA_SHADER_CACHE_DISABLE=true'],
     depends : [dep_prog_intel_clc, gen_cl_xml_pack],
+    depfile : 'intel_gfx@0@_shaders_code.h.d'.format(gen[1]),
   )
 endforeach
 

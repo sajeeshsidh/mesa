@@ -208,7 +208,8 @@ struct clc_libclc *clc_libclc_deserialize(const void *serialized, size_t size);
 bool
 clc_compile_c_to_spir(const struct clc_compile_args *args,
                       const struct clc_logger *logger,
-                      struct clc_binary *out_spir);
+                      struct clc_binary *out_spir,
+                      const char ***dependencies);
 
 void
 clc_free_spir(struct clc_binary *spir);
@@ -224,7 +225,8 @@ clc_free_spirv(struct clc_binary *spirv);
 bool
 clc_compile_c_to_spirv(const struct clc_compile_args *args,
                        const struct clc_logger *logger,
-                       struct clc_binary *out_spirv);
+                       struct clc_binary *out_spirv,
+                       const char ***dependencies);
 
 bool
 clc_link_spirv(const struct clc_linker_args *args,

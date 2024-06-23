@@ -326,6 +326,7 @@ struct intel_clc_params {
    char *spv_outfile;
    char *txt_outfile;
    char *prefix;
+   char *depfile;
 
    unsigned gfx_version;
 
@@ -490,6 +491,7 @@ int main(int argc, char **argv)
       {"spv",          required_argument,   0, 's'},
       {"text",         required_argument,   0, 't'},
       {"gfx-version",  required_argument,   0, 'g'},
+      {"depfile",      required_argument,   0, 'd'},
       {"nir",          no_argument,         0, 'n'},
       {"llvm17-wa",    no_argument,         0, 'L'},
       {"llvm-version", no_argument,         0, 'M'},
@@ -512,7 +514,7 @@ int main(int argc, char **argv)
    util_dynarray_init(&input_files, params.mem_ctx);
 
    int ch;
-   while ((ch = getopt_long(argc, argv, "he:p:s:t:i:no:MLvg:", long_options, NULL)) != -1)
+   while ((ch = getopt_long(argc, argv, "he:p:s:t:i:no:MLvg:d:", long_options, NULL)) != -1)
    {
       switch (ch)
       {
@@ -551,6 +553,9 @@ int main(int argc, char **argv)
          return EXIT_SUCCESS;
       case 'g':
          params.gfx_version = strtoul(optarg, NULL, 10);
+         break;
+      case 'd':
+         params.depfile = optarg;
          break;
       case OPT_PREFIX:
          params.prefix = optarg;
@@ -630,8 +635,21 @@ int main(int argc, char **argv)
       .allowed_spirv_extensions = allowed_spirv_extensions,
    };
 
-   if (!clc_compile_c_to_spirv(&clc_args, &logger, &spirv_obj)) {
+   const char **cl_dependencies = ralloc_array(params.mem_ctx, const char *, 0);
+
+   if (!clc_compile_c_to_spirv(&clc_args, &logger, &spirv_obj, &cl_dependencies)) {
       goto fail;
+   }
+
+   if (params.depfile) {
+      FILE *fp = fopen(params.depfile, "w");
+      fprintf(fp, "%s:", params.outfile);
+      // cl_dependencies[0] is our fake "intel_clc_files", don't depend on that.
+      for (unsigned i = 1; cl_dependencies[i] != NULL; ++i) {
+         fprintf(fp, " %s", cl_dependencies[i]);
+      }
+      fprintf(fp, "\n");
+      fclose(fp);
    }
 
    if (params.spv_outfile) {

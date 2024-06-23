@@ -133,7 +133,9 @@ foreach t : [['125', 'gfx125', 'dg2'], ['200', 'gfx20', 'lnl'], ]
       output : outfile,
       command : [
         prog_intel_clc, '-p', platform, '--prefix', kernel_prefix,
-        '-e', entrypoint, prepended_input_args, '-o', '@OUTPUT@', '--',
+        '-e', entrypoint, prepended_input_args, '-o', '@OUTPUT@',
+        '--depfile', '@DEPFILE@',
+         '--',
         '-cl-std=cl2.0', '-D__OPENCL_VERSION__=200',
         '-DMAX_HW_SIMD_WIDTH=16', '-DMAX_WORKGROUP_SIZE=16',
         '-I' + join_paths(meson.current_source_dir(), 'gpu'),
@@ -141,6 +143,7 @@ foreach t : [['125', 'gfx125', 'dg2'], ['200', 'gfx20', 'lnl'], ]
       ],
       env: ['MESA_SHADER_CACHE_DISABLE=true',
             'MESA_SPIRV_LOG_LEVEL=error'],
+      depfile : f'@outfile@.d',
       depends : dep_prog_intel_clc
     )
   endforeach
