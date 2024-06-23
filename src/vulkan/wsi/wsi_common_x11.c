@@ -42,7 +42,7 @@
 #include <errno.h>
 #include <string.h>
 #include <fcntl.h>
-#include <xf86drm.h>
+#include "util/libdrm.h"
 #include "drm-uapi/drm_fourcc.h"
 #include "util/hash_table.h"
 #include "util/mesa-blake3.h"
@@ -146,6 +146,7 @@ static bool
 wsi_x11_check_dri3_compatible(const struct wsi_device *wsi_dev,
                               xcb_connection_t *conn)
 {
+   bool match = false;
    xcb_screen_iterator_t screen_iter =
       xcb_setup_roots_iterator(xcb_get_setup(conn));
    xcb_screen_t *screen = screen_iter.data;
@@ -157,7 +158,12 @@ wsi_x11_check_dri3_compatible(const struct wsi_device *wsi_dev,
    if (dri3_fd == -1)
       return true;
 
-   bool match = wsi_device_matches_drm_fd(wsi_dev, dri3_fd);
+#ifdef HAVE_LIBDRM
+   match = wsi_device_matches_drm_fd(wsi_dev, dri3_fd);
+#else
+   if (wsi_dev->can_present_on_device)
+      match = wsi_dev->can_present_on_device(wsi_dev->pdevice, dri3_fd);
+#endif
 
    close(dri3_fd);
 
