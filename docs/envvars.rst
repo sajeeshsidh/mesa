@@ -59,7 +59,7 @@ Core Mesa environment variables
 
 .. envvar:: MESA_NO_ERROR
 
-   if set to 1, error checking is disabled as per :ext:`GL_KHR_no_error`.
+   if set to 1, error checking is disabled as per :gl-ext:`KHR_no_error`.
    This will result in undefined behavior for invalid use of the API, but
    can reduce CPU use for apps that are known to be error free.
 
@@ -123,11 +123,11 @@ Core Mesa environment variables
    -  ``FC`` is an optional suffix that indicates a forward compatible
       context. This is only valid for versions >= 3.0.
    -  ``COMPAT`` is an optional suffix that indicates a compatibility
-      context or :ext:`GL_ARB_compatibility` support. This is only valid
+      context or :gl-ext:`ARB_compatibility` support. This is only valid
       for versions >= 3.1.
    -  GL versions <= 3.0 are set to a compatibility (non-Core) profile
    -  GL versions = 3.1, depending on the driver, it may or may not have
-      the :ext:`GL_ARB_compatibility` extension enabled.
+      the :gl-ext:`ARB_compatibility` extension enabled.
    -  GL versions >= 3.2 are set to a Core profile
    -  Examples:
 
@@ -138,13 +138,13 @@ Core Mesa environment variables
       ``3.0FC``
          select a Core+Forward Compatible profile with GL version 3.0.
       ``3.1``
-         select GL version 3.1 with :ext:`GL_ARB_compatibility` enabled
+         select GL version 3.1 with :gl-ext:`ARB_compatibility` enabled
          per the driver default.
       ``3.1FC``
          select GL version 3.1 with forward compatibility and
-         :ext:`GL_ARB_compatibility` disabled.
+         :gl-ext:`ARB_compatibility` disabled.
       ``3.1COMPAT``
-         select GL version 3.1 with :ext:`GL_ARB_compatibility` enabled.
+         select GL version 3.1 with :gl-ext:`ARB_compatibility` enabled.
       ``X.Y``
          override GL version to X.Y without changing the profile.
       ``X.YFC``
@@ -582,7 +582,7 @@ Intel driver environment variables
    ``perf``
       emit messages about performance issues
    ``perfmon``
-      emit messages about :ext:`GL_AMD_performance_monitor`
+      emit messages about :gl-ext:`AMD_performance_monitor`
    ``perf-symbol-names``
       use performance counter symbols instead of the counter name
       (counter symbols are like variable names, it's sometimes easier

@@ -132,8 +132,8 @@ Here are some known caveats in OpenGL support:
     that may affect the quality of the texture lookup.
 
 - Lima supports FP16 textures in OpenGL ES (through
-  :ext:`GL_OES_texture_half_float<GL_OES_texture_float>`), but not in OpenGL.
-  This is because it would require :ext:`GL_ARB_texture_float` which would
+  :gl-ext:`OES_texture_half_float<GL_OES_texture_float>`), but not in OpenGL.
+  This is because it would require :gl-ext:`ARB_texture_float` which would
   also require 32-bit float textures, that the Mali-4xx does not support.
 - Rendering to FP16 is possible, but the result is clamped to the
   [0.0,1.0] range.
@@ -145,7 +145,7 @@ Please try the latest Mesa development branch or at least Mesa latest
 release before reporting issues. Please review the
 :doc:`Mesa bug report guidelines <../bugs>`.
 
-Issues should be filed as a `Mesa issue`_.
+Issues should be filed as a |Mesa issue|.
 Lima tags will be added accordingly by the developers.
 
 `apitrace <https://github.com/apitrace/apitrace>`__ traces are very
@@ -196,7 +196,7 @@ applications, and fixing issues reported by users in their applications.
 Development is fully based on community contributions.
 
 If some desired feature is missing or there is an OpenGL-related bug
-while running some application, please do file a `Mesa issue`_.
+while running some application, please do file a |Mesa issue|.
 Issues that are not reproduced by an existing test suite or common
 application and are also not reported by users are just likely not going
 to be noticed and fixed.
@@ -232,7 +232,7 @@ Mali-4xx would be a suitable target GPU.
 But bottom line for a performance evaluation, you need to try with your
 target application. If performance with Lima does not seem right in some
 application where it should reasonably perform better, please file a
-`Mesa issue`_ (in which case some indication on why Lima in particular
+|Mesa issue| (in which case some indication on why Lima in particular
 seems to be the bottleneck would also be helpful).
 
 Communication channels
@@ -255,4 +255,4 @@ Reference
 Luc Verhaegen’s original Lima site:
 https://web.archive.org/web/20180101212947/http://limadriver.org/
 
-.. _Mesa issue: https://gitlab.freedesktop.org/mesa/mesa/-/issues?label_name%5B%5D=lima
+.. |Mesa issue| replace:: :repo-raw:`Mesa issue <issues?label_name%5B%5D=lima>`

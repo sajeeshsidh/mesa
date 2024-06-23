@@ -391,7 +391,8 @@ The release notes summarize what's new or changed in each Mesa release.
 .. only:: builder_html
 
    Versions of Mesa prior to 6.4 are summarized in the following
-   release notes, or in the `old docs`_.
+   release notes, or in the :repo-raw:`old docs
+   <blob/mesa-21.0.0/docs/versions.rst>`
 
    -  `6.3.2 release notes <relnotes/6.3.2>`__
    -  `6.3.1 release notes <relnotes/6.3.1>`__
@@ -807,5 +808,3 @@ The release notes summarize what's new or changed in each Mesa release.
    6.4.2 <relnotes/6.4.2>
    6.4.1 <relnotes/6.4.1>
    6.4 <relnotes/6.4>
-
-.. _old docs: https://gitlab.freedesktop.org/mesa/mesa/-/blob/mesa-21.0.0/docs/versions.rst

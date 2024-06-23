@@ -29,4 +29,4 @@ ACO
 ---
 
 ACO is the shader-compiler used in RADV. You read its documentation
-`here <https://gitlab.freedesktop.org/mesa/mesa/-/blob/main/src/amd/compiler/README.md>`__.
+:repo-file:`here <src/amd/compiler/README.md>`.

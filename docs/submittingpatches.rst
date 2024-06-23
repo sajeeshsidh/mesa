@@ -232,9 +232,9 @@ Some other notes:
 Reviewing Patches
 -----------------
 
-To participate in code review, you can monitor the GitLab Mesa `Merge
-Requests <https://gitlab.freedesktop.org/mesa/mesa/-/merge_requests>`__
-page, and/or register for notifications in your GitLab settings.
+To participate in code review, you can monitor the GitLab Mesa
+:repo-raw:`Merge Requests <merge_requests>` page, and/or register for
+notifications in your GitLab settings.
 
 When you've reviewed a patch, please be unambiguous about your review.
 That is, state either
