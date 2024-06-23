@@ -887,6 +887,8 @@ __glXInitialize(Display * dpy)
    Bool try_zink = False;
    const char *env = getenv("MESA_LOADER_DRIVER_OVERRIDE");
 
+   const char *env = getenv("MESA_LOADER_DRIVER_OVERRIDE");
+
 #if defined(GLX_DIRECT_RENDERING) && (!defined(GLX_USE_APPLEGL) || defined(GLX_USE_APPLE))
    Bool glx_direct = !debug_get_bool_option("LIBGL_ALWAYS_INDIRECT", false);
    Bool glx_accel = !debug_get_bool_option("LIBGL_ALWAYS_SOFTWARE", false);
