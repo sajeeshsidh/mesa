@@ -1864,6 +1864,12 @@ radv_emit_rbplus_state(struct radv_cmd_buffer *cmd_buffer)
       }
    }
 
+   /* If there are no color outputs, the first color export is always enabled as 32_R, so also set
+    * this to enable RB+.
+    */
+   if (!sx_ps_downconvert)
+      sx_ps_downconvert = V_028754_SX_RT_EXPORT_32_R;
+
    /* Do not set the DISABLE bits for the unused attachments, as that
     * breaks dual source blending in SkQP and does not seem to improve
     * performance. */
@@ -2904,6 +2910,12 @@ radv_emit_graphics_pipeline(struct radv_cmd_buffer *cmd_buffer)
 
       if (cmd_buffer->state.emitted_graphics_pipeline->db_render_control != pipeline->db_render_control)
          cmd_buffer->state.dirty |= RADV_CMD_DIRTY_FRAMEBUFFER;
+
+      if (cmd_buffer->state.emitted_graphics_pipeline->rbplus_depth_only_enabled !=
+          pipeline->rbplus_depth_only_enabled) {
+         cmd_buffer->state.dirty |= RADV_CMD_DIRTY_FRAMEBUFFER;
+         cmd_buffer->state.dirty_dynamic |= RADV_DYNAMIC_LOGIC_OP;
+      }
    }
 
    radv_emit_graphics_shaders(cmd_buffer);
@@ -3638,6 +3650,8 @@ radv_emit_logic_op(struct radv_cmd_buffer *cmd_buffer)
 
    if (cmd_buffer->state.custom_blend_mode) {
       cb_color_control |= S_028808_MODE(cmd_buffer->state.custom_blend_mode);
+   } else if (cmd_buffer->state.rbplus_depth_only_enabled) {
+      cb_color_control |= S_028808_MODE(V_028808_CB_DISABLE);
    } else {
       bool color_write_enabled = false;
 
@@ -4787,6 +4801,20 @@ radv_emit_framebuffer_state(struct radv_cmd_buffer *cmd_buffer)
       extent.width = MIN2(extent.width, iview->vk.extent.width);
       extent.height = MIN2(extent.height, iview->vk.extent.height);
    }
+
+   if (render->color_att_count == 0 && cmd_buffer->state.rbplus_depth_only_enabled) {
+      if (pdev->info.gfx_level >= GFX12) {
+         radeon_set_context_reg(cmd_buffer->cs, R_028EC0_CB_COLOR0_INFO + i * 4,
+                                S_028EC0_FORMAT(V_028EC0_COLOR_INVALID));
+      } else {
+         const uint32_t cb_color0_info = (pdev->info.gfx_level >= GFX11 ? S_028C70_FORMAT_GFX11(V_028C70_COLOR_32)
+                                                                        : S_028C70_FORMAT_GFX6(V_028C70_COLOR_32)) |
+                                         S_028C70_NUMBER_TYPE(V_028C70_NUMBER_FLOAT);
+         radeon_set_context_reg(cmd_buffer->cs, R_028C70_CB_COLOR0_INFO + i * 0x3C, cb_color0_info);
+      }
+      ++i;
+   }
+
    for (; i < cmd_buffer->state.last_subpass_color_count; i++) {
       if (pdev->info.gfx_level >= GFX12) {
          radeon_set_context_reg(cmd_buffer->cs, R_028EC0_CB_COLOR0_INFO + i * 4, color_invalid);
@@ -8410,6 +8438,7 @@ radv_CmdBindPipeline(VkCommandBuffer commandBuffer, VkPipelineBindPoint pipeline
       cmd_buffer->state.uses_vrs_coarse_shading = graphics_pipeline->uses_vrs_coarse_shading;
       cmd_buffer->state.uses_dynamic_vertex_binding_stride =
          !!(graphics_pipeline->dynamic_states & (RADV_DYNAMIC_VERTEX_INPUT_BINDING_STRIDE | RADV_DYNAMIC_VERTEX_INPUT));
+      cmd_buffer->state.rbplus_depth_only_enabled = graphics_pipeline->rbplus_depth_only_enabled;
       break;
    }
    default:
@@ -9336,6 +9365,8 @@ radv_CmdExecuteCommands(VkCommandBuffer commandBuffer, uint32_t commandBufferCou
       primary->state.rb_noncoherent_dirty |= secondary->state.rb_noncoherent_dirty;
 
       primary->state.uses_draw_indirect |= secondary->state.uses_draw_indirect;
+
+      primary->state.rbplus_depth_only_enabled |= secondary->state.rbplus_depth_only_enabled;
 
       for (uint32_t reg = 0; reg < RADV_NUM_ALL_TRACKED_REGS; reg++) {
          if (!BITSET_TEST(secondary->tracked_regs.reg_saved_mask, reg))
@@ -10787,14 +10818,23 @@ radv_emit_all_graphics_states(struct radv_cmd_buffer *cmd_buffer, const struct r
             return;
          }
 
+         const bool rbplus_depth_only_enabled =
+            radv_can_enable_rbplus_depth_only(device, cmd_buffer->state.shaders[MESA_SHADER_FRAGMENT], 0);
          uint32_t col_format = ps_epilog->spi_shader_col_format;
          uint32_t cb_shader_mask = ps_epilog->cb_shader_mask;
 
          assert(cmd_buffer->state.custom_blend_mode == 0);
 
-         if (radv_needs_null_export_workaround(device, cmd_buffer->state.shaders[MESA_SHADER_FRAGMENT], 0) &&
+         if ((radv_needs_null_export_workaround(device, cmd_buffer->state.shaders[MESA_SHADER_FRAGMENT], 0) ||
+              rbplus_depth_only_enabled) &&
              !col_format)
             col_format = V_028714_SPI_SHADER_32_R;
+
+         if (cmd_buffer->state.rbplus_depth_only_enabled != rbplus_depth_only_enabled) {
+            cmd_buffer->state.rbplus_depth_only_enabled = rbplus_depth_only_enabled;
+            cmd_buffer->state.dirty |= RADV_CMD_DIRTY_FRAMEBUFFER;
+            cmd_buffer->state.dirty_dynamic |= RADV_DYNAMIC_LOGIC_OP;
+         }
 
          if (cmd_buffer->state.spi_shader_col_format != col_format) {
             cmd_buffer->state.spi_shader_col_format = col_format;
@@ -10988,9 +11028,17 @@ radv_bind_graphics_shaders(struct radv_cmd_buffer *cmd_buffer)
 
    const struct radv_shader *ps = cmd_buffer->state.shaders[MESA_SHADER_FRAGMENT];
    if (ps && !ps->info.has_epilog) {
+      const bool rbplus_depth_only_enabled = radv_can_enable_rbplus_depth_only(device, ps, 0);
       uint32_t col_format = 0, cb_shader_mask = 0;
-      if (radv_needs_null_export_workaround(device, ps, 0))
+
+      if (radv_needs_null_export_workaround(device, ps, 0) || rbplus_depth_only_enabled)
          col_format = V_028714_SPI_SHADER_32_R;
+
+      if (cmd_buffer->state.rbplus_depth_only_enabled != rbplus_depth_only_enabled) {
+         cmd_buffer->state.rbplus_depth_only_enabled = rbplus_depth_only_enabled;
+         cmd_buffer->state.dirty |= RADV_CMD_DIRTY_FRAMEBUFFER;
+         cmd_buffer->state.dirty_dynamic |= RADV_DYNAMIC_LOGIC_OP;
+      }
 
       if (cmd_buffer->state.spi_shader_col_format != col_format) {
          cmd_buffer->state.spi_shader_col_format = col_format;
