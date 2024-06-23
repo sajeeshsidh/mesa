@@ -2491,6 +2491,29 @@
     <src size="64">Image to read from</src>
   </ins>
 
+  <ins name="TEX_GRADIENT" title="Texture gradient" opcode="0x12A" unit="T">
+    <desc>Texture sample with explicit gradient.</desc>
+    <slot/>
+    <skip/>
+    <register_type/>
+    <register_width/>
+    <write_mask/>
+    <dimension/>
+    <wide_indices/>
+    <force_delta_enable/>
+    <lod_bias_disable/>
+    <lod_clamp_disable/>
+    <derivative_enable/>
+
+    <!-- Leave secondary_register_width as 0 -->
+    <sr_count/>
+    <sr_write_count/>
+
+    <sr write="true" flags="false"/>
+    <sr read="true" flags="false"/>
+    <src size="64">Image to read from</src>
+  </ins>
+
   <ins name="TEX_DUAL" title="Dual texture" opcode="0x12F" unit="T">
     <desc>Pair of texture instructions.</desc>
     <slot/>

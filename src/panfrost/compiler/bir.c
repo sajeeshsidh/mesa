@@ -121,6 +121,12 @@ bi_count_write_registers(const bi_instr *ins, unsigned d)
                                                       : chans;
       }
 
+      case BI_OPCODE_TEX_GRADIENT: {
+         assert(ins->write_mask == 3);
+         assert(!bi_is_regfmt_16(ins->register_format));
+         return 2;
+      }
+
       case BI_OPCODE_ACMPXCHG_I32:
          /* Reads 2 but writes 1 */
          return 1;

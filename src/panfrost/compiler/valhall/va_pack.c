@@ -942,6 +942,31 @@ va_pack_instr(const bi_instr *I)
       break;
    }
 
+   case BI_OPCODE_TEX_GRADIENT: {
+      hex |= ((uint64_t)va_pack_src(I, 1)) << 0;
+
+      if (I->wide_indices)
+         hex |= (1ull << 8);
+      if (I->force_delta_enable)
+         hex |= (1ull << 12);
+      if (I->lod_bias_disable)
+         hex |= (1ull << 13);
+      if (I->lod_clamp_disable)
+         hex |= (1ull << 14);
+      if (I->derivative_enable)
+         hex |= (1ull << 15);
+      if (I->skip)
+         hex |= (1ull << 39);
+      if (!bi_is_regfmt_16(I->register_format))
+         hex |= (1ull << 46);
+
+      hex |= ((uint64_t)3) << 22; /* (I->write_mask << 22); */
+      hex |= ((uint64_t)va_pack_register_type(I)) << 26;
+      hex |= ((uint64_t)I->dimension) << 28;
+
+      break;
+   }
+
    default:
       if (!info.exact && I->op != BI_OPCODE_NOP)
          invalid_instruction(I, "opcode");
