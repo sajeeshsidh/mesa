@@ -456,6 +456,8 @@ u_uintN_max(unsigned bit_size)
 #endif
 #endif
 
+extern int is_drm_shim;
+
 /* Macros for static type-safety checking.
  *
  * https://clang.llvm.org/docs/ThreadSafetyAnalysis.html
