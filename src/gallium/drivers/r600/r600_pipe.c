@@ -240,7 +240,6 @@ static int r600_get_param(struct pipe_screen* pscreen, enum pipe_cap param)
 	case PIPE_CAP_MIXED_FRAMEBUFFER_SIZES:
 	case PIPE_CAP_MIXED_COLOR_DEPTH_BITS:
 	case PIPE_CAP_ANISOTROPIC_FILTER:
-	case PIPE_CAP_OCCLUSION_QUERY:
 	case PIPE_CAP_TEXTURE_MIRROR_CLAMP:
 	case PIPE_CAP_TEXTURE_MIRROR_CLAMP_TO_EDGE:
 	case PIPE_CAP_BLEND_EQUATION_SEPARATE:
@@ -290,6 +289,9 @@ static int r600_get_param(struct pipe_screen* pscreen, enum pipe_cap param)
 	case PIPE_CAP_ALLOW_MAPPED_BUFFERS_DURING_EXECUTION:
 	case PIPE_CAP_ROBUST_BUFFER_ACCESS_BEHAVIOR:
       return 1;
+
+	case PIPE_CAP_OCCLUSION_QUERY:
+		return 64;
 
 	case PIPE_CAP_NIR_ATOMICS_AS_DEREF:
 	case PIPE_CAP_GL_SPIRV:

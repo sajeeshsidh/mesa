@@ -59,7 +59,6 @@ static int si_get_param(struct pipe_screen *pscreen, enum pipe_cap param)
    case PIPE_CAP_ACCELERATED:
    case PIPE_CAP_MAX_DUAL_SOURCE_RENDER_TARGETS:
    case PIPE_CAP_ANISOTROPIC_FILTER:
-   case PIPE_CAP_OCCLUSION_QUERY:
    case PIPE_CAP_TEXTURE_MIRROR_CLAMP:
    case PIPE_CAP_TEXTURE_SHADOW_LOD:
    case PIPE_CAP_TEXTURE_MIRROR_CLAMP_TO_EDGE:
@@ -172,6 +171,9 @@ static int si_get_param(struct pipe_screen *pscreen, enum pipe_cap param)
    case PIPE_CAP_NATIVE_FENCE_FD:
    case PIPE_CAP_CL_GL_SHARING:
       return 1;
+
+   case PIPE_CAP_OCCLUSION_QUERY:
+      return 64;
 
    case PIPE_CAP_TEXTURE_TRANSFER_MODES:
       return PIPE_TEXTURE_TRANSFER_BLIT;

@@ -68,6 +68,8 @@ u_pipe_screen_get_param_defaults(struct pipe_screen *pscreen,
       return 1;
 
    case PIPE_CAP_OCCLUSION_QUERY:
+      return 0;
+
    case PIPE_CAP_QUERY_TIME_ELAPSED:
    case PIPE_CAP_TEXTURE_SWIZZLE:
       return 0;

@@ -91,7 +91,8 @@ virgl_get_param(struct pipe_screen *screen, enum pipe_cap param)
    case PIPE_CAP_MAX_DUAL_SOURCE_RENDER_TARGETS:
       return vscreen->caps.caps.v1.max_dual_source_render_targets;
    case PIPE_CAP_OCCLUSION_QUERY:
-      return vscreen->caps.caps.v1.bset.occlusion_query;
+      /* FIXME: Can devices without this cap support 1-bit (non-counter) occlusion queries? */
+      return vscreen->caps.caps.v1.bset.occlusion_query ? 64 : 0;
    case PIPE_CAP_TEXTURE_MIRROR_CLAMP_TO_EDGE:
       if (vscreen->caps.caps.v2.host_feature_check_version >= 20)
          return vscreen->caps.caps.v2.capability_bits_v2 & VIRGL_CAP_V2_MIRROR_CLAMP_TO_EDGE;

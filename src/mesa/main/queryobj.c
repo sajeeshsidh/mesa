@@ -130,9 +130,10 @@ query_type_is_dummy(struct gl_context *ctx, unsigned type)
    struct st_context *st = st_context(ctx);
    switch (type) {
    case PIPE_QUERY_OCCLUSION_COUNTER:
+      return st->occlusion_query < 32;
    case PIPE_QUERY_OCCLUSION_PREDICATE:
    case PIPE_QUERY_OCCLUSION_PREDICATE_CONSERVATIVE:
-      return !st->has_occlusion_query;
+      return !st->occlusion_query;
    case PIPE_QUERY_PIPELINE_STATISTICS:
       return !st->has_pipeline_stat;
    case PIPE_QUERY_PIPELINE_STATISTICS_SINGLE:
@@ -1009,7 +1010,37 @@ _mesa_GetQueryIndexediv(GLenum target, GLuint index, GLenum pname,
       case GL_QUERY_COUNTER_BITS:
          switch (target) {
          case GL_SAMPLES_PASSED:
-            *params = ctx->Const.QueryCounterBits.SamplesPassed;
+            /* From ARB_occlusion_query.txt:
+             *
+             * How many bits should we require the samples-passed count to be, at
+             * minimum?
+             *
+             *     RESOLVED. The largest minimum that can be required of a GL
+             *     implementation is 32, the minimum bit width of an int or uint.
+             *
+             *     The minimum number of bits required for the samples-passed
+             *     count will be dependent on the implementation's maximum viewport size.
+             *     In order to allow for two overdraws in the case of only one sample
+             *     buffer, the minimum counter precision (n) will be determined by:
+             *
+             *     n = min (32 , ceil (log2 (maxViewportWidth x maxViewportHeight x
+             *                     1 sample x 2 overdraws) ) )
+             *
+             *     An implementation can either set QUERY_COUNTER_BITS_ARB to the
+             *     value 0, or to some number greater than or equal to n.  If an
+             *     implementation returns 0 for QUERY_COUNTER_BITS_ARB, then the
+             *     occlusion queries will always return that zero samples passed the
+             *     occlusion test, and so an application should not use occlusion queries
+             *     on that implementation.
+             *
+             *     Note that other targets may come along in the future that require more
+             *     or fewer bits.
+             *
+             */
+            if (ctx->Const.QueryCounterBits.SamplesPassed >= 32)
+               *params = ctx->Const.QueryCounterBits.SamplesPassed;
+            else
+               *params = 0;
             break;
          case GL_ANY_SAMPLES_PASSED:
          case GL_ANY_SAMPLES_PASSED_CONSERVATIVE:
@@ -1017,7 +1048,7 @@ _mesa_GetQueryIndexediv(GLenum target, GLuint index, GLenum pname,
              * is only ever GL_TRUE or GL_FALSE, so no sense in reporting more
              * bits.
              */
-            *params = 1;
+            *params = ctx->Const.QueryCounterBits.SamplesPassed ? 1 : 0;
             break;
          case GL_TIME_ELAPSED:
             *params = ctx->Const.QueryCounterBits.TimeElapsed;
@@ -1345,10 +1376,8 @@ _mesa_init_queryobj(struct gl_context *ctx)
    _mesa_InitHashTable(&ctx->Query.QueryObjects);
    ctx->Query.CurrentOcclusionObject = NULL;
 
-   if (screen->get_param(screen, PIPE_CAP_OCCLUSION_QUERY))
-      ctx->Const.QueryCounterBits.SamplesPassed = 64;
-   else
-      ctx->Const.QueryCounterBits.SamplesPassed = 0;
+   ctx->Const.QueryCounterBits.SamplesPassed =
+      screen->get_param(screen, PIPE_CAP_OCCLUSION_QUERY);
 
    ctx->Const.QueryCounterBits.TimeElapsed = 64;
    ctx->Const.QueryCounterBits.Timestamp = 64;

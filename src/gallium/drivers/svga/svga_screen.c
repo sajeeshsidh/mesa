@@ -200,7 +200,7 @@ svga_get_param(struct pipe_screen *screen, enum pipe_cap param)
    case PIPE_CAP_MAX_RENDER_TARGETS:
       return svgascreen->max_color_buffers;
    case PIPE_CAP_OCCLUSION_QUERY:
-      return 1;
+      return 64;
    case PIPE_CAP_TEXTURE_BUFFER_OBJECTS:
       return sws->have_vgpu10;
    case PIPE_CAP_TEXTURE_BUFFER_OFFSET_ALIGNMENT:

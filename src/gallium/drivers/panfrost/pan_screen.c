@@ -135,6 +135,8 @@ panfrost_get_param(struct pipe_screen *screen, enum pipe_cap param)
       return 1;
 
    case PIPE_CAP_OCCLUSION_QUERY:
+      return 64;
+
    case PIPE_CAP_PRIMITIVE_RESTART:
    case PIPE_CAP_PRIMITIVE_RESTART_FIXED_INDEX:
       return true;

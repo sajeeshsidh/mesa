@@ -143,7 +143,6 @@ crocus_get_param(struct pipe_screen *pscreen, enum pipe_cap param)
    switch (param) {
    case PIPE_CAP_NPOT_TEXTURES:
    case PIPE_CAP_ANISOTROPIC_FILTER:
-   case PIPE_CAP_OCCLUSION_QUERY:
    case PIPE_CAP_TEXTURE_SWIZZLE:
    case PIPE_CAP_TEXTURE_MIRROR_CLAMP_TO_EDGE:
    case PIPE_CAP_BLEND_EQUATION_SEPARATE:
@@ -393,6 +392,9 @@ crocus_get_param(struct pipe_screen *pscreen, enum pipe_cap param)
 
    case PIPE_CAP_TIMER_RESOLUTION:
       return DIV_ROUND_UP(1000000000ull, devinfo->timestamp_frequency);
+
+   case PIPE_CAP_OCCLUSION_QUERY:
+      return 64;
 
    default:
       return u_pipe_screen_get_param_defaults(pscreen, param);

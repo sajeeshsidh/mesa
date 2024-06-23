@@ -177,6 +177,7 @@ struct gl_extensions
    GLboolean EXT_memory_object_fd;
    GLboolean EXT_memory_object_win32;
    GLboolean EXT_multisampled_render_to_texture;
+   GLboolean EXT_occlusion_query_boolean;
    GLboolean EXT_packed_float;
    GLboolean EXT_provoking_vertex;
    GLboolean EXT_render_snorm;

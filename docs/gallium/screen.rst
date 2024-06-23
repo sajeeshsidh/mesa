@@ -31,7 +31,7 @@ The integer capabilities:
 * ``PIPE_CAP_ANISOTROPIC_FILTER``: Whether textures can be filtered anisotropically.
 * ``PIPE_CAP_MAX_RENDER_TARGETS``: The maximum number of render targets that may be
   bound.
-* ``PIPE_CAP_OCCLUSION_QUERY``: Whether occlusion queries are available.
+* ``PIPE_CAP_OCCLUSION_QUERY``: Available resolution of occlusion queries. Must be either 0, 1, or >=32.
 * ``PIPE_CAP_QUERY_TIME_ELAPSED``: Whether PIPE_QUERY_TIME_ELAPSED queries are available.
 * ``PIPE_CAP_TEXTURE_SHADOW_MAP``: indicates whether the fragment shader hardware
   can do the depth texture / Z comparison operation in TEX instructions

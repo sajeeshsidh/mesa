@@ -149,6 +149,7 @@ llvmpipe_get_param(struct pipe_screen *screen, enum pipe_cap param)
    case PIPE_CAP_MAX_RENDER_TARGETS:
       return PIPE_MAX_COLOR_BUFS;
    case PIPE_CAP_OCCLUSION_QUERY:
+      return 64;
    case PIPE_CAP_QUERY_TIMESTAMP:
    case PIPE_CAP_TIMER_RESOLUTION:
    case PIPE_CAP_QUERY_TIME_ELAPSED:

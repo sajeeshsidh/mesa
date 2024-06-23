@@ -134,7 +134,6 @@ v3d_screen_get_param(struct pipe_screen *pscreen, enum pipe_cap param)
         case PIPE_CAP_PRIMITIVE_RESTART_FIXED_INDEX:
         case PIPE_CAP_EMULATE_NONFIXED_PRIMITIVE_RESTART:
         case PIPE_CAP_PRIMITIVE_RESTART:
-        case PIPE_CAP_OCCLUSION_QUERY:
         case PIPE_CAP_STREAM_OUTPUT_PAUSE_RESUME:
         case PIPE_CAP_DRAW_INDIRECT:
         case PIPE_CAP_MULTI_DRAW_INDIRECT:
@@ -188,6 +187,9 @@ v3d_screen_get_param(struct pipe_screen *pscreen, enum pipe_cap param)
 
         case PIPE_CAP_INDEP_BLEND_ENABLE:
                 return 1;
+
+        case PIPE_CAP_OCCLUSION_QUERY:
+                return 64;
 
         case PIPE_CAP_CONSTANT_BUFFER_OFFSET_ALIGNMENT:
                 return V3D_NON_COHERENT_ATOM_SIZE;

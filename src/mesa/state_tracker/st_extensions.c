@@ -776,7 +776,6 @@ void st_init_extensions(struct pipe_screen *screen,
       { o(ARB_gl_spirv),                     PIPE_CAP_GL_SPIRV                         },
       { o(ARB_indirect_parameters),          PIPE_CAP_MULTI_DRAW_INDIRECT_PARAMS       },
       { o(ARB_instanced_arrays),             PIPE_CAP_VERTEX_ELEMENT_INSTANCE_DIVISOR  },
-      { o(ARB_occlusion_query2),             PIPE_CAP_OCCLUSION_QUERY                  },
       { o(ARB_pipeline_statistics_query),    PIPE_CAP_QUERY_PIPELINE_STATISTICS        },
       { o(ARB_pipeline_statistics_query),    PIPE_CAP_QUERY_PIPELINE_STATISTICS_SINGLE },
       { o(ARB_polygon_offset_clamp),         PIPE_CAP_POLYGON_OFFSET_CLAMP             },
@@ -1155,6 +1154,14 @@ void st_init_extensions(struct pipe_screen *screen,
    init_format_extensions(screen, extensions, vertex_mapping,
                           ARRAY_SIZE(vertex_mapping), PIPE_BUFFER,
                           PIPE_BIND_VERTEX_BUFFER);
+
+   if (screen->get_param(screen, PIPE_CAP_OCCLUSION_QUERY)) {
+      extensions->EXT_occlusion_query_boolean = GL_TRUE;
+   }
+
+   if (screen->get_param(screen, PIPE_CAP_OCCLUSION_QUERY) >= 32) {
+      extensions->ARB_occlusion_query2 = GL_TRUE;
+   }
 
    /* Figure out GLSL support and set GLSLVersion to it. */
    consts->GLSLVersion = screen->get_param(screen, PIPE_CAP_GLSL_FEATURE_LEVEL);

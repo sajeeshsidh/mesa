@@ -278,7 +278,11 @@ d3d12_get_param_default(struct pipe_screen *pscreen, enum pipe_cap param)
    case PIPE_CAP_TEXTURE_QUERY_LOD:
    case PIPE_CAP_VS_INSTANCEID:
    case PIPE_CAP_TGSI_TEX_TXF_LZ:
+      return 1;
+
    case PIPE_CAP_OCCLUSION_QUERY:
+      return 64;
+
    case PIPE_CAP_VIEWPORT_TRANSFORM_LOWERED:
    case PIPE_CAP_PSIZ_CLAMPED:
    case PIPE_CAP_BLEND_EQUATION_SEPARATE:

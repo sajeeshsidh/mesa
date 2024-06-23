@@ -703,7 +703,7 @@ zink_get_param(struct pipe_screen *pscreen, enum pipe_cap param)
       return screen->info.props.limits.maxColorAttachments;
 
    case PIPE_CAP_OCCLUSION_QUERY:
-      return screen->info.feats.features.occlusionQueryPrecise;
+      return screen->info.feats.features.occlusionQueryPrecise ? 64 : 1;
 
    case PIPE_CAP_PROGRAMMABLE_SAMPLE_LOCATIONS:
       return screen->info.have_EXT_sample_locations && screen->info.have_EXT_extended_dynamic_state;

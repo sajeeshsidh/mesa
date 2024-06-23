@@ -581,8 +581,9 @@ fd_screen_get_param(struct pipe_screen *pscreen, enum pipe_cap param)
 
    /* Queries. */
    case PIPE_CAP_OCCLUSION_QUERY:
-      return is_a3xx(screen) || is_a4xx(screen) || is_a5xx(screen) ||
-             is_a6xx(screen);
+      /* FIXME: Can older devices support 1-bit (non-counter) occlusion queries? */
+      return (is_a3xx(screen) || is_a4xx(screen) || is_a5xx(screen) ||
+              is_a6xx(screen)) ? 64 : 0;
    case PIPE_CAP_QUERY_TIMESTAMP:
    case PIPE_CAP_QUERY_TIME_ELAPSED:
       /* only a4xx, requires new enough kernel so we know max_freq: */

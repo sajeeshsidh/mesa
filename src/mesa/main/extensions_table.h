@@ -271,7 +271,7 @@ EXT(EXT_memory_object_win32                 , EXT_memory_object_win32           
 EXT(EXT_multi_draw_arrays                   , dummy_true                             , GLL,  x , ES1, ES2, 1999)
 EXT(EXT_multisampled_render_to_texture      , EXT_multisampled_render_to_texture     ,  x ,  x ,  x , ES2, 2016)
 EXT(EXT_multisampled_render_to_texture2     , EXT_multisampled_render_to_texture     ,  x ,  x ,  x , ES2, 2016)
-EXT(EXT_occlusion_query_boolean             , ARB_occlusion_query2                   ,  x ,  x ,  x , ES2, 2011)
+EXT(EXT_occlusion_query_boolean             , EXT_occlusion_query_boolean            ,  x ,  x ,  x , ES2, 2011)
 EXT(EXT_packed_depth_stencil                , dummy_true                             , GLL, GLC,  x ,  x , 2005)
 EXT(EXT_packed_float                        , EXT_packed_float                       , GLL, GLC,  x ,  x , 2004)
 EXT(EXT_packed_pixels                       , dummy_true                             , GLL,  x ,  x ,  x , 1997)

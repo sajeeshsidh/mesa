@@ -214,6 +214,9 @@ nvc0_screen_get_param(struct pipe_screen *pscreen, enum pipe_cap param)
    case PIPE_CAP_SUPPORTED_PRIM_MODES:
       return BITFIELD_MASK(MESA_PRIM_COUNT);
 
+   case PIPE_CAP_OCCLUSION_QUERY:
+      return 64;
+
    /* supported caps */
    case PIPE_CAP_TEXTURE_MIRROR_CLAMP:
    case PIPE_CAP_TEXTURE_MIRROR_CLAMP_TO_EDGE:
@@ -235,7 +238,6 @@ nvc0_screen_get_param(struct pipe_screen *pscreen, enum pipe_cap param)
    case PIPE_CAP_VERTEX_COLOR_CLAMPED:
    case PIPE_CAP_QUERY_TIMESTAMP:
    case PIPE_CAP_QUERY_TIME_ELAPSED:
-   case PIPE_CAP_OCCLUSION_QUERY:
    case PIPE_CAP_STREAM_OUTPUT_PAUSE_RESUME:
    case PIPE_CAP_STREAM_OUTPUT_INTERLEAVE_BUFFERS:
    case PIPE_CAP_QUERY_PIPELINE_STATISTICS:

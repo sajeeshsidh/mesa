@@ -21,7 +21,7 @@ d3dquerytype_to_pipe_query(struct pipe_screen *screen, D3DQUERYTYPE type)
     case D3DQUERYTYPE_EVENT:
         return PIPE_QUERY_GPU_FINISHED;
     case D3DQUERYTYPE_OCCLUSION:
-        return screen->get_param(screen, PIPE_CAP_OCCLUSION_QUERY) ?
+        return screen->get_param(screen, PIPE_CAP_OCCLUSION_QUERY) >= (sizeof(DWORD) * 8) ?
                PIPE_QUERY_OCCLUSION_COUNTER : PIPE_QUERY_TYPES;
     case D3DQUERYTYPE_TIMESTAMP:
         return screen->get_param(screen, PIPE_CAP_QUERY_TIMESTAMP) ?

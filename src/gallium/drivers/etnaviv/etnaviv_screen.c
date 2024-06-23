@@ -253,6 +253,9 @@ etna_screen_get_param(struct pipe_screen *pscreen, enum pipe_cap param)
 
    /* Queries. */
    case PIPE_CAP_OCCLUSION_QUERY:
+      /* FIXME: Can devices without this feature support 1-bit (non-counter) occlusion queries? */
+      return VIV_FEATURE(screen, ETNA_FEATURE_HALTI0) ? 64 : 0;
+
    case PIPE_CAP_CONDITIONAL_RENDER:
    case PIPE_CAP_CONDITIONAL_RENDER_INVERTED:
       return VIV_FEATURE(screen, ETNA_FEATURE_HALTI0);

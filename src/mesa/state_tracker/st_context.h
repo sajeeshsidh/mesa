@@ -165,7 +165,7 @@ struct st_context
    bool has_shareable_shaders;
    bool has_multi_draw_indirect;
    bool has_indirect_partial_stride;
-   bool has_occlusion_query;
+   uint32_t occlusion_query;
    bool has_single_pipe_stat;
    bool has_pipeline_stat;
    bool has_indep_blend_enable;

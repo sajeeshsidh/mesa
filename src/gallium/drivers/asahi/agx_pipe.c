@@ -1967,6 +1967,8 @@ agx_get_param(struct pipe_screen *pscreen, enum pipe_cap param)
       return 1;
 
    case PIPE_CAP_OCCLUSION_QUERY:
+      return 64;
+
    case PIPE_CAP_QUERY_TIMESTAMP:
    case PIPE_CAP_QUERY_TIME_ELAPSED:
    case PIPE_CAP_QUERY_SO_OVERFLOW:

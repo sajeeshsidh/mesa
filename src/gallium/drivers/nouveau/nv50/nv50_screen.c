@@ -210,7 +210,11 @@ nv50_screen_get_param(struct pipe_screen *pscreen, enum pipe_cap param)
    case PIPE_CAP_VERTEX_COLOR_CLAMPED:
    case PIPE_CAP_QUERY_TIMESTAMP:
    case PIPE_CAP_QUERY_TIME_ELAPSED:
+      return 1;
+
    case PIPE_CAP_OCCLUSION_QUERY:
+      return 64;
+
    case PIPE_CAP_BLEND_EQUATION_SEPARATE:
    case PIPE_CAP_INDEP_BLEND_ENABLE:
    case PIPE_CAP_FS_COORD_ORIGIN_UPPER_LEFT:

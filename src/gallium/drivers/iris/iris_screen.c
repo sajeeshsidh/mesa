@@ -208,7 +208,9 @@ iris_get_param(struct pipe_screen *pscreen, enum pipe_cap param)
    switch (param) {
    case PIPE_CAP_NPOT_TEXTURES:
    case PIPE_CAP_ANISOTROPIC_FILTER:
+      return 1;
    case PIPE_CAP_OCCLUSION_QUERY:
+      return 64;
    case PIPE_CAP_QUERY_TIME_ELAPSED:
    case PIPE_CAP_TEXTURE_SWIZZLE:
    case PIPE_CAP_TEXTURE_MIRROR_CLAMP_TO_EDGE:
