@@ -296,7 +296,8 @@ get_rematerialize_info(spill_ctx& ctx)
 }
 
 RegisterDemand
-get_demand_before(spill_ctx& ctx, unsigned block_idx, unsigned idx)
+get_demand_before(spill_ctx& ctx, RegisterDemand temp_registers_before,
+                  unsigned block_idx, unsigned idx)
 {
    if (idx == 0) {
       RegisterDemand demand = ctx.program->live.register_demand[block_idx][idx];
@@ -304,7 +305,10 @@ get_demand_before(spill_ctx& ctx, unsigned block_idx, unsigned idx)
       aco_ptr<Instruction> instr_before(nullptr);
       return get_demand_before(demand, instr, instr_before);
    } else {
-      return ctx.program->live.register_demand[block_idx][idx - 1];
+      aco_ptr<Instruction>& instr = ctx.program->blocks[block_idx].instructions[idx];
+      RegisterDemand demand_between = get_demand_between(instr);
+      return ctx.program->live.register_demand[block_idx][idx - 1] - temp_registers_before +
+             demand_between;
    }
 }
 
@@ -328,7 +332,7 @@ get_live_in_demand(spill_ctx& ctx, unsigned block_idx)
          reg_pressure += phi->definitions[0].getTemp();
    }
 
-   reg_pressure += get_demand_before(ctx, block_idx, idx);
+   reg_pressure += get_demand_before(ctx, RegisterDemand(), block_idx, idx);
 
    /* Consider register pressure from linear predecessors. This can affect
     * reg_pressure if the branch instructions define sgprs. */
@@ -932,7 +936,7 @@ add_coupling_code(spill_ctx& ctx, Block* block, IDSet& live_in)
 
    if (!ctx.processed[block_idx]) {
       assert(!(block->kind & block_kind_loop_header));
-      RegisterDemand demand_before = get_demand_before(ctx, block_idx, idx);
+      RegisterDemand demand_before = get_demand_before(ctx, RegisterDemand(), block_idx, idx);
       std::vector<RegisterDemand>& register_demand =
          ctx.program->live.register_demand[block->index];
       register_demand.erase(register_demand.begin(), register_demand.begin() + idx);
@@ -961,6 +965,8 @@ process_block(spill_ctx& ctx, unsigned block_idx, Block* block, RegisterDemand s
    }
 
    auto& current_spills = ctx.spills_exit[block_idx];
+
+   RegisterDemand temp_registers_before;
 
    while (idx < block->instructions.size()) {
       aco_ptr<Instruction>& instr = block->instructions[idx];
@@ -999,15 +1005,20 @@ process_block(spill_ctx& ctx, unsigned block_idx, Block* block, RegisterDemand s
       /* check if register demand is low enough before and after the current instruction */
       if (block->register_demand.exceeds(ctx.target_pressure)) {
 
+         RegisterDemand demand_before = get_demand_before(ctx, temp_registers_before, block_idx, idx);
          RegisterDemand new_demand = ctx.program->live.register_demand[block_idx][idx];
-         new_demand.update(get_demand_before(ctx, block_idx, idx));
+         new_demand.update(demand_before);
 
          /* if reg pressure is too high, spill variable with furthest next use */
          while ((new_demand - spilled_registers).exceeds(ctx.target_pressure)) {
             float score = 0.0;
             Temp to_spill;
+            unsigned operand_idx = -1u;
+            unsigned respill_slot = -1u;
+
             unsigned do_rematerialize = 0;
             unsigned avoid_respill = 0;
+
             RegType type = RegType::sgpr;
             if (new_demand.vgpr - spilled_registers.vgpr > ctx.target_pressure.vgpr)
                type = RegType::vgpr;
@@ -1023,26 +1034,59 @@ process_block(spill_ctx& ctx, unsigned block_idx, Block* block, RegisterDemand s
                if (avoid_respill > loop_variable || do_rematerialize > can_rematerialize)
                   continue;
 
+               unsigned cur_operand_idx = -1u;
+               bool can_spill = true;
+               for (auto it = instr->operands.begin(); it != instr->operands.end(); ++it) {
+                  if (!it->isTemp() || it->getTemp() != var)
+                     continue;
+                  /* Don't spill operands if killing operands won't help with register pressure */
+                  if ((demand_before - spilled_registers).exceeds(ctx.target_pressure)) {
+                     can_spill = false;
+                     break;
+                  }
+
+                  cur_operand_idx = it - instr->operands.begin();
+                  if (it->isLateKill() || it->isKill())
+                     can_spill = false;
+                  break;
+               }
+               if (!can_spill)
+                  continue;
+
                if (can_rematerialize > do_rematerialize || loop_variable > avoid_respill ||
                    ctx.ssa_infos[t].score() > score) {
-                  /* Don't spill operands */
-                  if (std::any_of(instr->operands.begin(), instr->operands.end(),
-                                  [&](Operand& op) { return op.isTemp() && op.getTemp() == var; }))
-                     continue;
+                  bool is_spilled_operand = cur_operand_idx != -1u && reloads.count(var);
+                  if (cur_operand_idx != -1u && ctx.renames[block_idx].count(var))
+                     is_spilled_operand |= reloads.count(ctx.renames[block_idx][var]);
 
                   to_spill = var;
                   score = ctx.ssa_infos[t].score();
                   do_rematerialize = can_rematerialize;
-                  avoid_respill = loop_variable;
+                  avoid_respill = loop_variable || is_spilled_operand;
+                  operand_idx = cur_operand_idx;
+
+                  /* This variable is spilled at the loop-header of the current loop.
+                   * Re-use the spill-slot in order to avoid an extra store.
+                   */
+                  if (loop_variable)
+                     respill_slot = ctx.loop.back().spills[var];
+                  else if (is_spilled_operand)
+                     respill_slot = reloads[var].second;
                }
             }
-            assert(score != 0.0);
+            assert(score > 0.0);
+
+            if (operand_idx != -1u) {
+               Operand& spilled_op = instr->operands[operand_idx];
+               spilled_op.setFirstKill(true);
+               for (auto it = instr->operands.begin() + operand_idx + 1;
+                    it != instr->operands.end(); ++it)
+                  if (it->isTemp() && it->getTemp() == to_spill)
+                     it->setKill(true);
+            }
 
             if (avoid_respill) {
-               /* This variable is spilled at the loop-header of the current loop.
-                * Re-use the spill-slot in order to avoid an extra store.
-                */
-               current_spills[to_spill] = ctx.loop.back().spills[to_spill];
+               current_spills[to_spill] = respill_slot;
                spilled_registers += to_spill;
                continue;
             }
@@ -1094,6 +1138,7 @@ process_block(spill_ctx& ctx, unsigned block_idx, Block* block, RegisterDemand s
             do_reload(ctx, pair.second.first, pair.first, pair.second.second);
          instructions.emplace_back(std::move(reload));
       }
+      temp_registers_before = get_temp_registers(instr);
       instructions.emplace_back(std::move(instr));
       idx++;
    }

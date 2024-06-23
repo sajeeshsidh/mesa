@@ -47,6 +47,34 @@ handle_def_fixed_to_op(RegisterDemand* demand, RegisterDemand demand_before, Ins
 }
 
 RegisterDemand
+get_demand_between(aco_ptr<Instruction>& instr)
+{
+   RegisterDemand demand_between;
+   for (Operand op : instr->operands) {
+      if (op.isTemp() && op.isFixed() && !op.isFirstKill()) {
+         for (Operand op2 : instr->operands) {
+            if (!op2.isTemp())
+               continue;
+            if (op2 == op)
+               break;
+
+            if (op2.tempId() == op.tempId() && op2.isFixed() && op2.physReg() != op.physReg()) {
+               if (!op.isLateKill())
+                  demand_between += op.getTemp();
+               break;
+            }
+         }
+      }
+   }
+
+   int op_idx = get_op_fixed_to_def(instr.get());
+   if (op_idx != -1 && !instr->operands[op_idx].isKill())
+      demand_between += instr->definitions[0].getTemp();
+
+   return demand_between;
+}
+
+RegisterDemand
 get_temp_registers(aco_ptr<Instruction>& instr)
 {
    RegisterDemand temp_registers;
