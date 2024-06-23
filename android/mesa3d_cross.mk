@@ -66,6 +66,7 @@ MESON_GEN_FILES_TARGET                   := $(MESON_GEN_DIR)/.timestamp
 MESA3D_GALLIUM_DRI_DIR                   := $(MESON_OUT_DIR)/install/usr/local/lib/dri
 $(M_TARGET_PREFIX)MESA3D_GALLIUM_DRI_BIN := $(MESON_OUT_DIR)/install/usr/local/lib/libgallium_dri.so
 $(M_TARGET_PREFIX)MESA3D_LIBEGL_BIN      := $(MESON_OUT_DIR)/install/usr/local/lib/libEGL.so
+$(M_TARGET_PREFIX)MESA3D_LIBGLES_BIN     := $(MESON_OUT_DIR)/install/usr/local/lib/libGLES.so
 $(M_TARGET_PREFIX)MESA3D_LIBGLESV1_BIN   := $(MESON_OUT_DIR)/install/usr/local/lib/libGLESv1_CM.so
 $(M_TARGET_PREFIX)MESA3D_LIBGLESV2_BIN   := $(MESON_OUT_DIR)/install/usr/local/lib/libGLESv2.so
 $(M_TARGET_PREFIX)MESA3D_LIBGLAPI_BIN    := $(MESON_OUT_DIR)/install/usr/local/lib/libglapi.so
@@ -74,6 +75,7 @@ $(M_TARGET_PREFIX)MESA3D_LIBGBM_BIN      := $(MESON_OUT_DIR)/install/usr/local/l
 
 MESA3D_GLES_BINS := \
     $($(M_TARGET_PREFIX)MESA3D_LIBEGL_BIN)    \
+    $($(M_TARGET_PREFIX)MESA3D_LIBGLES_BIN)   \
     $($(M_TARGET_PREFIX)MESA3D_LIBGLESV1_BIN) \
     $($(M_TARGET_PREFIX)MESA3D_LIBGLESV2_BIN) \
     $($(M_TARGET_PREFIX)MESA3D_LIBGLAPI_BIN)  \
