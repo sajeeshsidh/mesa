@@ -1522,6 +1522,88 @@ nir_def_init(nir_instr *instr, nir_def *def,
    } else {
       def->index = UINT_MAX;
    }
+
+   if (instr->type == nir_instr_type_alu) {
+      nir_alu_instr *alu = nir_instr_as_alu(instr);
+
+      switch (alu->op) {
+      case nir_op_b16all_fequal16:
+      case nir_op_b16all_fequal2:
+      case nir_op_b16all_fequal3:
+      case nir_op_b16all_fequal4:
+      case nir_op_b16all_fequal5:
+      case nir_op_b16all_fequal8:
+      case nir_op_b16any_fnequal16:
+      case nir_op_b16any_fnequal2:
+      case nir_op_b16any_fnequal3:
+      case nir_op_b16any_fnequal4:
+      case nir_op_b16any_fnequal5:
+      case nir_op_b16any_fnequal8:
+      case nir_op_b32all_fequal16:
+      case nir_op_b32all_fequal2:
+      case nir_op_b32all_fequal3:
+      case nir_op_b32all_fequal4:
+      case nir_op_b32all_fequal5:
+      case nir_op_b32all_fequal8:
+      case nir_op_b32any_fnequal16:
+      case nir_op_b32any_fnequal2:
+      case nir_op_b32any_fnequal3:
+      case nir_op_b32any_fnequal4:
+      case nir_op_b32any_fnequal5:
+      case nir_op_b32any_fnequal8:
+      case nir_op_b8all_fequal16:
+      case nir_op_b8all_fequal2:
+      case nir_op_b8all_fequal3:
+      case nir_op_b8all_fequal4:
+      case nir_op_b8all_fequal5:
+      case nir_op_b8all_fequal8:
+      case nir_op_b8any_fnequal16:
+      case nir_op_b8any_fnequal2:
+      case nir_op_b8any_fnequal3:
+      case nir_op_b8any_fnequal4:
+      case nir_op_b8any_fnequal5:
+      case nir_op_b8any_fnequal8:
+      case nir_op_ball_fequal16:
+      case nir_op_ball_fequal2:
+      case nir_op_ball_fequal3:
+      case nir_op_ball_fequal4:
+      case nir_op_ball_fequal5:
+      case nir_op_ball_fequal8:
+      case nir_op_bany_fnequal16:
+      case nir_op_bany_fnequal2:
+      case nir_op_bany_fnequal3:
+      case nir_op_bany_fnequal4:
+      case nir_op_bany_fnequal5:
+      case nir_op_bany_fnequal8:
+      case nir_op_feq:
+      case nir_op_feq16:
+      case nir_op_feq32:
+      case nir_op_feq8:
+      case nir_op_fneu:
+      case nir_op_fneu16:
+      case nir_op_fneu32:
+      case nir_op_fneu8:
+         if (alu->src[0].src.ssa == NULL)
+            break;
+
+         if (alu->src[0].src.ssa != alu->src[1].src.ssa)
+            break;
+
+         unsigned i;
+         for (i = 0; i < num_components; i++) {
+            if (alu->src[0].swizzle[i] != alu->src[1].swizzle[i])
+               break;
+         }
+
+         if (i == num_components)
+            alu->exact = true;
+
+         break;
+
+      default:
+         break;
+      }
+   }
 }
 
 void
