@@ -3073,9 +3073,9 @@ tu6_emit_rast(struct tu_cs *cs,
    tu_cs_emit_regs(cs,
                    PC_POLYGON_MODE(CHIP, polygon_mode));
 
-   if (CHIP == A7XX) {
+   if (CHIP == A7XX || true /* a702 */) {
       tu_cs_emit_regs(cs,
-                     A7XX_VPC_POLYGON_MODE2(polygon_mode));
+                     A6XX_VPC_POLYGON_MODE2(polygon_mode));
    }
 
    tu_cs_emit_regs(cs, PC_RASTER_CNTL(CHIP,

@@ -915,6 +915,55 @@ a730_raw_magic_regs = [
     ]
 
 add_gpus([
+        GPUId(702), # KGSL
+        GPUId(chip_id=0x00b207002000, name="FD702"), # QRB2210 RB1
+        GPUId(chip_id=0xffff07002000, name="FD702"), # Default no-speedbin fallback
+    ], A6xxGPUInfo(
+        CHIP.A6XX, # NOT a mistake!
+        [a6xx_base, A6XXProps(
+            reg_size_vec4 = 48,
+            instr_cache_size = 64,
+            indirect_draw_wfm_quirk = True, # Confirmed
+            has_cp_reg_write = False, # CP | opcode error | possible opcode=0x706D8003
+            depth_bounds_require_depth_test_quirk = True, # Confirmed
+            has_gmem_fast_clear = True, # Confirmed
+            has_hw_multiview = False,
+            has_sampler_minmax = False,
+            has_lpac = False, # Confirmed
+            has_fs_tex_prefetch = False,
+            sysmem_per_ccu_depth_cache_size = 128 * 1024, # ??????
+            sysmem_per_ccu_color_cache_size = 128 * 1024, # ??????
+            gmem_ccu_color_cache_fraction = CCUColorCacheFraction.FULL.value, # Confirmed
+            vs_max_inputs_count = 16,
+            supports_double_threadsize = False,
+            prim_alloc_threshold = 0x1,
+            )
+        ],
+        num_ccu = 1,
+        tile_align_w = 32,
+        tile_align_h = 16,
+        num_vsc_pipes = 16,
+        cs_shared_mem_size = 16 * 1024,
+        wave_granularity = 1,
+        fibers_per_sp = 128 * 16,
+        magic_regs = dict(
+            PC_POWER_CNTL = 0,
+            TPL1_DBG_ECO_CNTL = 0x8000,
+            GRAS_DBG_ECO_CNTL = 0,
+            SP_CHICKEN_BITS = 0x1400,
+            UCHE_CLIENT_PF = 0x84,
+            PC_MODE_CNTL = 0xf,
+            SP_DBG_ECO_CNTL = 0x0,
+            RB_DBG_ECO_CNTL = 0x100000,
+            RB_DBG_ECO_CNTL_blit = 0x100000,
+            HLSQ_DBG_ECO_CNTL = 0,
+            RB_UNKNOWN_8E01 = 0x1,
+            VPC_DBG_ECO_CNTL = 0x0,
+            UCHE_UNKNOWN_0E12 = 0x1,
+        ),
+    ))
+
+add_gpus([
         # These are named as Adreno730v3 or Adreno725v1.
         GPUId(chip_id=0x07030002, name="FD725"),
         GPUId(chip_id=0xffff07030002, name="FD725"),
