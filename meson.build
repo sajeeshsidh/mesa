@@ -2034,33 +2034,37 @@ endif
 # TODO: symbol mangling
 
 if with_platform_wayland
-  dep_wl_scanner = dependency('wayland-scanner', native: true)
-  prog_wl_scanner = find_program(dep_wl_scanner.get_variable(pkgconfig : 'wayland_scanner'))
-  if dep_wl_scanner.version().version_compare('>= 1.15')
+  # dep_wl_scanner = dependency('wayland-scanner', native: true)
+  # dep_wl_scanner = subproject('wayland').get_variable('wayland_scanner')
+  # prog_wl_scanner = find_program(dep_wl_scanner.get_variable(pkgconfig : 'wayland_scanner'))
+  prog_wl_scanner = subproject('wayland').get_variable('wayland_scanner')
+  # if dep_wl_scanner.version().version_compare('>= 1.15')
     wl_scanner_arg = 'private-code'
-  else
-    wl_scanner_arg = 'code'
-  endif
+  # else
+  #   wl_scanner_arg = 'code'
+  # endif
   dep_wl_protocols = dependency('wayland-protocols', version : '>= 1.34')
-  dep_wayland_client = dependency('wayland-client', version : '>=1.18')
+  # dep_wayland_client = dependency('wayland-client', version : '>=1.18')
+  dep_wayland_client = subproject('wayland').get_variable('wayland_client_dep')
   dep_wayland_server = dependency('wayland-server', version : '>=1.18')
   if with_egl
     dep_wayland_egl = dependency('wayland-egl-backend', version : '>= 3')
     dep_wayland_egl_headers = dep_wayland_egl.partial_dependency(compile_args : true)
   endif
   pre_args += '-DWL_HIDE_DEPRECATED'
-  if cc.has_function(
-      'wl_display_dispatch_queue_timeout',
-      prefix : '#include <wayland-client.h>',
-      dependencies: dep_wayland_client)
-    pre_args += ['-DHAVE_WL_DISPATCH_QUEUE_TIMEOUT']
-  endif
-  if cc.has_function(
-      'wl_display_create_queue_with_name',
-      prefix : '#include <wayland-client.h>',
-      dependencies: dep_wayland_client)
-    pre_args += ['-DHAVE_WL_CREATE_QUEUE_WITH_NAME']
-  endif
+  # if cc.has_function(
+  #     'wl_display_dispatch_queue_timeout',
+  #     prefix : '#include <wayland-client.h>',
+  #     dependencies: dep_wayland_client)
+  #   pre_args += ['-DHAVE_WL_DISPATCH_QUEUE_TIMEOUT']
+  # endif
+  # if cc.has_function(
+  #     'wl_display_create_queue_with_name',
+  #     prefix : '#include <wayland-client.h>',
+  #     dependencies: dep_wayland_client)
+  #   pre_args += ['-DHAVE_WL_CREATE_QUEUE_WITH_NAME']
+  # endif
+  pre_args += ['-DHAVE_WL_CREATE_QUEUE_WITH_NAME']
 endif
 
 dep_x11 = null_dep

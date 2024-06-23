@@ -2015,6 +2015,8 @@ registry_handle_global_drm(void *data, struct wl_registry *registry,
          MIN2(version, ZWP_LINUX_DMABUF_V1_GET_DEFAULT_FEEDBACK_SINCE_VERSION));
       zwp_linux_dmabuf_v1_add_listener(dri2_dpy->wl_dmabuf, &dmabuf_listener,
                                        dri2_dpy);
+   } else if (strcmp(interface, wl_fixes_interface.name) == 0) {
+      dri2_dpy->wl_fixes = wl_registry_bind(registry, name, &wl_fixes_interface, 1);
    }
 }
 
@@ -2971,8 +2973,13 @@ dri2_teardown_wayland(struct dri2_egl_display *dri2_dpy)
       zwp_linux_dmabuf_v1_destroy(dri2_dpy->wl_dmabuf);
    if (dri2_dpy->wl_shm)
       wl_shm_destroy(dri2_dpy->wl_shm);
-   if (dri2_dpy->wl_registry)
+   if (dri2_dpy->wl_registry) {
+      if (dri2_dpy->wl_fixes)
+         wl_fixes_destroy_registry(dri2_dpy->wl_fixes, dri2_dpy->wl_registry);
       wl_registry_destroy(dri2_dpy->wl_registry);
+   }
+   if (dri2_dpy->wl_fixes)
+      wl_fixes_destroy(dri2_dpy->wl_fixes);
    if (dri2_dpy->wl_dpy_wrapper)
       wl_proxy_wrapper_destroy(dri2_dpy->wl_dpy_wrapper);
    if (dri2_dpy->wl_queue)
