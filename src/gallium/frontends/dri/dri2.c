@@ -2465,7 +2465,7 @@ dri2_init_screen(struct dri_screen *screen, bool driver_name_is_inferred)
 #endif
 
    if (!pscreen)
-       return NULL;
+       goto fail;
 
    dri_init_options(screen);
    screen->throttle = pscreen->get_param(pscreen, PIPE_CAP_THROTTLE);
@@ -2499,7 +2499,7 @@ dri2_init_screen(struct dri_screen *screen, bool driver_name_is_inferred)
    return configs;
 
 fail:
-   pipe_loader_release(&screen->dev, 1);
+   dri_release_screen(screen);
 
    return NULL;
 }
