@@ -65,8 +65,7 @@ brw_math_function(enum opcode op)
 }
 
 static struct brw_reg
-brw_reg_from_fs_reg(const struct intel_device_info *devinfo, fs_inst *inst,
-                    fs_reg *reg)
+normalize_brw_reg_for_encoding(brw_reg *reg)
 {
    struct brw_reg brw_reg;
 
@@ -75,7 +74,7 @@ brw_reg_from_fs_reg(const struct intel_device_info *devinfo, fs_inst *inst,
    case FIXED_GRF:
    case IMM:
       assert(reg->offset == 0);
-      brw_reg = reg->as_brw_reg();
+      brw_reg = *reg;
       break;
    case BAD_FILE:
       /* Probably unused. */
@@ -860,7 +859,7 @@ fs_generator::generate_code(const cfg_t *cfg, int dispatch_width,
       }
 
       for (unsigned int i = 0; i < inst->sources; i++) {
-         src[i] = brw_reg_from_fs_reg(devinfo, inst, &inst->src[i]);
+         src[i] = normalize_brw_reg_for_encoding(&inst->src[i]);
 	 /* The accumulator result appears to get used for the
 	  * conditional modifier generation.  When negating a UD
 	  * value, there is a 33rd bit generated for the sign in the
@@ -871,7 +870,7 @@ fs_generator::generate_code(const cfg_t *cfg, int dispatch_width,
 		inst->src[i].type != BRW_TYPE_UD ||
 		!inst->src[i].negate);
       }
-      dst = brw_reg_from_fs_reg(devinfo, inst, &inst->dst);
+      dst = normalize_brw_reg_for_encoding(&inst->dst);
 
       brw_set_default_access_mode(p, BRW_ALIGN_1);
       brw_set_default_predicate_control(p, inst->predicate);
