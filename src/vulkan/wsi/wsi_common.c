@@ -438,6 +438,7 @@ wsi_swapchain_init(const struct wsi_device *wsi,
 
    vk_object_base_init(device, &chain->base, VK_OBJECT_TYPE_SWAPCHAIN_KHR);
 
+   chain->create_flags = pCreateInfo->flags;
    chain->wsi = wsi;
    chain->device = _device;
    chain->alloc = *pAllocator;
@@ -455,6 +456,8 @@ wsi_swapchain_init(const struct wsi_device *wsi,
    if (!chain->cmd_pools)
       return VK_ERROR_OUT_OF_HOST_MEMORY;
 
+   const bool protected =
+      (pCreateInfo->flags & VK_SWAPCHAIN_CREATE_PROTECTED_BIT_KHR) != 0;
    for (uint32_t i = 0; i < cmd_pools_count; i++) {
       int queue_family_index = i;
 
@@ -472,7 +475,7 @@ wsi_swapchain_init(const struct wsi_device *wsi,
       const VkCommandPoolCreateInfo cmd_pool_info = {
          .sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO,
          .pNext = NULL,
-         .flags = 0,
+         .flags = protected ? VK_COMMAND_POOL_CREATE_PROTECTED_BIT : 0,
          .queueFamilyIndex = queue_family_index,
       };
       result = wsi->CreateCommandPool(_device, &cmd_pool_info, &chain->alloc,
@@ -609,9 +612,13 @@ wsi_configure_image(const struct wsi_swapchain *chain,
       for (uint32_t i = 0; i < pCreateInfo->queueFamilyIndexCount; i++)
          queue_family_indices[i] = pCreateInfo->pQueueFamilyIndices[i];
 
+   const bool protected =
+      (pCreateInfo->flags & VK_SWAPCHAIN_CREATE_PROTECTED_BIT_KHR) != 0;
+
    info->create = (VkImageCreateInfo) {
       .sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO,
-      .flags = VK_IMAGE_CREATE_ALIAS_BIT,
+      .flags = VK_IMAGE_CREATE_ALIAS_BIT |
+               (protected ? VK_IMAGE_CREATE_PROTECTED_BIT : 0),
       .imageType = VK_IMAGE_TYPE_2D,
       .format = pCreateInfo->imageFormat,
       .extent = {
@@ -1781,6 +1788,8 @@ wsi_create_buffer_blit_context(const struct wsi_swapchain *chain,
    const struct wsi_device *wsi = chain->wsi;
    VkResult result;
 
+   const bool protected =
+      (chain->create_flags & VK_SWAPCHAIN_CREATE_PROTECTED_BIT_KHR);
    const VkExternalMemoryBufferCreateInfo buffer_external_info = {
       .sType = VK_STRUCTURE_TYPE_EXTERNAL_MEMORY_BUFFER_CREATE_INFO,
       .pNext = NULL,
@@ -1790,7 +1799,8 @@ wsi_create_buffer_blit_context(const struct wsi_swapchain *chain,
       .sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO,
       .pNext = &buffer_external_info,
       .size = info->linear_size,
-      .usage = VK_BUFFER_USAGE_TRANSFER_DST_BIT,
+      .usage = VK_BUFFER_USAGE_TRANSFER_DST_BIT |
+               (protected ? VK_BUFFER_CREATE_PROTECTED_BIT : 0),
       .sharingMode = VK_SHARING_MODE_EXCLUSIVE,
    };
    result = wsi->CreateBuffer(chain->device, &buffer_info,
