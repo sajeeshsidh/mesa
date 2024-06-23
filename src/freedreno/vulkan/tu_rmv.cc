@@ -10,7 +10,7 @@
 #include "tu_device.h"
 #include "tu_event.h"
 #include "tu_image.h"
-#include "tu_query.h"
+#include "tu_query_pool.h"
 
 #include <cstdio>
 
@@ -400,7 +400,7 @@ tu_rmv_log_query_pool_create(struct tu_device *device,
       .is_driver_internal = false,
       .type = VK_RMV_RESOURCE_TYPE_QUERY_HEAP,
       .query_pool = {
-         .type = query_pool->type,
+         .type = query_pool->vk.query_type,
          .has_cpu_access = true,
       },
    };

@@ -21,6 +21,7 @@ tu_entrypoints = custom_target(
 libtu_files = files(
   'layers/tu_rmv_layer.cc',
   'tu_autotune.cc',
+  'tu_buffer_view.cc',
   'tu_clear_blit.cc',
   'tu_cmd_buffer.cc',
   'tu_cs_breadcrumbs.cc',
@@ -37,7 +38,7 @@ libtu_files = files(
   'tu_pass.cc',
   'tu_pipeline.cc',
   'tu_sampler.cc',
-  'tu_query.cc',
+  'tu_query_pool.cc',
   'tu_rmv.cc',
   'tu_shader.cc',
   'tu_suballoc.cc',
