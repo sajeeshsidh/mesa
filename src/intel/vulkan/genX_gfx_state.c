@@ -325,7 +325,7 @@ is_src1_blend_factor(enum GENX(3D_Color_Buffer_Blend_Factor) factor)
           factor == BLENDFACTOR_INV_SRC1_ALPHA;
 }
 
-#if GFX_VERx10 == 125
+#if GFX_VERx10 >= 125
 /**
  * Return the dimensions of the current rendering area, defined as the
  * bounding box of all present color, depth and stencil attachments.
@@ -373,8 +373,9 @@ calculate_tile_dimensions(struct anv_cmd_buffer *cmd_buffer,
    const struct anv_device *device = cmd_buffer->device;
    struct anv_cmd_graphics_state *gfx = &cmd_buffer->state.gfx;
 
-   assert(GFX_VER == 12);
-   const unsigned aux_scale = ISL_MAIN_TO_CCS_SIZE_RATIO_XE;
+   const unsigned aux_scale = GFX_VER >= 20 ?
+                              ISL_MAIN_TO_CCS_SIZE_RATIO_XE2 :
+                              ISL_MAIN_TO_CCS_SIZE_RATIO_XE;
 
    unsigned pixel_size = 0;
 
@@ -1462,7 +1463,7 @@ genX(cmd_buffer_flush_gfx_runtime_state)(struct anv_cmd_buffer *cmd_buffer)
       }
    }
 
-#if GFX_VERx10 == 125
+#if GFX_VERx10 >= 125
    if ((cmd_buffer->state.gfx.dirty & ANV_CMD_DIRTY_RENDER_TARGETS)) {
       unsigned fb_width, fb_height, tile_width, tile_height;
 
