@@ -552,10 +552,22 @@ typedef struct {
    };
 } bi_instr;
 
+static inline void
+bi_set_opcode(bi_instr *I, enum bi_opcode opc)
+{
+   I->op = opc;
+}
+
+static inline struct bi_op_props *
+bi_get_opcode_props(const bi_instr *I)
+{
+   return &bi_opcode_props[I->op];
+}
+
 static inline bool
 bi_is_staging_src(const bi_instr *I, unsigned s)
 {
-   return (s == 0 || s == 4) && bi_opcode_props[I->op].sr_read;
+   return (s == 0 || s == 4) && bi_get_opcode_props(I)->sr_read;
 }
 
 /*
