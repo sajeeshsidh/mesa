@@ -34,18 +34,15 @@
 #include <errno.h>
 #include <limits.h>
 #include <assert.h>
-
 #include <sys/types.h>
 #include <unistd.h>
 #include <dlfcn.h>
 #include <xf86drm.h>
 #include "drm-uapi/drm_fourcc.h"
+#include <GL/gl.h> /* mesa_interface needs GL types */
 
-#include <GL/gl.h> /* dri_interface needs GL types */
-#include <GL/internal/dri_interface.h>
-
+#include "mesa_interface.h"
 #include "gbm_driint.h"
-
 #include "gbmint.h"
 #include "loader_dri_helper.h"
 #include "kopper_interface.h"
@@ -272,19 +269,7 @@ dri_open_driver(struct gbm_dri_device *dri, bool driver_name_is_inferred)
     */
    dlopen("libglapi.so.0", RTLD_LAZY | RTLD_GLOBAL);
 
-   static const char *search_path_vars[] = {
-      /* Read GBM_DRIVERS_PATH first for compatibility, but LIBGL_DRIVERS_PATH
-       * is recommended over GBM_DRIVERS_PATH.
-       */
-      "GBM_DRIVERS_PATH",
-      /* Read LIBGL_DRIVERS_PATH if GBM_DRIVERS_PATH was not set.
-       * LIBGL_DRIVERS_PATH is recommended over GBM_DRIVERS_PATH.
-       */
-      "LIBGL_DRIVERS_PATH",
-      NULL
-   };
-   return loader_open_driver(dri->driver_name, &dri->driver, search_path_vars,
-                             driver_name_is_inferred);
+   return loader_get_extensions(dri->driver_name, driver_name_is_inferred);
 }
 
 static int
@@ -311,7 +296,7 @@ dri_screen_create_for_driver(struct gbm_dri_device *dri, char *driver_name, bool
 
    if (!bind_ok) {
       fprintf(stderr, "failed to bind extensions\n");
-      goto close_driver;
+      goto fail;
    }
 
    dri->driver_extensions = extensions;
@@ -321,7 +306,7 @@ dri_screen_create_for_driver(struct gbm_dri_device *dri, char *driver_name, bool
                                              dri->driver_extensions,
                                              &dri->driver_configs, driver_name_is_inferred, dri);
    if (dri->screen == NULL)
-      goto close_driver;
+      goto fail;
 
    if (!swrast) {
       extensions = dri->core->getExtensions(dri->screen);
@@ -339,9 +324,6 @@ dri_screen_create_for_driver(struct gbm_dri_device *dri, char *driver_name, bool
 
 free_screen:
    dri->core->destroyScreen(dri->screen);
-
-close_driver:
-   dlclose(dri->driver);
 
 fail:
    free(dri->driver_name);
@@ -1239,7 +1221,6 @@ dri_destroy(struct gbm_device *gbm)
    for (i = 0; dri->driver_configs[i]; i++)
       free((__DRIconfig *) dri->driver_configs[i]);
    free(dri->driver_configs);
-   dlclose(dri->driver);
    free(dri->driver_name);
 
    free(dri);

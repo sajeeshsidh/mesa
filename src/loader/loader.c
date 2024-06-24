@@ -45,8 +45,7 @@
 #include <sys/sysmacros.h>
 #endif
 #include <GL/gl.h>
-#include <GL/internal/dri_interface.h>
-#include <GL/internal/mesa_interface.h>
+#include "mesa_interface.h"
 #include "loader.h"
 #include "util/libdrm.h"
 #include "util/os_file.h"
@@ -733,6 +732,329 @@ loader_set_logger(loader_logger *logger)
    log_ = logger;
 }
 
+#define DEFINE_LOADER_DRM_ENTRYPOINT(drivername)                          \
+const __DRIextension **__driDriverGetExtensions_##drivername(void);       \
+
+#if defined(HAVE_SOFTPIPE) || defined(HAVE_LLVMPIPE)
+DEFINE_LOADER_DRM_ENTRYPOINT(swrast);
+
+#if defined(HAVE_LIBDRM)
+DEFINE_LOADER_DRM_ENTRYPOINT(kms_swrast);
+#endif
+#endif
+
+#if defined(HAVE_I915)
+DEFINE_LOADER_DRM_ENTRYPOINT(i915)
+#endif
+
+#if defined(HAVE_IRIS)
+DEFINE_LOADER_DRM_ENTRYPOINT(iris)
+#endif
+
+#if defined(HAVE_CROCUS)
+DEFINE_LOADER_DRM_ENTRYPOINT(crocus)
+#endif
+
+#if defined(HAVE_NOUVEAU)
+DEFINE_LOADER_DRM_ENTRYPOINT(nouveau)
+#endif
+
+#if defined(HAVE_R300)
+DEFINE_LOADER_DRM_ENTRYPOINT(r300)
+#endif
+
+#if defined(HAVE_R600)
+DEFINE_LOADER_DRM_ENTRYPOINT(r600)
+#endif
+
+#if defined(HAVE_RADEONSI)
+DEFINE_LOADER_DRM_ENTRYPOINT(radeonsi)
+#endif
+
+#if defined(HAVE_VMWGFX)
+DEFINE_LOADER_DRM_ENTRYPOINT(vmwgfx)
+#endif
+
+#if defined(HAVE_FREEDRENO)
+DEFINE_LOADER_DRM_ENTRYPOINT(msm)
+DEFINE_LOADER_DRM_ENTRYPOINT(kgsl)
+#endif
+
+#if defined(HAVE_VIRGL) || (defined(HAVE_FREEDRENO) && !defined(PIPE_LOADER_DYNAMIC))
+DEFINE_LOADER_DRM_ENTRYPOINT(virtio_gpu)
+#endif
+
+#if defined(HAVE_V3D)
+DEFINE_LOADER_DRM_ENTRYPOINT(v3d)
+#endif
+
+#if defined(HAVE_VC4)
+DEFINE_LOADER_DRM_ENTRYPOINT(vc4)
+#endif
+
+#if defined(HAVE_PANFROST)
+DEFINE_LOADER_DRM_ENTRYPOINT(panfrost)
+DEFINE_LOADER_DRM_ENTRYPOINT(panthor)
+#endif
+
+#if defined(HAVE_ASAHI)
+DEFINE_LOADER_DRM_ENTRYPOINT(asahi)
+#endif
+
+#if defined(HAVE_ETNAVIV)
+DEFINE_LOADER_DRM_ENTRYPOINT(etnaviv)
+#endif
+
+#if defined(HAVE_TEGRA)
+DEFINE_LOADER_DRM_ENTRYPOINT(tegra);
+#endif
+
+#if defined(HAVE_KMSRO)
+DEFINE_LOADER_DRM_ENTRYPOINT(armada_drm)
+DEFINE_LOADER_DRM_ENTRYPOINT(exynos)
+DEFINE_LOADER_DRM_ENTRYPOINT(gm12u320)
+DEFINE_LOADER_DRM_ENTRYPOINT(hdlcd)
+DEFINE_LOADER_DRM_ENTRYPOINT(hx8357d)
+DEFINE_LOADER_DRM_ENTRYPOINT(ili9163)
+DEFINE_LOADER_DRM_ENTRYPOINT(ili9225)
+DEFINE_LOADER_DRM_ENTRYPOINT(ili9341)
+DEFINE_LOADER_DRM_ENTRYPOINT(ili9486)
+DEFINE_LOADER_DRM_ENTRYPOINT(imx_drm)
+DEFINE_LOADER_DRM_ENTRYPOINT(imx_dcss)
+DEFINE_LOADER_DRM_ENTRYPOINT(imx_lcdif)
+DEFINE_LOADER_DRM_ENTRYPOINT(ingenic_drm)
+DEFINE_LOADER_DRM_ENTRYPOINT(kirin)
+DEFINE_LOADER_DRM_ENTRYPOINT(komeda)
+DEFINE_LOADER_DRM_ENTRYPOINT(mali_dp)
+DEFINE_LOADER_DRM_ENTRYPOINT(mcde)
+DEFINE_LOADER_DRM_ENTRYPOINT(mediatek)
+DEFINE_LOADER_DRM_ENTRYPOINT(meson)
+DEFINE_LOADER_DRM_ENTRYPOINT(mi0283qt)
+DEFINE_LOADER_DRM_ENTRYPOINT(mxsfb_drm)
+DEFINE_LOADER_DRM_ENTRYPOINT(panel_mipi_dbi)
+DEFINE_LOADER_DRM_ENTRYPOINT(pl111)
+DEFINE_LOADER_DRM_ENTRYPOINT(rcar_du)
+DEFINE_LOADER_DRM_ENTRYPOINT(repaper)
+DEFINE_LOADER_DRM_ENTRYPOINT(rockchip)
+DEFINE_LOADER_DRM_ENTRYPOINT(rzg2l_du)
+DEFINE_LOADER_DRM_ENTRYPOINT(ssd130x)
+DEFINE_LOADER_DRM_ENTRYPOINT(st7586)
+DEFINE_LOADER_DRM_ENTRYPOINT(st7735r)
+DEFINE_LOADER_DRM_ENTRYPOINT(sti)
+DEFINE_LOADER_DRM_ENTRYPOINT(stm)
+DEFINE_LOADER_DRM_ENTRYPOINT(sun4i_drm)
+DEFINE_LOADER_DRM_ENTRYPOINT(udl)
+DEFINE_LOADER_DRM_ENTRYPOINT(vkms)
+DEFINE_LOADER_DRM_ENTRYPOINT(zynqmp_dpsub)
+#endif
+
+#if defined(HAVE_LIMA)
+DEFINE_LOADER_DRM_ENTRYPOINT(lima)
+#endif
+
+#if defined(HAVE_ZINK)
+DEFINE_LOADER_DRM_ENTRYPOINT(zink);
+#endif
+
+#if defined(HAVE_D3D12)
+DEFINE_LOADER_DRM_ENTRYPOINT(d3d12);
+#endif
+
+
+const __DRIextension **
+loader_get_extensions(const char *driver_name, bool warn_on_fail)
+{
+#if defined(HAVE_I915)
+   if (!strcmp(driver_name, "i915"))
+      return __driDriverGetExtensions_i915();
+#endif
+
+#if defined(HAVE_IRIS)
+   if (!strcmp(driver_name, "iris"))
+      return __driDriverGetExtensions_iris();
+#endif
+
+#if defined(HAVE_CROCUS)
+   if (!strcmp(driver_name, "crocus"))
+      return __driDriverGetExtensions_crocus();
+#endif
+
+#if defined(HAVE_NOUVEAU)
+   if (!strcmp(driver_name, "nouveau"))
+      return __driDriverGetExtensions_nouveau();
+#endif
+
+#if defined(HAVE_R300)
+   if (!strcmp(driver_name, "r300"))
+      return __driDriverGetExtensions_r300();
+#endif
+
+#if defined(HAVE_R600)
+   if (!strcmp(driver_name, "r600"))
+      return __driDriverGetExtensions_r600();
+#endif
+
+#if defined(HAVE_RADEONSI)
+   if (!strcmp(driver_name, "radeonsi"))
+      return __driDriverGetExtensions_radeonsi();
+#endif
+
+#if defined(HAVE_VMWGFX)
+   if (!strcmp(driver_name, "vmwgfx"))
+      return __driDriverGetExtensions_vmwgfx();
+#endif
+
+#if defined(HAVE_FREEDRENO)
+   if (!strcmp(driver_name, "msm"))
+      return __driDriverGetExtensions_msm();
+   if (!strcmp(driver_name, "kgsl"))
+      return __driDriverGetExtensions_kgsl();
+#endif
+
+#if defined(HAVE_VIRGL) || (defined(HAVE_FREEDRENO) && !defined(PIPE_LOADER_DYNAMIC))
+   if (!strcmp(driver_name, "virtio_gpu"))
+      return __driDriverGetExtensions_virtio_gpu();
+#endif
+
+#if defined(HAVE_V3D)
+   if (!strcmp(driver_name, "v3d"))
+      return __driDriverGetExtensions_v3d();
+#endif
+
+#if defined(HAVE_VC4)
+   if (!strcmp(driver_name, "vc4"))
+      return __driDriverGetExtensions_vc4();
+#endif
+
+#if defined(HAVE_PANFROST)
+   if (!strcmp(driver_name, "panfrost"))
+      return __driDriverGetExtensions_panfrost();
+   if (!strcmp(driver_name, "panthor"))
+      return __driDriverGetExtensions_panthor();
+#endif
+
+#if defined(HAVE_ASAHI)
+   if (!strcmp(driver_name, "asahi"))
+      return __driDriverGetExtensions_asahi();
+#endif
+
+#if defined(HAVE_ETNAVIV)
+   if (!strcmp(driver_name, "etnaviv"))
+      return __driDriverGetExtensions_etnaviv();
+#endif
+
+#if defined(HAVE_TEGRA)
+   if (!strcmp(driver_name, "tegra"))
+      return __driDriverGetExtensions_tegra();
+#endif
+
+#if defined(HAVE_KMSRO)
+   if (!strcmp(driver_name, "armada_drm"))
+      return __driDriverGetExtensions_armada_drm();
+   if (!strcmp(driver_name, "exynos"))
+      return __driDriverGetExtensions_exynos();
+   if (!strcmp(driver_name, "gm12u320"))
+      return __driDriverGetExtensions_gm12u320();
+   if (!strcmp(driver_name, "hdlcd"))
+      return __driDriverGetExtensions_hdlcd();
+   if (!strcmp(driver_name, "hx8357d"))
+      return __driDriverGetExtensions_hx8357d();
+   if (!strcmp(driver_name, "ili9163"))
+      return __driDriverGetExtensions_ili9163();
+   if (!strcmp(driver_name, "ili9225"))
+      return __driDriverGetExtensions_ili9225();
+   if (!strcmp(driver_name, "ili9341"))
+      return __driDriverGetExtensions_ili9341();
+   if (!strcmp(driver_name, "ili9486"))
+      return __driDriverGetExtensions_ili9486();
+   if (!strcmp(driver_name, "imx_drm"))
+      return __driDriverGetExtensions_imx_drm();
+   if (!strcmp(driver_name, "imx_dcss"))
+      return __driDriverGetExtensions_imx_dcss();
+   if (!strcmp(driver_name, "imx_lcdif"))
+      return __driDriverGetExtensions_imx_lcdif();
+   if (!strcmp(driver_name, "ingenic_drm"))
+      return __driDriverGetExtensions_ingenic_drm();
+   if (!strcmp(driver_name, "kirin"))
+      return __driDriverGetExtensions_kirin();
+   if (!strcmp(driver_name, "komeda"))
+      return __driDriverGetExtensions_komeda();
+   if (!strcmp(driver_name, "mali_dp"))
+      return __driDriverGetExtensions_mali_dp();
+   if (!strcmp(driver_name, "mcde"))
+      return __driDriverGetExtensions_mcde();
+   if (!strcmp(driver_name, "mediatek"))
+      return __driDriverGetExtensions_mediatek();
+   if (!strcmp(driver_name, "meson"))
+      return __driDriverGetExtensions_meson();
+   if (!strcmp(driver_name, "mi0283qt"))
+      return __driDriverGetExtensions_mi0283qt();
+   if (!strcmp(driver_name, "mxsfb_drm"))
+      return __driDriverGetExtensions_mxsfb_drm();
+   if (!strcmp(driver_name, "panel_mipi_dbi"))
+      return __driDriverGetExtensions_panel_mipi_dbi();
+   if (!strcmp(driver_name, "pl111"))
+      return __driDriverGetExtensions_pl111();
+   if (!strcmp(driver_name, "rcar_du"))
+      return __driDriverGetExtensions_rcar_du();
+   if (!strcmp(driver_name, "repaper"))
+      return __driDriverGetExtensions_repaper();
+   if (!strcmp(driver_name, "rockchip"))
+      return __driDriverGetExtensions_rockchip();
+   if (!strcmp(driver_name, "rzg2l_du"))
+      return __driDriverGetExtensions_rzg2l_du();
+   if (!strcmp(driver_name, "ssd130x"))
+      return __driDriverGetExtensions_ssd130x();
+   if (!strcmp(driver_name, "st7586"))
+      return __driDriverGetExtensions_st7586();
+   if (!strcmp(driver_name, "st7735r"))
+      return __driDriverGetExtensions_st7735r();
+   if (!strcmp(driver_name, "sti"))
+      return __driDriverGetExtensions_sti();
+   if (!strcmp(driver_name, "stm"))
+      return __driDriverGetExtensions_stm();
+   if (!strcmp(driver_name, "sun4i_drm"))
+      return __driDriverGetExtensions_sun4i_drm();
+   if (!strcmp(driver_name, "udl"))
+      return __driDriverGetExtensions_udl();
+   if (!strcmp(driver_name, "vkms"))
+      return __driDriverGetExtensions_vkms();
+   if (!strcmp(driver_name, "zynqmp_dpsub"))
+      return __driDriverGetExtensions_zynqmp_dpsub();
+#endif
+
+#if defined(HAVE_LIMA)
+   if (!strcmp(driver_name, "lima"))
+      return __driDriverGetExtensions_lima();
+#endif
+
+#if defined(HAVE_ZINK)
+   if (!strcmp(driver_name, "zink"))
+      return __driDriverGetExtensions_zink();
+#endif
+
+#if defined(HAVE_D3D12)
+   if (!strcmp(driver_name, "d3d12"))
+      return __driDriverGetExtensions_d3d12();
+#endif
+
+#if defined(HAVE_SOFTPIPE) || defined(HAVE_LLVMPIPE)
+   if (!strcmp(driver_name, "swrast"))
+      return __driDriverGetExtensions_swrast();
+
+#if defined(HAVE_LIBDRM)
+   if (!strcmp(driver_name, "kms_swrast"))
+      return __driDriverGetExtensions_kms_swrast();
+#endif
+#endif
+
+   if (warn_on_fail) {
+      log_(_LOADER_WARNING,
+           "MESA-LOADER: failed to open %s: driver not built!)\n", driver_name);
+   }
+   return NULL;
+}
+
 char *
 loader_get_extensions_name(const char *driver_name)
 {
@@ -863,53 +1185,4 @@ loader_open_driver_lib(const char *driver_name,
    log_(_LOADER_DEBUG, "MESA-LOADER: dlopen(%s)\n", path);
 
    return driver;
-}
-
-/**
- * Opens a DRI driver using its driver name, returning the __DRIextension
- * entrypoints.
- *
- * \param driverName - a name like "i965", "radeon", "nouveau", etc.
- * \param out_driver - Address where the dlopen() return value will be stored.
- * \param search_path_vars - NULL-terminated list of env vars that can be used
- * to override the DEFAULT_DRIVER_DIR search path.
- */
-const struct __DRIextensionRec **
-loader_open_driver(const char *driver_name,
-                   void **out_driver_handle,
-                   const char **search_path_vars,
-                   bool driver_name_is_inferred)
-{
-   char *get_extensions_name;
-   const struct __DRIextensionRec **extensions = NULL;
-   const struct __DRIextensionRec **(*get_extensions)(void);
-
-   void *driver = loader_open_driver_lib(driver_name, "_dri", search_path_vars,
-                                         DEFAULT_DRIVER_DIR, !driver_name_is_inferred);
-
-   if (!driver)
-      goto failed;
-
-   get_extensions_name = loader_get_extensions_name(driver_name);
-   if (get_extensions_name) {
-      get_extensions = dlsym(driver, get_extensions_name);
-      if (get_extensions) {
-         extensions = get_extensions();
-      } else {
-         log_(_LOADER_DEBUG, "MESA-LOADER: driver does not expose %s(): %s\n",
-              get_extensions_name, dlerror());
-      }
-      free(get_extensions_name);
-   }
-
-   if (extensions == NULL) {
-      log_(_LOADER_WARNING,
-           "MESA-LOADER: driver exports no extensions (%s)\n", dlerror());
-      dlclose(driver);
-      driver = NULL;
-   }
-
-failed:
-   *out_driver_handle = driver;
-   return extensions;
 }

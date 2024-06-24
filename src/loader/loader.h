@@ -30,7 +30,7 @@
 #include <stdbool.h>
 #include <sys/stat.h>
 #include <stddef.h>
-#include "GL/internal/dri_interface.h"
+#include "mesa_interface.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -69,12 +69,6 @@ loader_open_driver_lib(const char *driver_name,
                        const char *default_search_path,
                        bool warn_on_fail);
 
-const struct __DRIextensionRec **
-loader_open_driver(const char *driver_name,
-                   void **out_driver_handle,
-                   const char **search_path_vars,
-                   bool driver_name_is_inferred);
-
 char *
 loader_get_device_name_for_fd(int fd);
 
@@ -100,6 +94,8 @@ typedef void loader_logger(int level, const char *fmt, ...);
 void
 loader_set_logger(loader_logger *logger);
 
+const __DRIextension **
+loader_get_extensions(const char *driver_name, bool warn_on_fail);
 char *
 loader_get_extensions_name(const char *driver_name);
 

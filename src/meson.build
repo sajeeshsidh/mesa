@@ -118,11 +118,6 @@ endif
 if with_gallium_asahi or with_tools.contains('asahi')
   subdir('asahi')
 endif
-if with_gbm
-  subdir('gbm')
-else
-  inc_gbm = []
-endif
 if with_gallium
   subdir('mesa')
   subdir('gallium')
@@ -137,6 +132,11 @@ if with_gallium
   if with_tests and with_shared_glapi
     subdir('mesa/state_tracker/tests')
   endif
+endif
+if with_gbm
+  subdir('gbm')
+else
+  inc_gbm = []
 endif
 if with_egl
   subdir('egl')
