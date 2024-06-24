@@ -32,6 +32,7 @@
 #include <xcb/xfixes.h>
 
 #include <xf86drm.h>
+#include "drm-uapi/drm_fourcc.h"
 #include "util/macros.h"
 
 #include "egl_dri2.h"
@@ -293,7 +294,7 @@ dri3_create_image_khr_pixmap(_EGLDisplay *disp, _EGLContext *ctx,
    xcb_drawable_t drawable;
    xcb_dri3_buffer_from_pixmap_cookie_t bp_cookie;
    xcb_dri3_buffer_from_pixmap_reply_t *bp_reply;
-   unsigned int format;
+   unsigned int fourcc;
 
    drawable = (xcb_drawable_t)(uintptr_t)buffer;
    bp_cookie = xcb_dri3_buffer_from_pixmap(dri2_dpy->conn, drawable);
@@ -304,8 +305,8 @@ dri3_create_image_khr_pixmap(_EGLDisplay *disp, _EGLContext *ctx,
       return NULL;
    }
 
-   format = dri2_format_for_depth(dri2_dpy, bp_reply->depth);
-   if (format == __DRI_IMAGE_FORMAT_NONE) {
+   fourcc = dri2_fourcc_for_depth(dri2_dpy, bp_reply->depth);
+   if (fourcc == DRM_FORMAT_INVALID) {
       _eglError(EGL_BAD_PARAMETER,
                 "dri3_create_image_khr: unsupported pixmap depth");
       free(bp_reply);
@@ -322,7 +323,7 @@ dri3_create_image_khr_pixmap(_EGLDisplay *disp, _EGLContext *ctx,
    _eglInitImage(&dri2_img->base, disp);
 
    dri2_img->dri_image = loader_dri3_create_image(
-      dri2_dpy->conn, bp_reply, format, dri2_dpy->dri_screen_render_gpu,
+      dri2_dpy->conn, bp_reply, fourcc, dri2_dpy->dri_screen_render_gpu,
       dri2_dpy->image, dri2_img);
 
    free(bp_reply);
@@ -341,7 +342,7 @@ dri3_create_image_khr_pixmap_from_buffers(_EGLDisplay *disp, _EGLContext *ctx,
    xcb_dri3_buffers_from_pixmap_cookie_t bp_cookie;
    xcb_dri3_buffers_from_pixmap_reply_t *bp_reply;
    xcb_drawable_t drawable;
-   unsigned int format;
+   unsigned int fourcc;
 
    drawable = (xcb_drawable_t)(uintptr_t)buffer;
    bp_cookie = xcb_dri3_buffers_from_pixmap(dri2_dpy->conn, drawable);
@@ -353,8 +354,8 @@ dri3_create_image_khr_pixmap_from_buffers(_EGLDisplay *disp, _EGLContext *ctx,
       return EGL_NO_IMAGE_KHR;
    }
 
-   format = dri2_format_for_depth(dri2_dpy, bp_reply->depth);
-   if (format == __DRI_IMAGE_FORMAT_NONE) {
+   fourcc = dri2_fourcc_for_depth(dri2_dpy, bp_reply->depth);
+   if (fourcc == DRM_FORMAT_INVALID) {
       _eglError(EGL_BAD_PARAMETER,
                 "dri3_create_image_khr: unsupported pixmap depth");
       free(bp_reply);
@@ -371,7 +372,7 @@ dri3_create_image_khr_pixmap_from_buffers(_EGLDisplay *disp, _EGLContext *ctx,
    _eglInitImage(&dri2_img->base, disp);
 
    dri2_img->dri_image = loader_dri3_create_image_from_buffers(
-      dri2_dpy->conn, bp_reply, format, dri2_dpy->dri_screen_render_gpu,
+      dri2_dpy->conn, bp_reply, fourcc, dri2_dpy->dri_screen_render_gpu,
       dri2_dpy->image, dri2_img);
    free(bp_reply);
 

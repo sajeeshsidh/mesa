@@ -1421,7 +1421,7 @@ enum __DRIFixedRateCompression {
 #define __BLIT_FLAG_FINISH		0x0002
 
 /**
- * Flags for createImageFromDmaBufs3 and createImageFromFds2
+ * Flags for createImageFromDmaBufs
  */
 #define __DRI_IMAGE_PROTECTED_CONTENT_FLAG 0x00000001
 #define __DRI_IMAGE_PRIME_LINEAR_BUFFER    0x00000002
@@ -1438,22 +1438,7 @@ typedef struct __DRIimageExtensionRec __DRIimageExtension;
 struct __DRIimageExtensionRec {
     __DRIextension base;
 
-    __DRIimage *(*createImageFromName)(__DRIscreen *screen,
-				       int width, int height, int format,
-				       int name, int pitch,
-				       void *loaderPrivate);
-
-    /* Deprecated since version 17; see createImageFromRenderbuffer2 */
-    __DRIimage *(*createImageFromRenderbuffer)(__DRIcontext *context,
-					       int renderbuffer,
-					       void *loaderPrivate);
-
     void (*destroyImage)(__DRIimage *image);
-
-    __DRIimage *(*createImage)(__DRIscreen *screen,
-			       int width, int height, int format,
-			       unsigned int use,
-			       void *loaderPrivate);
 
    unsigned char (*queryImage)(__DRIimage *image, int attrib, int *value);
 
@@ -1470,9 +1455,8 @@ struct __DRIimageExtensionRec {
    unsigned char (*validateUsage)(__DRIimage *image, unsigned int use);
 
    /**
-    * Unlike createImageFromName __DRI_IMAGE_FORMAT is not used but instead
-    * DRM_FORMAT_*, and strides are in bytes not pixels. Stride is
-    * also per block and not per pixel (for non-RGB, see gallium blocks).
+    * Create an image from a series of GEM names; uses FourCC for format
+    * and byte stride.
     *
     * \since 5
     */
@@ -1510,34 +1494,6 @@ struct __DRIimageExtensionRec {
                                          unsigned texture,
                                          int depth,
                                          int level,
-                                         unsigned *error,
-                                         void *loaderPrivate);
-   /**
-    * Like createImageFromNames, but takes a prime fd instead.
-    *
-    * \since 7
-    */
-   __DRIimage *(*createImageFromFds)(__DRIscreen *screen,
-                                     int width, int height, int fourcc,
-                                     int *fds, int num_fds,
-                                     int *strides, int *offsets,
-                                     void *loaderPrivate);
-
-   /**
-    * Like createImageFromFds, but takes additional attributes.
-    *
-    * For EGL_EXT_image_dma_buf_import.
-    *
-    * \since 8
-    */
-   __DRIimage *(*createImageFromDmaBufs)(__DRIscreen *screen,
-                                         int width, int height, int fourcc,
-                                         int *fds, int num_fds,
-                                         int *strides, int *offsets,
-                                         enum __DRIYUVColorSpace color_space,
-                                         enum __DRISampleRange sample_range,
-                                         enum __DRIChromaSiting horiz_siting,
-                                         enum __DRIChromaSiting vert_siting,
                                          unsigned *error,
                                          void *loaderPrivate);
 
@@ -1589,49 +1545,6 @@ struct __DRIimageExtensionRec {
     * \since 12
     */
    void (*unmapImage)(__DRIcontext *context, __DRIimage *image, void *data);
-
-
-   /**
-    * Creates an image with implementation's favorite modifiers.
-    *
-    * This acts like createImage except there is a list of modifiers passed in
-    * which the implementation may selectively use to create the DRIimage. The
-    * result should be the implementation selects one modifier (perhaps it would
-    * hold on to a few and later pick).
-    *
-    * The created image should be destroyed with destroyImage().
-    *
-    * Returns the new DRIimage. The chosen modifier can be obtained later on
-    * and passed back to things like the kernel's AddFB2 interface.
-    *
-    * \sa __DRIimageRec::createImage
-    *
-    * \since 14
-    */
-   __DRIimage *(*createImageWithModifiers)(__DRIscreen *screen,
-                                           int width, int height, int format,
-                                           const uint64_t *modifiers,
-                                           const unsigned int modifier_count,
-                                           void *loaderPrivate);
-
-   /*
-    * Like createImageFromDmaBufs, but takes also format modifiers.
-    *
-    * For EGL_EXT_image_dma_buf_import_modifiers.
-    *
-    * \since 15
-    */
-   __DRIimage *(*createImageFromDmaBufs2)(__DRIscreen *screen,
-                                          int width, int height, int fourcc,
-                                          uint64_t modifier,
-                                          int *fds, int num_fds,
-                                          int *strides, int *offsets,
-                                          enum __DRIYUVColorSpace color_space,
-                                          enum __DRISampleRange sample_range,
-                                          enum __DRIChromaSiting horiz_siting,
-                                          enum __DRIChromaSiting vert_siting,
-                                          unsigned *error,
-                                          void *loaderPrivate);
 
    /*
     * dmabuf format query to support EGL_EXT_image_dma_buf_import_modifiers.
@@ -1700,39 +1613,37 @@ struct __DRIimageExtensionRec {
     * \param loaderPrivate for callbacks into the loader related to the image
     * \param error         will be set to one of __DRI_IMAGE_ERROR_xxx
     * \return the newly created image on success, or NULL otherwise
-    *
-    * \since 17
     */
-    __DRIimage *(*createImageFromRenderbuffer2)(__DRIcontext *context,
-                                                int renderbuffer,
-                                                void *loaderPrivate,
-                                                unsigned *error);
+    __DRIimage *(*createImageFromRenderbuffer)(__DRIcontext *context,
+                                               int renderbuffer,
+                                               void *loaderPrivate,
+                                               unsigned *error);
 
-   /*
-    * Like createImageFromDmaBufs2, but with an added flags parameter.
+   /**
+    * Creates a DRI image from an array of dmabuf fds and their modifier.
     *
     * See __DRI_IMAGE_*_FLAG for valid definitions of flags.
-    *
-    * \since 18
     */
-   __DRIimage *(*createImageFromDmaBufs3)(__DRIscreen *screen,
-                                          int width, int height, int fourcc,
-                                          uint64_t modifier,
-                                          int *fds, int num_fds,
-                                          int *strides, int *offsets,
-                                          enum __DRIYUVColorSpace color_space,
-                                          enum __DRISampleRange sample_range,
-                                          enum __DRIChromaSiting horiz_siting,
-                                          enum __DRIChromaSiting vert_siting,
-                                          uint32_t flags,
-                                          unsigned *error,
-                                          void *loaderPrivate);
+   __DRIimage *(*createImageFromDmaBufs)(__DRIscreen *screen,
+                                         int width, int height, int fourcc,
+                                         uint64_t modifier,
+                                         int *fds, int num_fds,
+                                         int *strides, int *offsets,
+                                         enum __DRIYUVColorSpace color_space,
+                                         enum __DRISampleRange sample_range,
+                                         enum __DRIChromaSiting horiz_siting,
+                                         enum __DRIChromaSiting vert_siting,
+                                         uint32_t flags,
+                                         unsigned *error,
+                                         void *loaderPrivate);
 
    /**
     * Creates an image with implementation's favorite modifiers and the
     * provided usage flags.
     *
-    * This acts like createImageWithModifiers except usage is also specified.
+    * Passing either zero modifiers, or a modifier list consisting only
+    * of DRM_FORMAT_MOD_INVALID, allows the implementation to select a
+    * layout with implicit modifiers.
     *
     * The created image should be destroyed with destroyImage().
     *
@@ -1743,26 +1654,12 @@ struct __DRIimageExtensionRec {
     *
     * \since 19
     */
-   __DRIimage *(*createImageWithModifiers2)(__DRIscreen *screen,
-                                            int width, int height, int format,
-                                            const uint64_t *modifiers,
-                                            const unsigned int modifier_count,
-                                            unsigned int use,
-                                            void *loaderPrivate);
-
-   /**
-    * Like createImageFromFds, but with an added flag parameter.
-    *
-    * See __DRI_IMAGE_*_FLAG for valid definitions of flags.
-    *
-    * \since 20
-    */
-   __DRIimage *(*createImageFromFds2)(__DRIscreen *screen,
-                                      int width, int height, int fourcc,
-                                      int *fds, int num_fds,
-                                      uint32_t flags,
-                                      int *strides, int *offsets,
-                                      void *loaderPrivate);
+   __DRIimage *(*createImage)(__DRIscreen *screen,
+                              int width, int height, int format,
+                              const uint64_t *modifiers,
+                              const unsigned int modifier_count,
+                              unsigned int use,
+                              void *loaderPrivate);
 
    /**
     * Set an in-fence-fd on the image.  If a fence-fd is already set
@@ -1839,27 +1736,14 @@ struct __DRIimageLookupExtensionRec {
     __DRIextension base;
 
     /**
-     * Lookup EGLImage without validated. Equivalent to call
-     * validateEGLImage() then lookupEGLImageValidated().
-     *
-     * \since 1
-     */
-    __DRIimage *(*lookupEGLImage)(__DRIscreen *screen, void *image,
-				  void *loaderPrivate);
-
-    /**
      * Check if EGLImage is associated with the EGL display before lookup with
      * lookupEGLImageValidated(). It will hold EGLDisplay.Mutex, so is separated
-     * out from lookupEGLImage() to avoid deadlock.
-     *
-     * \since 2
+     * out from lookupEGLImageValidated() to avoid deadlock.
      */
     unsigned char (*validateEGLImage)(void *image, void *loaderPrivate);
 
     /**
      * Lookup EGLImage after validateEGLImage(). No lock in this function.
-     *
-     * \since 2
      */
     __DRIimage *(*lookupEGLImageValidated)(void *image, void *loaderPrivate);
 };

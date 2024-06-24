@@ -501,14 +501,11 @@ dri_get_egl_image(struct pipe_frontend_screen *fscreen,
                   struct st_egl_image *stimg)
 {
    struct dri_screen *screen = (struct dri_screen *)fscreen;
+   const __DRIimageLookupExtension *loader = screen->dri2.image;
    __DRIimage *img = NULL;
    const struct dri2_format_mapping *map;
 
-   if (screen->lookup_egl_image_validated) {
-      img = screen->lookup_egl_image_validated(screen, egl_image);
-   } else if (screen->lookup_egl_image) {
-      img = screen->lookup_egl_image(screen, egl_image);
-   }
+   img = loader->lookupEGLImageValidated(egl_image, screen->loaderPrivate);
 
    if (!img)
       return false;
@@ -525,8 +522,7 @@ dri_get_egl_image(struct pipe_frontend_screen *fscreen,
       /* Guess sized internal format for dma-bufs. Could be used
        * by EXT_EGL_image_storage.
        */
-      mesa_format mesa_format = driImageFormatToGLFormat(map->dri_format);
-      stimg->internalformat = driGLFormatToSizedInternalGLFormat(mesa_format);
+      stimg->internalformat = driImageFormatToSizedInternalGLFormat(map->dri_format);
    } else {
       stimg->internalformat = img->internal_format;
    }
@@ -542,8 +538,12 @@ dri_validate_egl_image(struct pipe_frontend_screen *fscreen,
                        void *egl_image)
 {
    struct dri_screen *screen = (struct dri_screen *)fscreen;
+   const __DRIimageLookupExtension *loader = screen->dri2.image;
 
-   return screen->validate_egl_image(screen, egl_image);
+   if (loader)
+      return loader->validateEGLImage(egl_image, screen->loaderPrivate);
+   else
+      return true;
 }
 
 static int
@@ -621,9 +621,7 @@ dri_init_screen(struct dri_screen *screen,
    screen->base.get_egl_image = dri_get_egl_image;
    screen->base.get_param = dri_get_param;
    screen->base.set_background_context = dri_set_background_context;
-
-   if (screen->validate_egl_image)
-      screen->base.validate_egl_image = dri_validate_egl_image;
+   screen->base.validate_egl_image = dri_validate_egl_image;
 
    if (pscreen->get_param(pscreen, PIPE_CAP_NPOT_TEXTURES))
       screen->target = PIPE_TEXTURE_2D;

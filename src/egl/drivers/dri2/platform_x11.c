@@ -52,6 +52,7 @@
 #include "kopper_interface.h"
 #include "loader.h"
 #include "platform_x11.h"
+#include "drm-uapi/drm_fourcc.h"
 
 #ifdef HAVE_DRI3
 #include "platform_x11_dri3.h"
@@ -1094,23 +1095,23 @@ dri2_x11_copy_buffers(_EGLDisplay *disp, _EGLSurface *surf,
 }
 
 uint32_t
-dri2_format_for_depth(struct dri2_egl_display *dri2_dpy, uint32_t depth)
+dri2_fourcc_for_depth(struct dri2_egl_display *dri2_dpy, uint32_t depth)
 {
    switch (depth) {
    case 16:
-      return __DRI_IMAGE_FORMAT_RGB565;
+      return DRM_FORMAT_RGB565;
    case 24:
-      return __DRI_IMAGE_FORMAT_XRGB8888;
+      return DRM_FORMAT_XRGB8888;
    case 30:
       /* Different preferred formats for different hw */
       if (dri2_x11_get_red_mask_for_depth(dri2_dpy, 30) == 0x3ff)
-         return __DRI_IMAGE_FORMAT_XBGR2101010;
+         return DRM_FORMAT_XBGR2101010;
       else
-         return __DRI_IMAGE_FORMAT_XRGB2101010;
+         return DRM_FORMAT_XRGB2101010;
    case 32:
-      return __DRI_IMAGE_FORMAT_ARGB8888;
+      return DRM_FORMAT_ARGB8888;
    default:
-      return __DRI_IMAGE_FORMAT_NONE;
+      return DRM_FORMAT_INVALID;
    }
 }
 
@@ -1128,7 +1129,7 @@ dri2_create_image_khr_pixmap(_EGLDisplay *disp, _EGLContext *ctx,
    xcb_get_geometry_cookie_t geometry_cookie;
    xcb_get_geometry_reply_t *geometry_reply;
    xcb_generic_error_t *error;
-   int stride, format;
+   int fourcc;
 
    (void)ctx;
 
@@ -1159,8 +1160,8 @@ dri2_create_image_khr_pixmap(_EGLDisplay *disp, _EGLContext *ctx,
       return NULL;
    }
 
-   format = dri2_format_for_depth(dri2_dpy, geometry_reply->depth);
-   if (format == __DRI_IMAGE_FORMAT_NONE) {
+   fourcc = dri2_fourcc_for_depth(dri2_dpy, geometry_reply->depth);
+   if (fourcc == DRM_FORMAT_INVALID) {
       _eglError(EGL_BAD_PARAMETER,
                 "dri2_create_image_khr: unsupported pixmap depth");
       free(buffers_reply);
@@ -1178,10 +1179,10 @@ dri2_create_image_khr_pixmap(_EGLDisplay *disp, _EGLContext *ctx,
 
    _eglInitImage(&dri2_img->base, disp);
 
-   stride = buffers[0].pitch / buffers[0].cpp;
-   dri2_img->dri_image = dri2_dpy->image->createImageFromName(
+   dri2_img->dri_image = dri2_dpy->image->createImageFromNames(
       dri2_dpy->dri_screen_render_gpu, buffers_reply->width,
-      buffers_reply->height, format, buffers[0].name, stride, dri2_img);
+      buffers_reply->height, fourcc, (int *) &buffers[0].name, 1,
+      (int *) &buffers[0].pitch, 0, dri2_img);
 
    free(buffers_reply);
    free(geometry_reply);

@@ -58,17 +58,6 @@
 #include "wayland-drm.h"
 #endif
 
-static __DRIimage *
-dri_lookup_egl_image(__DRIscreen *screen, void *image, void *data)
-{
-   struct gbm_dri_device *dri = data;
-
-   if (dri->lookup_image == NULL)
-      return NULL;
-
-   return dri->lookup_image(screen, image, dri->lookup_user_data);
-}
-
 static GLboolean
 dri_validate_egl_image(void *image, void *data)
 {
@@ -206,7 +195,6 @@ static const __DRIuseInvalidateExtension use_invalidate = {
 static const __DRIimageLookupExtension image_lookup_extension = {
    .base = { __DRI_IMAGE_LOOKUP, 2 },
 
-   .lookupEGLImage          = dri_lookup_egl_image,
    .validateEGLImage        = dri_validate_egl_image,
    .lookupEGLImageValidated = dri_lookup_egl_image_validated,
 };
@@ -332,7 +320,6 @@ dri_screen_create_for_driver(struct gbm_dri_device *dri, char *driver_name, bool
       }
    }
 
-   dri->lookup_image = NULL;
    dri->lookup_user_data = NULL;
 
    return 0;
@@ -756,12 +743,16 @@ gbm_dri_bo_import(struct gbm_device *gbm,
 
    case GBM_BO_IMPORT_EGL_IMAGE:
    {
-      if (dri->lookup_image == NULL) {
+      if (dri->lookup_image_validated == NULL) {
          errno = EINVAL;
          return NULL;
       }
 
-      image = dri->lookup_image(dri->screen, buffer, dri->lookup_user_data);
+      if (!dri->validate_image(buffer, dri->lookup_user_data)) {
+         errno = EINVAL;
+         return NULL;
+      }
+      image = dri->lookup_image_validated(buffer, dri->lookup_user_data);
       image = dri->image->dupImage(image, NULL);
       dri->image->queryImage(image, __DRI_IMAGE_ATTRIB_FOURCC, &gbm_format);
       if (gbm_format == DRM_FORMAT_INVALID) {
@@ -779,17 +770,19 @@ gbm_dri_bo_import(struct gbm_device *gbm,
       int fourcc;
 
       /* GBM's GBM_FORMAT_* tokens are a strict superset of the DRI FourCC
-       * tokens accepted by createImageFromFds, except for not supporting
+       * tokens accepted by createImageFromDmaBufs, except for not supporting
        * the sARGB format. */
       fourcc = gbm_core.v0.format_canonicalize(fd_data->format);
 
-      image = dri->image->createImageFromFds(dri->screen,
-                                             fd_data->width,
-                                             fd_data->height,
-                                             fourcc,
-                                             &fd_data->fd, 1,
-                                             &stride, &offset,
-                                             NULL);
+      image = dri->image->createImageFromDmaBufs(dri->screen,
+                                                 fd_data->width,
+                                                 fd_data->height,
+                                                 fourcc,
+                                                 DRM_FORMAT_MOD_INVALID,
+                                                 &fd_data->fd, 1,
+                                                 &stride, &offset,
+                                                 0, 0, 0, 0, 0,
+                                                 NULL, NULL);
       if (image == NULL) {
          errno = EINVAL;
          return NULL;
@@ -804,26 +797,26 @@ gbm_dri_bo_import(struct gbm_device *gbm,
       unsigned int error;
       int fourcc;
 
-      /* Import with modifier requires createImageFromDmaBufs2 */
-      if (dri->image->createImageFromDmaBufs2 == NULL) {
+      /* Import with modifier requires createImageFromDmaBufs */
+      if (dri->image->createImageFromDmaBufs == NULL) {
          errno = ENOSYS;
          return NULL;
       }
 
       /* GBM's GBM_FORMAT_* tokens are a strict superset of the DRI FourCC
-       * tokens accepted by createImageFromDmaBufs2, except for not supporting
+       * tokens accepted by createImageFromDmaBufs, except for not supporting
        * the sARGB format. */
       fourcc = gbm_core.v0.format_canonicalize(fd_data->format);
 
-      image = dri->image->createImageFromDmaBufs2(dri->screen, fd_data->width,
-                                                  fd_data->height, fourcc,
-                                                  fd_data->modifier,
-                                                  fd_data->fds,
-                                                  fd_data->num_fds,
-                                                  fd_data->strides,
-                                                  fd_data->offsets,
-                                                  0, 0, 0, 0,
-                                                  &error, NULL);
+      image = dri->image->createImageFromDmaBufs(dri->screen, fd_data->width,
+                                                 fd_data->height, fourcc,
+                                                 fd_data->modifier,
+                                                 fd_data->fds,
+                                                 fd_data->num_fds,
+                                                 fd_data->strides,
+                                                 fd_data->offsets,
+                                                 0, 0, 0, 0,
+                                                 0, &error, NULL);
       if (image == NULL) {
          errno = ENOSYS;
          return NULL;
@@ -979,11 +972,6 @@ gbm_dri_bo_create(struct gbm_device *gbm,
 
    /* Gallium drivers requires shared in order to get the handle/stride */
    dri_use |= __DRI_IMAGE_USE_SHARE;
-
-   if (modifiers && !dri->image->createImageWithModifiers) {
-      errno = ENOSYS;
-      goto failed;
-   }
 
    /* If the driver supports fixed-rate compression, filter the acceptable
     * modifiers by the compression rate. */
@@ -1162,13 +1150,7 @@ gbm_dri_surface_create(struct gbm_device *gbm,
 		       uint32_t format, uint32_t flags,
                        const uint64_t *modifiers, const unsigned count)
 {
-   struct gbm_dri_device *dri = gbm_dri_device(gbm);
    struct gbm_dri_surface *surf;
-
-   if (modifiers && !dri->image->createImageWithModifiers) {
-      errno = ENOSYS;
-      return NULL;
-   }
 
    if (count)
       assert(modifiers);
