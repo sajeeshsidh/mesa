@@ -32,56 +32,41 @@ get_live_changes(aco_ptr<Instruction>& instr)
    return changes;
 }
 
-void
-handle_def_fixed_to_op(RegisterDemand* demand, RegisterDemand demand_before, Instruction* instr,
-                       int op_idx)
+RegisterDemand
+get_additional_operand_demand(Instruction* instr)
 {
-   /* Usually the register demand before an instruction would be considered part of the previous
-    * instruction, since it's not greater than the register demand for that previous instruction.
-    * Except, it can be greater in the case of an definition fixed to a non-killed operand: the RA
-    * needs to reserve space between the two instructions for the definition (containing a copy of
-    * the operand).
-    */
-   demand_before += instr->definitions[0].getTemp();
-   demand->update(demand_before);
+   RegisterDemand additional_demand;
+   int op_idx = get_op_fixed_to_def(instr);
+   if (op_idx != -1 && !instr->operands[op_idx].isKill())
+      additional_demand += instr->definitions[0].getTemp();
+
+   return additional_demand;
 }
 
 RegisterDemand
 get_temp_registers(aco_ptr<Instruction>& instr)
 {
-   RegisterDemand temp_registers;
+   RegisterDemand demand_before;
+   RegisterDemand demand_after;
 
    for (Definition def : instr->definitions) {
-      if (!def.isTemp())
-         continue;
       if (def.isKill())
-         temp_registers += def.getTemp();
+         demand_after += def.getTemp();
+      else if (def.isTemp())
+         demand_before -= def.getTemp();
    }
 
    for (Operand op : instr->operands) {
-      if (op.isTemp() && op.isLateKill() && op.isFirstKill())
-         temp_registers += op.getTemp();
+      if (op.isFirstKill()) {
+         demand_before += op.getTemp();
+         if (op.isLateKill())
+            demand_after += op.getTemp();
+      }
    }
 
-   int op_idx = get_op_fixed_to_def(instr.get());
-   if (op_idx != -1 && !instr->operands[op_idx].isKill()) {
-      RegisterDemand before_instr;
-      before_instr -= get_live_changes(instr);
-      handle_def_fixed_to_op(&temp_registers, before_instr, instr.get(), op_idx);
-   }
-
-   return temp_registers;
-}
-
-RegisterDemand
-get_demand_before(RegisterDemand demand, aco_ptr<Instruction>& instr,
-                  aco_ptr<Instruction>& instr_before)
-{
-   demand -= get_live_changes(instr);
-   demand -= get_temp_registers(instr);
-   if (instr_before)
-      demand += get_temp_registers(instr_before);
-   return demand;
+   demand_before += get_additional_operand_demand(instr.get());
+   demand_after.update(demand_before);
+   return demand_after;
 }
 
 namespace {
@@ -185,11 +170,8 @@ process_live_temps_per_block(Program* program, Block* block, unsigned& worklist,
          }
       }
 
-      int op_idx = get_op_fixed_to_def(insn);
-      if (op_idx != -1 && !insn->operands[op_idx].isKill()) {
-         RegisterDemand before_instr = new_demand;
-         handle_def_fixed_to_op(&register_demand[idx], before_instr, insn, op_idx);
-      }
+      RegisterDemand before_instr = new_demand + get_additional_operand_demand(insn);
+      register_demand[idx].update(before_instr);
    }
 
    /* handle phi definitions */
