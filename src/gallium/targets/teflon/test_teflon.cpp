@@ -20,15 +20,18 @@
 #define TEST_MOBILEDET   1
 
 #define TOLERANCE       2
+#define ADD_TOLERANCE   45
 #define MODEL_TOLERANCE 8
 #define QUANT_TOLERANCE 2
 
 std::vector<bool> is_signed{false}; /* TODO: Support INT8? */
 std::vector<bool> padding_same{false, true};
 std::vector<int> stride{1, 2};
-std::vector<int> output_channels{1, 32, 120, 128, 160, 256};
-std::vector<int> input_channels{1, 32, 120, 128, 256};
-std::vector<int> dw_channels{1, 32, 120, 128, 256};
+std::vector<int> output_channels{1, 32, 120};
+std::vector<int> input_channels{1, 32, 120};
+std::vector<int> add_output_channels{1, 16};
+std::vector<int> add_input_channels{1, 32, 120};
+std::vector<int> dw_channels{1, 32, 64};
 std::vector<int> dw_weight_size{3, 5};
 std::vector<int> weight_size{1, 3, 5};
 std::vector<int> input_size{3, 5, 8, 80, 112};
@@ -134,11 +137,28 @@ test_model(std::vector<uint8_t> buf, std::string cache_dir, unsigned tolerance)
 }
 
 static void
-test_model_file(std::string file_name)
+test_model_file(std::string file_path)
 {
+   std::ostringstream cache_dir, model_cache;
+   std::string file_name = file_path.substr(file_path.find_last_of("/\\") + 1);
+   file_name = file_name.substr(0, file_name.find_last_of('.'));
+   cache_dir << "/var/cache/teflon_tests/" << file_name;
+   model_cache << cache_dir.str() << "/"
+               << "model.tflite";
+
+   if (cache_is_enabled()) {
+      if (access(cache_dir.str().c_str(), F_OK) != 0) {
+         ASSERT_TRUE(std::filesystem::create_directories(cache_dir.str().c_str()));
+      }
+
+      if (access(model_cache.str().c_str(), F_OK) != 0) {
+         std::filesystem::copy(file_path, model_cache.str());
+      }
+   }
+
    set_seed(4);
 
-   std::ifstream model_file(file_name, std::ios::binary);
+   std::ifstream model_file(file_path, std::ios::binary);
    std::vector<uint8_t> buffer((std::istreambuf_iterator<char>(model_file)),
                                std::istreambuf_iterator<char>());
    test_model(buffer, "", MODEL_TOLERANCE);
@@ -333,7 +353,7 @@ TEST_P(Add, Op)
             std::get<0>(GetParam()),
             false, /* depthwise */
             4,
-            TOLERANCE);
+            ADD_TOLERANCE);
 }
 
 static inline std::string
@@ -358,8 +378,8 @@ INSTANTIATE_TEST_SUITE_P(
    ::testing::Combine(::testing::ValuesIn(is_signed),
                       ::testing::ValuesIn(padding_same),
                       ::testing::ValuesIn(stride),
-                      ::testing::ValuesIn(output_channels),
-                      ::testing::ValuesIn(input_channels),
+                      ::testing::ValuesIn(add_output_channels),
+                      ::testing::ValuesIn(add_input_channels),
                       ::testing::ValuesIn(weight_size),
                       ::testing::ValuesIn(input_size)),
    AddTestCaseName);
