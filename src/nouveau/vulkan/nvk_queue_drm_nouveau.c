@@ -594,9 +594,7 @@ nvk_queue_submit_drm_nouveau(struct nvk_queue *queue,
    if (result != VK_SUCCESS)
       return result;
 
-   const bool is_vmbind = submit->buffer_bind_count > 0 ||
-                          submit->image_bind_count > 0  ||
-                          submit->image_opaque_bind_count > 0;
+   const bool is_vmbind = vk_queue_submit_has_bind(submit);
    push_builder_init(queue, &pb, is_vmbind);
 
    if (!is_vmbind && upload_time_point > 0)
