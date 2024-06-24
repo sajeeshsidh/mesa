@@ -406,6 +406,68 @@ ir3_nir_lower_array_sampler(nir_shader *shader)
       nir_metadata_control_flow, NULL);
 }
 
+static bool
+lower_shader_clock_filter(const nir_instr *instr, const void *unused)
+{
+   (void)unused;
+
+   if (instr->type != nir_instr_type_intrinsic)
+      return false;
+
+   nir_intrinsic_instr *intr = nir_instr_as_intrinsic(instr);
+   return intr->intrinsic == nir_intrinsic_shader_clock;
+}
+
+static nir_def *
+lower_shader_clock(nir_builder *b, nir_instr *instr, void *unused)
+{
+   (void)unused;
+
+   nir_def *shader_clock;
+   nir_def *undef;
+
+   nir_push_if(b, nir_elect(b, 1));
+   {
+      nir_push_loop(b);
+      {
+         /* ALWAYSON counter is mapped to this address. */
+         nir_def *base_addr =
+            nir_unpack_64_2x32(b, nir_imm_int64(b, 0x0001fffffffff000llu));
+         shader_clock =
+            nir_load_global_ir3(b, 2, 32, base_addr, nir_imm_int(b, 0));
+         nir_def *shader_clock_2 =
+            nir_load_global_ir3(b, 2, 32, base_addr, nir_imm_int(b, 0));
+         /* Reading the ALWAYSON counter doesn't seem to be atomic, so the LO
+          * part may wrap around, to mitigate this we wait until HI values are
+          * the same and return first of two clock values.
+          * NOTE: Prop driver doesn't check for wrap around.
+          */
+         nir_push_if(b, nir_ieq(b, nir_channel(b, shader_clock, 1),
+                                nir_channel(b, shader_clock_2, 1)));
+         {
+            nir_jump(b, nir_jump_break);
+         }
+         nir_pop_if(b, NULL);
+      }
+      nir_pop_loop(b, NULL);
+   }
+   nir_push_else(b, NULL);
+   {
+      undef = nir_undef(b, 2, 32);
+   }
+   nir_pop_if(b, NULL);
+
+   shader_clock = nir_read_first_invocation(b, nir_if_phi(b, shader_clock, undef));
+   return shader_clock;
+}
+
+static bool
+ir3_nir_lower_shader_clock(nir_shader *shader)
+{
+   return nir_shader_lower_instructions(shader, lower_shader_clock_filter,
+                                        lower_shader_clock, NULL);
+}
+
 void
 ir3_finalize_nir(struct ir3_compiler *compiler, nir_shader *s)
 {
@@ -445,6 +507,10 @@ ir3_finalize_nir(struct ir3_compiler *compiler, nir_shader *s)
 
    if (compiler->array_index_add_half)
       OPT_V(s, ir3_nir_lower_array_sampler);
+
+   if (compiler->gen >= 6) {
+      OPT_V(s, ir3_nir_lower_shader_clock);
+   }
 
    OPT_V(s, nir_lower_is_helper_invocation);
 
