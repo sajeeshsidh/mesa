@@ -799,6 +799,9 @@ nak_mem_vectorize_cb(unsigned align_mul, unsigned align_offset,
     */
    assert(util_is_power_of_two_nonzero(align_mul));
 
+   if (hole_size)
+      return false;
+
    unsigned max_bytes = 128u / 8u;
    if (low->intrinsic == nir_intrinsic_ldc_nv ||
        low->intrinsic == nir_intrinsic_ldcx_nv)
