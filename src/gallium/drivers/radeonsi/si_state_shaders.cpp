@@ -2384,7 +2384,7 @@ void si_update_ps_inputs_read_or_disabled(struct si_context *sctx)
 
    if (sctx->ps_inputs_read_or_disabled != ps_inputs_read_or_disabled) {
       sctx->ps_inputs_read_or_disabled = ps_inputs_read_or_disabled;
-      sctx->do_update_shaders = true;
+      si_set_shader_bitmask(sctx);
    }
 }
 
@@ -2439,7 +2439,7 @@ void si_vs_ps_key_update_rast_prim_smooth_stipple(struct si_context *sctx)
        ps_key->ps.mono.poly_line_smoothing != old_poly_line_smoothing ||
        ps_key->ps.mono.point_smoothing != old_point_smoothing ||
        ps_key->ps.opt.force_front_face_input != old_force_front_face_input)
-      sctx->do_update_shaders = true;
+      si_set_shader_bitmask(sctx);
 }
 
 static void si_get_vs_key_outputs(struct si_context *sctx, struct si_shader_selector *vs,
@@ -2637,7 +2637,7 @@ void si_ps_key_update_framebuffer_blend_rasterizer(struct si_context *sctx)
    /* Update shaders only if the key changed. */
    if (memcmp(&key->ps.part.epilog, &old_epilog, sizeof(old_epilog)) ||
        key->ps.opt.prefer_mono != old_prefer_mono) {
-      sctx->do_update_shaders = true;
+      si_set_shader_bitmask(sctx);
    } else {
       assert(memcmp(&key->ps, &old_key, sizeof(old_key)) == 0);
    }
@@ -2660,7 +2660,7 @@ void si_ps_key_update_rasterizer(struct si_context *sctx)
 
    if (key->ps.part.prolog.flatshade_colors != old_flatshade_colors ||
        key->ps.part.epilog.clamp_color != old_clamp_color)
-      sctx->do_update_shaders = true;
+      si_set_shader_bitmask(sctx);
 }
 
 void si_ps_key_update_dsa(struct si_context *sctx)
@@ -2749,7 +2749,7 @@ void si_ps_key_update_framebuffer_rasterizer_sample_shading(struct si_context *s
    /* Update shaders only if the key changed. */
    if (memcmp(&key->ps.part.prolog, &old_prolog, sizeof(old_prolog)) ||
        key->ps.mono.interpolate_at_sample_force_center != old_interpolate_at_sample_force_center)
-      sctx->do_update_shaders = true;
+      si_set_shader_bitmask(sctx);
 }
 
 /* Compute the key for the hw shader variant */
@@ -3661,7 +3661,7 @@ static void si_update_common_shader_state(struct si_context *sctx, struct si_sha
       sctx->ngg_culling = 0; /* this will be enabled on the first draw if needed */
 
    si_invalidate_inlinable_uniforms(sctx, type);
-   sctx->do_update_shaders = true;
+   si_set_shader_bitmask(sctx);
 }
 
 static void si_update_last_vgt_stage_state(struct si_context *sctx,
@@ -4539,7 +4539,7 @@ static void si_update_tess_in_out_patch_vertices(struct si_context *sctx)
 
       if (sctx->shader.tcs.key.ge.opt.same_patch_vertices != same_patch_vertices) {
          sctx->shader.tcs.key.ge.opt.same_patch_vertices = same_patch_vertices;
-         sctx->do_update_shaders = true;
+         si_set_shader_bitmask(sctx);
       }
    } else {
       /* These fields are static for fixed function TCS. So no need to set
@@ -4551,7 +4551,7 @@ static void si_update_tess_in_out_patch_vertices(struct si_context *sctx)
       /* User may only change patch vertices, needs to update fixed func TCS. */
       if (sctx->shader.tcs.cso &&
           sctx->shader.tcs.cso->info.base.tess.tcs_vertices_out != sctx->patch_vertices)
-         sctx->do_update_shaders = true;
+         si_set_shader_bitmask(sctx);
    }
 }
 
@@ -4569,7 +4569,7 @@ static void si_set_patch_vertices(struct pipe_context *ctx, uint8_t patch_vertic
          if (sctx->has_tessellation)
             si_update_tess_io_layout_state(sctx);
          else
-            sctx->do_update_shaders = true;
+            si_set_shader_bitmask(sctx);
       }
 
       /* Gfx12 programs patch_vertices in VGT_PRIMITIVE_TYPE.NUM_INPUT_CP. Make sure

@@ -214,7 +214,7 @@ static void si_set_streamout_targets(struct pipe_context *ctx, unsigned num_targ
    assert(!append_bitmask || enabled_mask == append_bitmask);
 
    if (!!sctx->streamout.enabled_mask != !!enabled_mask)
-      sctx->do_update_shaders = true; /* to keep/remove streamout shader code as an optimization */
+      si_set_shader_bitmask(sctx); /* to keep/remove streamout shader code as an optimization */
 
    sctx->streamout.num_targets = num_targets;
    sctx->streamout.enabled_mask = enabled_mask;
@@ -474,7 +474,7 @@ void si_update_prims_generated_query_state(struct si_context *sctx, unsigned typ
 
       if (si_update_ngg(sctx)) {
          si_shader_change_notify(sctx);
-         sctx->do_update_shaders = true;
+         si_set_shader_bitmask(sctx);
       }
    }
 }
