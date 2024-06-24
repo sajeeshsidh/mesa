@@ -558,128 +558,129 @@ struct virgl_mpeg4_picture_desc
    uint32_t ref[2];
 };
 
+
 struct virgl_mpeg12_picture_desc
-{
-    struct virgl_base_picture_desc base;
-
-    unsigned picture_coding_type;
-    unsigned picture_structure;
-    unsigned frame_pred_frame_dct;
-    unsigned q_scale_type;
-    unsigned alternate_scan;
-    unsigned intra_vlc_format;
-    unsigned concealment_motion_vectors;
-    unsigned intra_dc_precision;
-    unsigned f_code[2][2];
-    unsigned top_field_first;
-    unsigned full_pel_forward_vector;
-    unsigned full_pel_backward_vector;
-    unsigned num_slices;
-
-    uint8_t intra_matrix[64];
-    uint8_t non_intra_matrix[64];
-
-    uint32_t ref[2];
-};
-
-struct virgl_vc1_picture_desc
 {
    struct virgl_base_picture_desc base;
 
-   uint32_t slice_count;
-   uint8_t picture_type;
-   uint8_t frame_coding_mode;
-   uint8_t postprocflag;
-   uint8_t pulldown;
-   uint8_t interlace;
-   uint8_t tfcntrflag;
-   uint8_t finterpflag;
-   uint8_t psf;
-   uint8_t dquant;
-   uint8_t panscan_flag;
-   uint8_t refdist_flag;
-   uint8_t quantizer;
-   uint8_t extended_mv;
-   uint8_t extended_dmv;
-   uint8_t overlap;
-   uint8_t vstransform;
-   uint8_t loopfilter;
-   uint8_t fastuvmc;
-   uint8_t range_mapy_flag;
-   uint8_t range_mapy;
-   uint8_t range_mapuv_flag;
-   uint8_t range_mapuv;
-   uint8_t multires;
-   uint8_t syncmarker;
-   uint8_t rangered;
-   uint8_t maxbframes;
-   uint8_t deblockEnable;
-   uint8_t pquant;
+   unsigned picture_coding_type;
+   unsigned picture_structure;
+   unsigned frame_pred_frame_dct;
+   unsigned q_scale_type;
+   unsigned alternate_scan;
+   unsigned intra_vlc_format;
+   unsigned concealment_motion_vectors;
+   unsigned intra_dc_precision;
+   unsigned f_code[2][2];
+   unsigned top_field_first;
+   unsigned full_pel_forward_vector;
+   unsigned full_pel_backward_vector;
+   unsigned num_slices;
+
+   uint8_t intra_matrix[64];
+   uint8_t non_intra_matrix[64];
 
    uint32_t ref[2];
 };
+
 
 struct virgl_mjpeg_picture_desc
 {
    struct virgl_base_picture_desc base;
 
-    struct
-    {
-        uint16_t picture_width;
-        uint16_t picture_height;
+   struct
+   {
+      uint16_t picture_width;
+      uint16_t picture_height;
 
-        struct {
-            uint8_t component_id;
-            uint8_t h_sampling_factor;
-            uint8_t v_sampling_factor;
-            uint8_t quantiser_table_selector;
-        } components[255];
+      struct {
+         uint8_t component_id;
+         uint8_t h_sampling_factor;
+         uint8_t v_sampling_factor;
+         uint8_t quantiser_table_selector;
+      } components[255];
+      uint16_t crop_x;
+      uint16_t crop_y;
+      uint16_t crop_width;
+      uint16_t crop_height;
+      uint8_t num_components;
+   } picture_parameter;
 
-        uint8_t num_components;
-        uint16_t crop_x;
-        uint16_t crop_y;
-        uint16_t crop_width;
-        uint16_t crop_height;
-    } picture_parameter;
+   struct
+   {
+      uint8_t load_quantiser_table[4];
+      uint8_t quantiser_table[4][64];
+   } quantization_table;
 
-    struct
-    {
-        uint8_t load_quantiser_table[4];
-        uint8_t quantiser_table[4][64];
-    } quantization_table;
+   struct
+   {
+      uint8_t load_huffman_table[2];
 
-    struct
-    {
-        uint8_t load_huffman_table[2];
+      struct {
+         uint8_t   num_dc_codes[16];
+         uint8_t   dc_values[12];
+         uint8_t   num_ac_codes[16];
+         uint8_t   ac_values[162];
+         uint8_t   pad[2];
+      } table[2];
+   } huffman_table;
 
-        struct {
-            uint8_t   num_dc_codes[16];
-            uint8_t   dc_values[12];
-            uint8_t   num_ac_codes[16];
-            uint8_t   ac_values[162];
-            uint8_t   pad[2];
-        } table[2];
-    } huffman_table;
+   struct
+   {
+      unsigned slice_data_size;
+      unsigned slice_data_offset;
+      unsigned slice_data_flag;
+      unsigned slice_horizontal_position;
+      unsigned slice_vertical_position;
 
-    struct
-    {
-        unsigned slice_data_size;
-        unsigned slice_data_offset;
-        unsigned slice_data_flag;
-        unsigned slice_horizontal_position;
-        unsigned slice_vertical_position;
+      struct {
+         uint8_t component_selector;
+         uint8_t dc_table_selector;
+         uint8_t ac_table_selector;
+      } components[4];
 
-        struct {
-            uint8_t component_selector;
-            uint8_t dc_table_selector;
-            uint8_t ac_table_selector;
-        } components[4];
+      uint8_t num_components;
 
-        uint8_t num_components;
+      uint16_t restart_interval;
+      unsigned num_mcus;
+   } slice_parameter;
+};
 
-        uint16_t restart_interval;
-        unsigned num_mcus;
-    } slice_parameter;
+struct virgl_vc1_picture_desc
+{
+    struct virgl_base_picture_desc base;
+
+    uint32_t slice_count;
+    uint8_t picture_type;
+    uint8_t frame_coding_mode;
+    uint8_t postprocflag;
+    uint8_t pulldown;
+    uint8_t interlace;
+    uint8_t tfcntrflag;
+    uint8_t finterpflag;
+    uint8_t psf;
+    uint8_t dquant;
+    uint8_t panscan_flag;
+    uint8_t refdist_flag;
+    uint8_t quantizer;
+    uint8_t extended_mv;
+    uint8_t extended_dmv;
+    uint8_t overlap;
+    uint8_t vstransform;
+    uint8_t loopfilter;
+    uint8_t fastuvmc;
+    uint8_t range_mapy_flag;
+    uint8_t range_mapy;
+    uint8_t range_mapuv_flag;
+    uint8_t range_mapuv;
+    uint8_t multires;
+    uint8_t syncmarker;
+    uint8_t rangered;
+    uint8_t maxbframes;
+    uint8_t deblockEnable;
+    uint8_t pquant;
+
+    uint32_t ref[2];
 };
 
 struct virgl_vp9_segment_parameter
@@ -954,12 +955,12 @@ union virgl_picture_desc {
     struct virgl_h265_picture_desc h265;
     struct virgl_mpeg4_picture_desc mpeg4;
     struct virgl_mpeg12_picture_desc mpeg12;
-    struct virgl_vc1_picture_desc vc1;
     struct virgl_mjpeg_picture_desc mjpeg;
+    struct virgl_vc1_picture_desc vc1;
+    struct virgl_vp9_picture_desc vp9;
     struct virgl_av1_picture_desc av1;
     struct virgl_h264_enc_picture_desc h264_enc;
     struct virgl_h265_enc_picture_desc h265_enc;
-    struct virgl_vp9_picture_desc vp9;
 };
 
 enum virgl_video_encode_stat {

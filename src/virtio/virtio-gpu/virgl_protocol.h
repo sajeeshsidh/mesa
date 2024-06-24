@@ -115,7 +115,7 @@ enum virgl_context_cmd {
    VIRGL_CCMD_PIPE_RESOURCE_CREATE,
    VIRGL_CCMD_PIPE_RESOURCE_SET_TYPE,
    VIRGL_CCMD_GET_MEMORY_INFO,
-   VIRGL_CCMD_EMIT_STRING_MARKER,
+   VIRGL_CCMD_SEND_STRING_MARKER,
    VIRGL_CCMD_LINK_SHADER,
 
    /* video codec */
@@ -132,15 +132,6 @@ enum virgl_context_cmd {
    VIRGL_CCMD_CLEAR_SURFACE,
 
    VIRGL_MAX_COMMANDS
-};
-
-enum virgl_shader_stage {
-   VIRGL_SHADER_VERTEX,
-   VIRGL_SHADER_FRAGMENT,
-   VIRGL_SHADER_GEOMETRY,
-   VIRGL_SHADER_TESS_CTRL,
-   VIRGL_SHADER_TESS_EVAL,
-   VIRGL_SHADER_COMPUTE,
 };
 
 /*
@@ -240,7 +231,7 @@ enum virgl_shader_stage {
 #define VIRGL_OBJ_RS_S0_LINE_LAST_PIXEL(x) (((x) & 0x1) << 28)
 #define VIRGL_OBJ_RS_S0_HALF_PIXEL_CENTER(x) (((x) & 0x1) << 29)
 #define VIRGL_OBJ_RS_S0_BOTTOM_EDGE_RULE(x) (((x) & 0x1) << 30)
-#define VIRGL_OBJ_RS_S0_FORCE_PERSAMPLE_INTERP(x) (((x) & 0x1u) << 31)
+#define VIRGL_OBJ_RS_S0_FORCE_PERSAMPLE_INTERP(x) (((x) & 0x1) << 31)
 
 #define VIRGL_OBJ_RS_POINT_SIZE 3
 #define VIRGL_OBJ_RS_SPRITE_COORD_ENABLE 4
@@ -286,7 +277,7 @@ enum virgl_shader_stage {
 #define VIRGL_OBJ_SHADER_SO_OUTPUT_STREAM(x) (((x) & 0x03) << 0)
 
 /* viewport state */
-#define VIRGL_SET_VIEWPORT_STATE_SIZE(num_viewports) ((6 * num_viewports) + 1)
+#define VIRGL_SET_VIEWPORT_STATE_SIZE(num_viewports) ((6 * (num_viewports)) + 1)
 #define VIRGL_SET_VIEWPORT_START_SLOT 1
 #define VIRGL_SET_VIEWPORT_STATE_SCALE_0(x) (2 + (x * 6))
 #define VIRGL_SET_VIEWPORT_STATE_SCALE_1(x) (3 + (x * 6))
@@ -296,7 +287,7 @@ enum virgl_shader_stage {
 #define VIRGL_SET_VIEWPORT_STATE_TRANSLATE_2(x) (7 + (x * 6))
 
 /* framebuffer state */
-#define VIRGL_SET_FRAMEBUFFER_STATE_SIZE(nr_cbufs) (nr_cbufs + 2)
+#define VIRGL_SET_FRAMEBUFFER_STATE_SIZE(nr_cbufs) ((nr_cbufs) + 2)
 #define VIRGL_SET_FRAMEBUFFER_STATE_NR_CBUFS 1
 #define VIRGL_SET_FRAMEBUFFER_STATE_NR_ZSURF_HANDLE 2
 #define VIRGL_SET_FRAMEBUFFER_STATE_CBUF_HANDLE(x) ((x) + 3)
