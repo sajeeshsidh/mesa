@@ -2510,6 +2510,8 @@ CSMT_ITEM_NO_WAIT(nine_context_draw_indexed_primitive_from_vtxbuf_idxbuf,
         context->changed.group |= NINE_STATE_VDECL;
     }
 
+    context->vtxbuf_mask |= 1;
+    context->changed.vtxbuf |= 1;
     nine_update_state(device);
 
     init_draw_info(&info, &draw, device, PrimitiveType, PrimitiveCount);
@@ -2526,7 +2528,6 @@ CSMT_ITEM_NO_WAIT(nine_context_draw_indexed_primitive_from_vtxbuf_idxbuf,
         info.index.user = user_ibuf;
 
     util_set_vertex_buffers(context->pipe, 1, false, vbuf);
-    context->changed.vtxbuf |= 1;
 
     context->pipe->draw_vbo(context->pipe, &info, 0, NULL, &draw, 1);
 }
