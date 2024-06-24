@@ -940,7 +940,7 @@ static struct pipe_context *si_pipe_create_context(struct pipe_screen *screen, v
 
    /* Use asynchronous flushes only on amdgpu, since the radeon
     * implementation for fence_server_sync is incomplete. */
-   struct pipe_context *tc =
+   struct pipe_context *tc_pipe =
       threaded_context_create(ctx, &sscreen->pool_transfers,
                               si_replace_buffer_storage,
                               &(struct threaded_context_options){
@@ -952,10 +952,14 @@ static struct pipe_context *si_pipe_create_context(struct pipe_screen *screen, v
                               },
                               &((struct si_context *)ctx)->tc);
 
-   if (tc && tc != ctx)
-      threaded_context_init_bytes_mapped_limit((struct threaded_context *)tc, 4);
+   if (tc_pipe && tc_pipe != ctx) {
+      struct threaded_context *tc = (struct threaded_context *)tc_pipe;
 
-   return tc;
+      threaded_context_init_bytes_mapped_limit(tc, 4);
+      tc->execute_func[TC_CALL_set_vertex_buffers] = si_tc_set_vertex_buffers;
+   }
+
+   return tc_pipe;
 }
 
 /*

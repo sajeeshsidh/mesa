@@ -1072,7 +1072,7 @@ static void si_emit_ia_multi_vgt_param(struct si_context *sctx,
 template <amd_gfx_level GFX_VERSION, si_has_tess HAS_TESS, si_has_gs HAS_GS, si_has_ngg NGG,
           si_is_draw_vertex_state IS_DRAW_VERTEX_STATE> ALWAYS_INLINE
 static void si_emit_draw_registers(struct si_context *sctx,
-                                   const struct pipe_draw_indirect_info *indirect,
+                                   const struct pipe_draw_indirect_info *restrict indirect,
                                    enum mesa_prim prim, unsigned index_size,
                                    unsigned instance_count, bool primitive_restart,
                                    unsigned restart_index, unsigned min_vertex_count)
@@ -1223,12 +1223,13 @@ void si_emit_buffered_compute_sh_regs(struct si_context *sctx)
 
 template <amd_gfx_level GFX_VERSION, si_has_tess HAS_TESS, si_has_gs HAS_GS, si_has_ngg NGG,
           si_is_draw_vertex_state IS_DRAW_VERTEX_STATE, si_has_sh_pairs_packed HAS_SH_PAIRS_PACKED> ALWAYS_INLINE
-static void si_emit_draw_packets(struct si_context *sctx, const struct pipe_draw_info *info,
+static void si_emit_draw_packets(struct si_context *sctx,
+                                 const struct pipe_draw_info *restrict info,
                                  unsigned drawid_base,
-                                 const struct pipe_draw_indirect_info *indirect,
-                                 const struct pipe_draw_start_count_bias *draws,
+                                 const struct pipe_draw_indirect_info *restrict indirect,
+                                 const struct pipe_draw_start_count_bias *restrict draws,
                                  unsigned num_draws,
-                                 struct pipe_resource *indexbuf, unsigned index_size,
+                                 struct pipe_resource *restrict indexbuf, unsigned index_size,
                                  unsigned index_offset, unsigned instance_count)
 {
    struct radeon_cmdbuf *cs = &sctx->gfx_cs;
@@ -1793,6 +1794,7 @@ static bool si_upload_and_prefetch_VB_descriptors(struct si_context *sctx,
 
    if (sctx->vertex_buffers_dirty || IS_DRAW_VERTEX_STATE) {
       assert(count || IS_DRAW_VERTEX_STATE);
+      assert(IS_DRAW_VERTEX_STATE || !sctx->vertex_elements_but_no_buffers);
 
       struct si_vertex_elements *velems = sctx->vertex_elements;
       unsigned alloc_size = IS_DRAW_VERTEX_STATE ?
@@ -2024,12 +2026,12 @@ template <amd_gfx_level GFX_VERSION, si_has_tess HAS_TESS, si_has_gs HAS_GS, si_
           si_is_draw_vertex_state IS_DRAW_VERTEX_STATE, si_has_sh_pairs_packed HAS_SH_PAIRS_PACKED,
           util_popcnt POPCNT> ALWAYS_INLINE
 static void si_draw(struct pipe_context *ctx,
-                    const struct pipe_draw_info *info,
+                    const struct pipe_draw_info *restrict info,
                     unsigned drawid_offset,
-                    const struct pipe_draw_indirect_info *indirect,
-                    const struct pipe_draw_start_count_bias *draws,
+                    const struct pipe_draw_indirect_info *restrict indirect,
+                    const struct pipe_draw_start_count_bias *restrict draws,
                     unsigned num_draws,
-                    struct pipe_vertex_state *state,
+                    struct pipe_vertex_state *restrict state,
                     uint32_t partial_velem_mask)
 {
    /* Keep code that uses the least number of local variables as close to the beginning
@@ -2374,10 +2376,10 @@ static void si_draw(struct pipe_context *ctx,
 template <amd_gfx_level GFX_VERSION, si_has_tess HAS_TESS, si_has_gs HAS_GS, si_has_ngg NGG,
           si_has_sh_pairs_packed HAS_SH_PAIRS_PACKED>
 static void si_draw_vbo(struct pipe_context *ctx,
-                        const struct pipe_draw_info *info,
+                        const struct pipe_draw_info *restrict info,
                         unsigned drawid_offset,
-                        const struct pipe_draw_indirect_info *indirect,
-                        const struct pipe_draw_start_count_bias *draws,
+                        const struct pipe_draw_indirect_info *restrict indirect,
+                        const struct pipe_draw_start_count_bias *restrict draws,
                         unsigned num_draws)
 {
    si_draw<GFX_VERSION, HAS_TESS, HAS_GS, NGG, DRAW_VERTEX_STATE_OFF, HAS_SH_PAIRS_PACKED, POPCNT_NO>
@@ -2390,7 +2392,7 @@ static void si_draw_vertex_state(struct pipe_context *ctx,
                                  struct pipe_vertex_state *vstate,
                                  uint32_t partial_velem_mask,
                                  struct pipe_draw_vertex_state_info info,
-                                 const struct pipe_draw_start_count_bias *draws,
+                                 const struct pipe_draw_start_count_bias *restrict draws,
                                  unsigned num_draws)
 {
    struct si_vertex_state *state = (struct si_vertex_state *)vstate;

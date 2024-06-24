@@ -1099,6 +1099,7 @@ struct si_context {
    struct si_vertex_elements *vertex_elements;
    unsigned num_vertex_elements;
    unsigned cs_max_waves_per_sh;
+   bool vertex_elements_but_no_buffers;
    bool uses_nontrivial_vs_inputs;
    bool force_trivial_vs_inputs;
    bool do_update_shaders;
@@ -1136,7 +1137,6 @@ struct si_context {
 
    /* Vertex buffers. */
    bool vertex_buffers_dirty;
-   uint8_t num_vertex_buffers;
    uint16_t vertex_buffer_unaligned; /* bitmask of not dword-aligned buffers */
    struct pipe_vertex_buffer vertex_buffer[SI_NUM_VERTEX_BUFFERS];
 

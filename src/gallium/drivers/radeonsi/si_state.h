@@ -171,6 +171,7 @@ struct si_vertex_elements {
    uint16_t vb_alignment_check_mask;
 
    uint8_t count;
+   uint8_t num_vertex_buffers;
 
    /* Vertex buffer descriptor list size aligned for optimal prefetch. */
    uint16_t vb_desc_list_alloc_size;
@@ -621,6 +622,7 @@ struct pb_slab *si_bindless_descriptor_slab_alloc(void *priv, unsigned heap, uns
 void si_bindless_descriptor_slab_free(void *priv, struct pb_slab *pslab);
 void si_rebind_buffer(struct si_context *sctx, struct pipe_resource *buf);
 /* si_state.c */
+uint16_t si_tc_set_vertex_buffers(struct pipe_context *ctx, void *restrict call);
 void si_init_state_compute_functions(struct si_context *sctx);
 void si_init_state_functions(struct si_context *sctx);
 void si_init_screen_state_functions(struct si_screen *sscreen);
