@@ -1417,24 +1417,75 @@ ntq_emit_alu(struct v3d_compile *c, nir_alu_instr *instr)
                 } else {
                         result = vir_FTOIZ(c, src[0]);
                 }
+                if (nir_src_bit_size(instr->src[0].src) == 16)
+                        vir_set_unpack(c->defs[result.index], 0, V3D_QPU_UNPACK_L);
                 break;
         }
 
         case nir_op_f2u32:
                 result = vir_FTOUZ(c, src[0]);
+                if (nir_src_bit_size(instr->src[0].src) == 16)
+                        vir_set_unpack(c->defs[result.index], 0, V3D_QPU_UNPACK_L);
                 break;
-        case nir_op_i2f32:
-                result = vir_ITOF(c, src[0]);
+        case nir_op_i2f32: {
+                uint32_t bit_size = nir_src_bit_size(instr->src[0].src);
+                assert(bit_size <= 32);
+                result = src[0];
+                if (bit_size < 32) {
+                        uint32_t mask = bit_size == 16 ? 0xffff : 0xff;
+                        result = vir_AND(c, result, vir_uniform_ui(c, mask));
+                        result = sign_extend(c, result, bit_size, 32);
+                }
+                result = vir_ITOF(c, result);
                 break;
-        case nir_op_u2f32:
-                result = vir_UTOF(c, src[0]);
+        }
+        case nir_op_u2f32: {
+                uint32_t bit_size = nir_src_bit_size(instr->src[0].src);
+                assert(bit_size <= 32);
+                result = src[0];
+                if (bit_size < 32) {
+                        uint32_t mask = bit_size == 16 ? 0xffff : 0xff;
+                        result = vir_AND(c, result, vir_uniform_ui(c, mask));
+                }
+                result = vir_UTOF(c, result);
+                break;
+        }
+        case nir_op_b2f16:
+                result = vir_AND(c, src[0], vir_uniform_ui(c, 0x3c00));
                 break;
         case nir_op_b2f32:
                 result = vir_AND(c, src[0], vir_uniform_f(c, 1.0));
                 break;
+        case nir_op_b2i8:
+        case nir_op_b2i16:
         case nir_op_b2i32:
                 result = vir_AND(c, src[0], vir_uniform_ui(c, 1));
                 break;
+
+        case nir_op_i2f16: {
+                uint32_t bit_size = nir_src_bit_size(instr->src[0].src);
+                assert(bit_size <= 32);
+                if (bit_size < 32) {
+                        uint32_t mask = bit_size == 16 ? 0xffff : 0xff;
+                        result = vir_AND(c, src[0], vir_uniform_ui(c, mask));
+                        result = sign_extend(c, result, bit_size, 32);
+                }
+                result = vir_ITOF(c, result);
+                vir_set_pack(c->defs[result.index], V3D_QPU_PACK_L);
+                break;
+        }
+
+        case nir_op_u2f16: {
+                uint32_t bit_size = nir_src_bit_size(instr->src[0].src);
+                assert(bit_size <= 32);
+                if (bit_size < 32) {
+                        uint32_t mask = bit_size == 16 ? 0xffff : 0xff;
+                        result = vir_AND(c, src[0], vir_uniform_ui(c, mask));
+                }
+                result = vir_UTOF(c, result);
+                vir_set_pack(c->defs[result.index], V3D_QPU_PACK_L);
+                break;
+        }
 
         case nir_op_f2f16:
         case nir_op_f2f16_rtne:
@@ -2095,6 +2146,8 @@ v3d_optimize_nir(struct v3d_compile *c, struct nir_shader *s)
                 NIR_PASS(progress, s, nir_opt_dce);
                 NIR_PASS(progress, s, nir_opt_dead_cf);
                 NIR_PASS(progress, s, nir_opt_cse);
+                /* before peephole_select as it can generate 64 bit bcsels */
+                NIR_PASS(progress, s, nir_lower_64bit_phis);
                 NIR_PASS(progress, s, nir_opt_peephole_select, 0, false, false);
                 NIR_PASS(progress, s, nir_opt_peephole_select, 24, true, true);
                 NIR_PASS(progress, s, nir_opt_algebraic);
@@ -2182,6 +2235,12 @@ v3d_optimize_nir(struct v3d_compile *c, struct nir_shader *s)
                        progress |= local_progress;
                 }
         } while (progress);
+
+        /* needs to be outside of optimization loop, otherwise it fights with
+         * opt_algebraic optimizing the conversion lowering
+         */
+        NIR_PASS(progress, s, v3d_nir_lower_algebraic);
+        NIR_PASS(progress, s, nir_opt_cse);
 
         nir_move_options sink_opts =
                 nir_move_const_undef | nir_move_comparisons | nir_move_copies |
@@ -4017,7 +4076,7 @@ ntq_emit_intrinsic(struct v3d_compile *c, nir_intrinsic_instr *instr)
                 fprintf(stderr, "Unknown intrinsic: ");
                 nir_print_instr(&instr->instr, stderr);
                 fprintf(stderr, "\n");
-                break;
+                abort();
         }
 }
 
@@ -4615,7 +4674,7 @@ nir_to_vir(struct v3d_compile *c)
                         ffs(util_next_power_of_two(MAX2(wg_size, 64))) - 1;
                 assert(c->local_invocation_index_bits <= 8);
 
-                if (c->s->info.shared_size) {
+                if (c->s->info.shared_size || c->s->info.cs.has_variable_shared_mem) {
                         struct qreg wg_in_mem = vir_SHR(c, c->cs_payload[1],
                                                         vir_uniform_ui(c, 16));
                         if (c->s->info.workgroup_size[0] != 1 ||
@@ -4627,8 +4686,13 @@ nir_to_vir(struct v3d_compile *c)
                                 wg_in_mem = vir_AND(c, wg_in_mem,
                                                     vir_uniform_ui(c, wg_mask));
                         }
-                        struct qreg shared_per_wg =
-                                vir_uniform_ui(c, c->s->info.shared_size);
+
+                        struct qreg shared_per_wg;
+                        if (c->s->info.cs.has_variable_shared_mem) {
+                                shared_per_wg = vir_uniform(c, QUNIFORM_SHARED_SIZE, 0);
+                        } else {
+                                shared_per_wg = vir_uniform_ui(c, c->s->info.shared_size);
+                        }
 
                         c->cs_shared_offset =
                                 vir_ADD(c,
