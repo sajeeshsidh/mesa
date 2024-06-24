@@ -61,6 +61,17 @@ lvp_image_create(VkDevice _device,
    }
 #endif
 
+#if DETECT_OS_ANDROID
+   const VkNativeBufferANDROID *gralloc_info =
+      vk_find_struct_const(pCreateInfo->pNext, NATIVE_BUFFER_ANDROID);
+   int dma_buf;
+   if (gralloc_info) {
+      VkResult result = lvp_gralloc_info(device, gralloc_info, &dma_buf);
+      if (result != VK_SUCCESS)
+         return result;
+   }
+#endif
+
    image = vk_image_create(&device->vk, pCreateInfo, alloc, sizeof(*image));
    if (image == NULL)
       return vk_error(device, VK_ERROR_OUT_OF_HOST_MEMORY);
@@ -154,6 +165,25 @@ lvp_image_create(VkDevice _device,
          image->planes[p].size = whandle.size;
       } else
 #endif
+#if DETECT_OS_ANDROID
+      if (gralloc_info) {
+         struct winsys_handle whandle = {
+            .type = WINSYS_HANDLE_TYPE_FD,
+            .layer = 0,
+            .plane = 0,
+            .handle = dma_buf,
+            .stride = gralloc_info->stride * util_format_get_blocksize(pipe_format),
+            .format = pipe_format,
+            .modifier = DRM_FORMAT_MOD_LINEAR,
+         };
+         image->offset = 0;
+         image->planes[p].bo = device->pscreen->resource_from_handle(device->pscreen,
+                                                            &template,
+                                                            &whandle,
+                                                            PIPE_HANDLE_USAGE_EXPLICIT_FLUSH);
+         image->planes[p].size = whandle.size;
+      } else
+#endif
       {
          image->planes[p].bo = device->pscreen->resource_create_unbacked(device->pscreen,
                                                                &template,
@@ -210,9 +240,11 @@ lvp_CreateImage(VkDevice device,
 {
    const VkImageSwapchainCreateInfoKHR *swapchain_info =
       vk_find_struct_const(pCreateInfo->pNext, IMAGE_SWAPCHAIN_CREATE_INFO_KHR);
+#if !DETECT_OS_ANDROID
    if (swapchain_info && swapchain_info->swapchain != VK_NULL_HANDLE)
       return lvp_image_from_swapchain(device, pCreateInfo, swapchain_info,
                                       pAllocator, pImage);
+#endif
    return lvp_image_create(device, pCreateInfo, pAllocator,
                            pImage);
 }
