@@ -109,13 +109,14 @@ static bool have_too_many_ubos(nir_shader *s, bool is_r500)
 }
 
 
+/* TODO: These parameters are wrong. */
 static bool
 r300_should_vectorize_io(unsigned align, unsigned bit_size,
                         unsigned num_components, unsigned high_offset,
-                        nir_intrinsic_instr *low, nir_intrinsic_instr *high,
-                        void *data)
+                        unsigned hole_size, nir_intrinsic_instr *low,
+                        nir_intrinsic_instr *high, void *data)
 {
-   if (bit_size != 32)
+   if (bit_size != 32 || hole_size || !nir_num_components_valid(num_components))
       return false;
 
    /* Our offset alignment should always be at least 4 bytes */

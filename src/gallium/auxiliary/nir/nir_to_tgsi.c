@@ -3256,13 +3256,15 @@ ntt_should_vectorize_instr(const nir_instr *instr, const void *data)
    return 4;
 }
 
+/* TODO: These parameters are wrong. */
 static bool
 ntt_should_vectorize_io(unsigned align, unsigned bit_size,
                         unsigned num_components, unsigned high_offset,
+                        unsigned hole_size,
                         nir_intrinsic_instr *low, nir_intrinsic_instr *high,
                         void *data)
 {
-   if (bit_size != 32)
+   if (bit_size != 32 || hole_size || !nir_num_components_valid(num_components))
       return false;
 
    /* Our offset alignment should aways be at least 4 bytes */
