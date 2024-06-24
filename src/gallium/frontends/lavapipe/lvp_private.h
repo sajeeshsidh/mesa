@@ -230,15 +230,13 @@ enum lvp_device_memory_type {
 struct lvp_device_memory {
    struct vk_object_base base;
    struct pipe_memory_allocation *pmem;
+   struct llvmpipe_memory_allocation mem_alloc;
    uint32_t                                     type_index;
    VkDeviceSize                                 map_size;
    VkDeviceSize                                 size;
    void *                                       map;
    enum lvp_device_memory_type memory_type;
    int                                          backed_fd;
-#ifdef PIPE_MEMORY_FD
-   struct llvmpipe_memory_fd_alloc              *alloc;
-#endif
 };
 
 struct lvp_pipe_sync {
@@ -579,10 +577,12 @@ struct lvp_event {
 struct lvp_buffer {
    struct vk_buffer vk;
 
-   struct pipe_memory_allocation *pmem;
+   struct lvp_device_memory *mem;
    struct pipe_resource *bo;
    uint64_t total_size;
    uint64_t offset;
+   void *map;
+   struct pipe_transfer *transfer;
 };
 
 struct lvp_buffer_view {
@@ -688,6 +688,16 @@ VK_DEFINE_NONDISP_HANDLE_CASTS(lvp_indirect_command_layout_nv, base, VkIndirectC
 
 void lvp_add_enqueue_cmd_entrypoints(struct vk_device_dispatch_table *disp);
 
+VkResult lvp_buffer_bind_sparse(struct lvp_device *device,
+                                struct lvp_queue *queue,
+                                VkSparseBufferMemoryBindInfo *bind);
+VkResult lvp_image_bind_opaque_sparse(struct lvp_device *device,
+                                      struct lvp_queue *queue,
+                                      VkSparseImageOpaqueMemoryBindInfo *bind);
+VkResult lvp_image_bind_sparse(struct lvp_device *device,
+                               struct lvp_queue *queue,
+                               VkSparseImageMemoryBindInfo *bind);
+
 VkResult lvp_execute_cmds(struct lvp_device *device,
                           struct lvp_queue *queue,
                           struct lvp_cmd_buffer *cmd_buffer);
@@ -761,6 +771,8 @@ void *
 lvp_shader_compile(struct lvp_device *device, struct lvp_shader *shader, nir_shader *nir, bool locked);
 bool
 lvp_nir_lower_ray_queries(struct nir_shader *shader);
+bool
+lvp_nir_lower_sparse_residency(struct nir_shader *shader);
 enum vk_cmd_type
 lvp_nv_dgc_token_to_cmd_type(const VkIndirectCommandsLayoutTokenNV *token);
 #ifdef __cplusplus

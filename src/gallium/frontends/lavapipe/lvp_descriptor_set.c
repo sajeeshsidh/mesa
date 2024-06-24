@@ -28,6 +28,7 @@
 #include "vk_util.h"
 #include "util/u_math.h"
 #include "util/u_inlines.h"
+#include "lp_texture.h"
 
 static bool
 binding_has_immutable_samplers(const VkDescriptorSetLayoutBinding *binding)
@@ -250,7 +251,12 @@ get_buffer_resource(struct pipe_context *ctx, const VkDescriptorAddressInfoEXT *
    uint64_t size;
    struct pipe_resource *pres = pscreen->resource_create_unbacked(pscreen, &templ, &size);
    assert(size == bda->range);
-   pscreen->resource_bind_backing(pscreen, pres, (void *)(uintptr_t)bda->address, 0);
+
+   struct llvmpipe_memory_allocation alloc = {
+      .cpu_addr = (void *)(uintptr_t)bda->address,
+   };
+
+   pscreen->resource_bind_backing(pscreen, pres, (void *)&alloc, 0, 0, 0);
    return pres;
 }
 
@@ -330,6 +336,8 @@ lvp_descriptor_set_create(struct lvp_device *device,
    for (unsigned i = 0; i < layout->binding_count; i++)
       bo_size += layout->binding[i].uniform_block_size;
 
+   bo_size = MAX2(bo_size, 64);
+
    struct pipe_resource template = {
       .bind = PIPE_BIND_CONSTANT_BUFFER,
       .screen = device->pscreen,
@@ -348,7 +356,7 @@ lvp_descriptor_set_create(struct lvp_device *device,
    set->map = device->pscreen->map_memory(device->pscreen, set->pmem);
    memset(set->map, 0, bo_size);
 
-   device->pscreen->resource_bind_backing(device->pscreen, set->bo, set->pmem, 0);
+   device->pscreen->resource_bind_backing(device->pscreen, set->bo, set->pmem, 0, 0, 0);
 
    for (uint32_t binding_index = 0; binding_index < layout->binding_count; binding_index++) {
       const struct lvp_descriptor_set_binding_layout *bind_layout = &set->layout->binding[binding_index];
