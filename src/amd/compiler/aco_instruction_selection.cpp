@@ -12352,15 +12352,18 @@ select_rt_prolog(Program* program, ac_shader_config* config,
    }
 
    /* Make fixup operations a no-op if this is not a converted 2D dispatch. */
-   bld.sopc(aco_opcode::s_cmp_lg_u32, Definition(scc, s1),
-            Operand::c32(ACO_RT_CONVERTED_2D_LAUNCH_SIZE), Operand(out_launch_size_y, s1));
-   bld.sop2(Builder::s_cselect, Definition(vcc, bld.lm),
-            Operand::c32_or_c64(-1u, program->wave_size == 64),
-            Operand::c32_or_c64(0, program->wave_size == 64), Operand(scc, s1));
-   bld.vop2(aco_opcode::v_cndmask_b32, Definition(out_launch_ids[0], v1),
-            Operand(tmp_invocation_idx, v1), Operand(out_launch_ids[0], v1), Operand(vcc, bld.lm));
-   bld.vop2(aco_opcode::v_cndmask_b32, Definition(out_launch_ids[1], v1), Operand::zero(),
-            Operand(out_launch_ids[1], v1), Operand(vcc, bld.lm));
+   if (program->gfx_level >= GFX9) {
+      bld.sopc(aco_opcode::s_cmp_lg_u32, Definition(scc, s1),
+               Operand::c32(ACO_RT_CONVERTED_2D_LAUNCH_SIZE), Operand(out_launch_size_y, s1));
+      bld.sop2(Builder::s_cselect, Definition(vcc, bld.lm),
+               Operand::c32_or_c64(-1u, program->wave_size == 64),
+               Operand::c32_or_c64(0, program->wave_size == 64), Operand(scc, s1));
+      bld.vop2(aco_opcode::v_cndmask_b32, Definition(out_launch_ids[0], v1),
+               Operand(tmp_invocation_idx, v1), Operand(out_launch_ids[0], v1),
+               Operand(vcc, bld.lm));
+      bld.vop2(aco_opcode::v_cndmask_b32, Definition(out_launch_ids[1], v1), Operand::zero(),
+               Operand(out_launch_ids[1], v1), Operand(vcc, bld.lm));
+   }
 
    /* jump to raygen */
    bld.sop1(aco_opcode::s_setpc_b64, Operand(out_uniform_shader_addr, s2));
