@@ -118,10 +118,12 @@ struct intel_pipeline_stat {
  *   1 timestamp, 45 A counters, 8 B counters and 8 C counters.
  * For Gfx8+
  *   1 timestamp, 1 clock, 36 A counters, 8 B counters and 8 C counters
+ * For Xe2:
+ *   1 timestamp, 1 clock, 64 PEC counters
  *
  * Plus 2 PERF_CNT registers and 1 RPSTAT register.
  */
-#define MAX_OA_REPORT_COUNTERS (62 + 2 + 1)
+#define MAX_OA_REPORT_COUNTERS (2 + 64 + 3)
 
 /*
  * When currently allocate only one page for pipeline statistics queries. Here
@@ -262,6 +264,7 @@ struct intel_perf_query_info {
    int c_offset;
    int perfcnt_offset;
    int rpstat_offset;
+   int pec_offset;
 
    struct intel_perf_registers config;
 };
@@ -282,7 +285,7 @@ struct intel_perf_query_field_layout {
 
    struct intel_perf_query_field {
       /* MMIO location of this register */
-      uint16_t mmio_offset;
+      uint32_t mmio_offset;
 
       /* Location of this register in the storage */
       uint16_t location;
@@ -297,6 +300,7 @@ struct intel_perf_query_field_layout {
          INTEL_PERF_QUERY_FIELD_TYPE_SRM_OA_A,
          INTEL_PERF_QUERY_FIELD_TYPE_SRM_OA_B,
          INTEL_PERF_QUERY_FIELD_TYPE_SRM_OA_C,
+         INTEL_PERF_QUERY_FIELD_TYPE_SRM_OA_PEC,
       } type;
 
       /* Index of register in the given type (for instance A31 or B2,
@@ -507,6 +511,7 @@ void intel_perf_query_result_accumulate(struct intel_perf_query_result *result,
 /** Read the timestamp value in a report.
  */
 uint64_t intel_perf_report_timestamp(const struct intel_perf_query_info *query,
+                                     const struct intel_device_info *devinfo,
                                      const uint32_t *report);
 
 /** Accumulate the delta between 2 snapshots of OA perf registers (layout
