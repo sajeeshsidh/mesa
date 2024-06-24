@@ -45,8 +45,7 @@
 #include <sys/sysmacros.h>
 #endif
 #include <GL/gl.h>
-#include <GL/internal/dri_interface.h>
-#include <GL/internal/mesa_interface.h>
+#include "mesa_interface.h"
 #include "loader.h"
 #include "util/libdrm.h"
 #include "util/os_file.h"
@@ -884,7 +883,7 @@ loader_open_driver(const char *driver_name,
    const struct __DRIextensionRec **extensions = NULL;
    const struct __DRIextensionRec **(*get_extensions)(void);
 
-   void *driver = loader_open_driver_lib(driver_name, "_dri", search_path_vars,
+   void *driver = loader_open_driver_lib("libgallium", "", search_path_vars,
                                          DEFAULT_DRIVER_DIR, !driver_name_is_inferred);
 
    if (!driver)
