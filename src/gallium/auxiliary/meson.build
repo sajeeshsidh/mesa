@@ -346,7 +346,6 @@ if draw_with_llvm
     'gallivm/lp_bld_gather.c',
     'gallivm/lp_bld_gather.h',
     'gallivm/lp_bld.h',
-    'gallivm/lp_bld_init.c',
     'gallivm/lp_bld_init.h',
     'gallivm/lp_bld_intr.c',
     'gallivm/lp_bld_intr.h',
@@ -400,6 +399,11 @@ if draw_with_llvm
     'nir/nir_to_tgsi_info.c',
     'nir/nir_to_tgsi_info.h',
   )
+  if llvm_with_orcjit
+    files_libgallium += files('gallivm/lp_bld_init_orc.cpp',)
+  else
+    files_libgallium += files('gallivm/lp_bld_init.c',)
+  endif
 endif
 
 files_libgalliumvl = files(

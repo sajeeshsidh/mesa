@@ -37,6 +37,7 @@
 
 #include "lp_test.h"
 
+#define TEST_COUNT 10
 
 struct printf_test_case {
    int foo;
@@ -58,18 +59,24 @@ typedef void (*test_printf_t)(int i);
 
 
 static LLVMValueRef
-add_printf_test(struct gallivm_state *gallivm)
+add_printf_test(struct gallivm_state *gallivm, int n, char **func_name_ptr)
 {
    LLVMModuleRef module = gallivm->module;
    LLVMTypeRef args[1] = { LLVMIntTypeInContext(gallivm->context, 32) };
-   LLVMValueRef func = LLVMAddFunction(module, "test_printf", LLVMFunctionType(LLVMVoidTypeInContext(gallivm->context), args, 1, 0));
+
+   int func_name_len = snprintf(NULL, 0, "test_lookup_multiple_%d", n) + 1;
+   *func_name_ptr = (char *)malloc(func_name_len);
+   snprintf(*func_name_ptr, func_name_len, "test_lookup_multiple_%d", n);
+
+   LLVMValueRef func = LLVMAddFunction(module, *func_name_ptr, LLVMFunctionType(LLVMVoidTypeInContext(gallivm->context), args, 1, 0));
    LLVMBuilderRef builder = gallivm->builder;
    LLVMBasicBlockRef block = LLVMAppendBasicBlockInContext(gallivm->context, func, "entry");
 
    LLVMSetFunctionCallConv(func, LLVMCCallConv);
 
    LLVMPositionBuilderAtEnd(builder, block);
-   lp_build_printf(gallivm, "hello, world\n");
+   lp_build_printf(gallivm, "hello, world from ");
+   lp_build_printf(gallivm, *func_name_ptr);
    lp_build_printf(gallivm, "print 5 6: %d %d\n", LLVMConstInt(LLVMInt32TypeInContext(gallivm->context), 5, 0),
 				LLVMConstInt(LLVMInt32TypeInContext(gallivm->context), 6, 0));
 
@@ -84,33 +91,44 @@ add_printf_test(struct gallivm_state *gallivm)
 }
 
 
-UTIL_ALIGN_STACK
 static bool
-test_printf(unsigned verbose, FILE *fp,
+test_lookup_multiple(unsigned verbose, FILE *fp,
             const struct printf_test_case *testcase)
 {
-   lp_context_ref context;
    struct gallivm_state *gallivm;
-   LLVMValueRef test;
-   test_printf_t test_printf_func;
+   LLVMValueRef *func = 
+      (LLVMValueRef *) malloc(TEST_COUNT * sizeof(LLVMValueRef));
+   char *func_name[TEST_COUNT];
+   test_printf_t *test_lookup_multiple_func = 
+      (test_printf_t *)malloc(TEST_COUNT * sizeof(test_printf_t));
    bool success = true;
+   int i;
 
+   lp_context_ref context;
    lp_context_create(&context);
+
    gallivm = gallivm_create("test_module", &context, NULL);
 
-   test = add_printf_test(gallivm);
+   for(i = 0; i < TEST_COUNT; i++){
+      func[i] = add_printf_test(gallivm, i, &func_name[i]);
+   }
 
    gallivm_compile_module(gallivm);
 
-   test_printf_func = (test_printf_t) gallivm_jit_function(gallivm, test, "test_printf");
+   for(i = 0; i < TEST_COUNT; i++){
+      test_lookup_multiple_func[i] = (test_printf_t) gallivm_jit_function(gallivm, func[i], func_name[i]);
+   }
 
    gallivm_free_ir(gallivm);
 
-   test_printf_func(0);
-
+   for(i = 0; i < TEST_COUNT; i++){
+      test_lookup_multiple_func[i](0);
+   }
+   FREE(func);
+   FREE(func_name);
+   FREE(test_lookup_multiple_func);
    gallivm_destroy(gallivm);
    lp_context_destroy(&context);
-
    return success;
 }
 
@@ -120,7 +138,7 @@ test_all(unsigned verbose, FILE *fp)
 {
    bool success = true;
 
-   test_printf(verbose, fp, NULL);
+   test_lookup_multiple(verbose, fp, NULL);
 
    return success;
 }
