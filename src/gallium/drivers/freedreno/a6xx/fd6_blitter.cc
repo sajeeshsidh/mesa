@@ -32,6 +32,7 @@
 #include "util/u_dump.h"
 #include "util/u_log.h"
 #include "util/u_surface.h"
+#include "util/u_transfer.h"
 
 #include "freedreno_blitter.h"
 #include "freedreno_fence.h"
@@ -1404,6 +1405,7 @@ fd6_blitter_init(struct pipe_context *pctx)
       return;
 
    pctx->clear_texture = fd6_clear_texture<CHIP>;
+   pctx->clear_buffer = u_default_clear_buffer;
    ctx->blit = fd6_blit<CHIP>;
 }
 

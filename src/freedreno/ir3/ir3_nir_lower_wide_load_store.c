@@ -79,6 +79,40 @@ lower_wide_load_store(nir_builder *b, nir_instr *instr, void *unused)
       }
 
       return NIR_LOWER_INSTR_PROGRESS_REPLACE;
+   } else if (intr->intrinsic == nir_intrinsic_load_ubo) {
+      unsigned num_comp = nir_intrinsic_dest_components(intr);
+      unsigned bit_size = intr->def.bit_size;
+      nir_def *offset = intr->src[1].ssa;
+      nir_def *components[num_comp];
+
+      for (unsigned off = 0; off < num_comp;) {
+         unsigned c = MIN2(num_comp - off, 4);
+
+         nir_intrinsic_instr *load =
+            nir_intrinsic_instr_create(b->shader, intr->intrinsic);
+         load->num_components = c;
+         load->src[0] = intr->src[0];
+         load->src[1] = nir_src_for_ssa(offset);
+         nir_intrinsic_set_align(load, nir_intrinsic_align(intr), 0);
+         nir_def_init(&load->instr, &load->def, c, bit_size);
+         if (nir_intrinsic_has_range(intr))
+            nir_intrinsic_set_range(load, nir_intrinsic_range(intr));
+         if (nir_intrinsic_has_range_base(intr))
+            nir_intrinsic_set_range_base(load, nir_intrinsic_range_base(intr));
+         if (nir_intrinsic_has_base(intr))
+            nir_intrinsic_set_base(load, nir_intrinsic_base(intr));
+         nir_builder_instr_insert(b, &load->instr);
+
+         offset = nir_iadd(b,
+               nir_imm_intN_t(b, (c * bit_size) / 8, offset->bit_size),
+               offset);
+
+         for (unsigned i = 0; i < c; i++) {
+            components[off++] = nir_channel(b, &load->def, i);
+         }
+      }
+
+      return nir_build_alu_src_arr(b, nir_op_vec(num_comp), components);
    } else {
       unsigned num_comp = nir_intrinsic_dest_components(intr);
       unsigned bit_size = intr->def.bit_size;

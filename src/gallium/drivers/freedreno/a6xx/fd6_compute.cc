@@ -259,6 +259,26 @@ fd6_compute_state_delete(struct pipe_context *pctx, void *_hwcso)
    free(hwcso);
 }
 
+static void
+fd6_get_compute_state_info(struct pipe_context *pctx, void *cso, struct pipe_compute_state_object_info *info)
+{
+   static struct ir3_shader_key key; /* static is implicitly zeroed */
+   struct fd6_compute_state *cs = (struct fd6_compute_state *)cso;
+   struct ir3_shader_state *hwcso = (struct ir3_shader_state *)cs->hwcso;
+   struct ir3_shader_variant *v = ir3_shader_variant(ir3_get_shader(hwcso), key, false, &pctx->debug);
+   struct fd_context *ctx = fd_context(pctx);
+
+   if (ctx->screen->info->a6xx.supports_double_threadsize) {
+      info->max_threads = 2048;
+      info->preferred_simd_size = 128;
+   } else {
+      info->max_threads = 1024;
+      info->preferred_simd_size = 64;
+   }
+   info->private_memory = v->pvtmem_size;
+   info->simd_sizes = info->preferred_simd_size;
+}
+
 template <chip CHIP>
 void
 fd6_compute_init(struct pipe_context *pctx)
@@ -269,6 +289,7 @@ fd6_compute_init(struct pipe_context *pctx)
    ctx->launch_grid = fd6_launch_grid<CHIP>;
    pctx->create_compute_state = fd6_compute_state_create;
    pctx->delete_compute_state = fd6_compute_state_delete;
+   pctx->get_compute_state_info = fd6_get_compute_state_info;
 }
 
 /* Teach the compiler about needed variants: */
