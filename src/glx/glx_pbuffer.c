@@ -329,7 +329,7 @@ __glXGetDrawableAttribute(Display * dpy, GLXDrawable drawable,
          /* Search the set of returned attributes for the attribute requested by
           * the caller.
           */
-         for (i = 0; i < num_attributes; i++) {
+         for (i = 0; i < num_attributes && (i * 2) + 1 < length; i++) {
             if (data[i * 2] == attribute) {
                found = 1;
                *value = data[(i * 2) + 1];
