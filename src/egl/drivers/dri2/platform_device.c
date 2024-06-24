@@ -41,7 +41,7 @@
 
 #include "util/u_debug.h"
 #include "egl_dri2.h"
-#include "kopper_interface.h"
+#include "gallium/include/dri/kopper_interface.h"
 #include "loader.h"
 
 static __DRIimage *

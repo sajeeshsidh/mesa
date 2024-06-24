@@ -41,7 +41,7 @@
 #include "frontend/opencl_interop.h"
 #include "util/u_thread.h"
 #include "postprocess/filters.h"
-#include "kopper_interface.h"
+#include "gallium/include/dri/kopper_interface.h"
 
 struct dri_context;
 struct dri_drawable;

@@ -42,7 +42,7 @@
 #include "drm-uapi/drm_fourcc.h"
 #endif
 #include <GL/gl.h>
-#include <GL/internal/dri_interface.h>
+#include "gallium/include/dri/dri_interface.h"
 #include <sys/stat.h>
 #include <sys/types.h>
 #include "dri_screen.h"

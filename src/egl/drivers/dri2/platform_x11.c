@@ -49,7 +49,7 @@
 #include <sys/stat.h>
 #include <sys/types.h>
 
-#include "kopper_interface.h"
+#include "gallium/include/dri/kopper_interface.h"
 #include "loader.h"
 #include "platform_x11.h"
 

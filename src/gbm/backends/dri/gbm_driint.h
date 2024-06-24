@@ -35,9 +35,9 @@
 #include "c11/threads.h"
 
 #include <GL/gl.h> /* dri_interface needs GL types */
-#include "GL/internal/dri_interface.h"
-#include "GL/internal/mesa_interface.h"
-#include "kopper_interface.h"
+#include "gallium/include/dri/dri_interface.h"
+#include "gallium/include/dri/mesa_interface.h"
+#include "gallium/include/dri/kopper_interface.h"
 
 struct gbm_dri_surface;
 struct gbm_dri_bo;

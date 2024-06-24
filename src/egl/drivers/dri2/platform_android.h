@@ -29,7 +29,7 @@
 #include <stdbool.h>
 #include <stdint.h>
 
-#include <GL/internal/dri_interface.h>
+#include "gallium/include/dri/dri_interface.h"
 
 #include "egl_dri2.h"
 

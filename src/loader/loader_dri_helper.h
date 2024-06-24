@@ -25,7 +25,7 @@
 #include <sys/types.h>
 
 #include <GL/gl.h> /* dri_interface needs GL types */
-#include <GL/internal/dri_interface.h>
+#include "gallium/include/dri/dri_interface.h"
 #include <c11/threads.h>
 #include "util/format/u_formats.h"
 

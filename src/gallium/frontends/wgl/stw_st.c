@@ -40,7 +40,7 @@
 
 #ifdef GALLIUM_ZINK
 #include <vulkan/vulkan.h>
-#include "kopper_interface.h"
+#include "gallium/include/dri/kopper_interface.h"
 #endif
 
 struct stw_st_framebuffer {

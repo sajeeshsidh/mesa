@@ -24,7 +24,7 @@
 #include <sys/types.h>
 
 #include <GL/gl.h> /* dri_interface needs GL types */
-#include <GL/internal/dri_interface.h>
+#include "gallium/include/dri/dri_interface.h"
 
 #include "drm-uapi/drm_fourcc.h"
 #include "loader_dri_helper.h"

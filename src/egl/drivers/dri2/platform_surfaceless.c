@@ -35,7 +35,7 @@
 
 #include "egl_dri2.h"
 #include "eglglobals.h"
-#include "kopper_interface.h"
+#include "gallium/include/dri/kopper_interface.h"
 #include "loader.h"
 #include "loader_dri_helper.h"
 

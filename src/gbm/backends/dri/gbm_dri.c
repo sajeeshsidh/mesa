@@ -42,13 +42,13 @@
 #include "drm-uapi/drm_fourcc.h"
 
 #include <GL/gl.h> /* dri_interface needs GL types */
-#include <GL/internal/dri_interface.h>
+#include "gallium/include/dri/dri_interface.h"
 
 #include "gbm_driint.h"
 
 #include "gbmint.h"
 #include "loader_dri_helper.h"
-#include "kopper_interface.h"
+#include "gallium/include/dri/kopper_interface.h"
 #include "loader.h"
 #include "util/u_debug.h"
 #include "util/macros.h"

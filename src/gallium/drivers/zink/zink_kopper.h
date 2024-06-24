@@ -27,7 +27,7 @@
 #ifndef ZINK_KOPPER_H
 #define ZINK_KOPPER_H
 
-#include "kopper_interface.h"
+#include "gallium/include/dri/kopper_interface.h"
 #include "util/u_queue.h"
 
 #ifdef __cplusplus

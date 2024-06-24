@@ -30,7 +30,7 @@
 #include <stdbool.h>
 #include <sys/stat.h>
 #include <stddef.h>
-#include "GL/internal/dri_interface.h"
+#include "gallium/include/dri/dri_interface.h"
 
 #ifdef __cplusplus
 extern "C" {

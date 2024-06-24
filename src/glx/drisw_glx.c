@@ -40,7 +40,7 @@
 #include <vulkan/vulkan_core.h>
 #include <vulkan/vulkan_xcb.h>
 #include "util/u_debug.h"
-#include "kopper_interface.h"
+#include "gallium/include/dri/kopper_interface.h"
 #include "loader_dri_helper.h"
 
 static int xshm_error = 0;

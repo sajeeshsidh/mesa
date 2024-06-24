@@ -27,8 +27,8 @@
 #define DRISW_PRIV_H
 
 #include <X11/extensions/XShm.h>
-#include "kopper_interface.h"
-#include "GL/internal/mesa_interface.h"
+#include "gallium/include/dri/kopper_interface.h"
+#include "gallium/include/dri/mesa_interface.h"
 
 struct drisw_display
 {
