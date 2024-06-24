@@ -40,6 +40,13 @@
 #include "util/simple_mtx.h"
 #include "drm-uapi/drm_fourcc.h"
 
+#ifndef XCB_PRESENT_OPTION_ASYNC_MAY_TEAR
+#define XCB_PRESENT_OPTION_ASYNC_MAY_TEAR 16
+#endif
+#ifndef XCB_PRESENT_CAPABILITY_ASYNC_MAY_TEAR
+#define XCB_PRESENT_CAPABILITY_ASYNC_MAY_TEAR 8
+#endif
+
 /**
  * A cached blit context.
  */
@@ -408,6 +415,7 @@ loader_dri3_drawable_init(xcb_connection_t *conn,
    draw->first_init = true;
    draw->adaptive_sync = false;
    draw->adaptive_sync_active = false;
+   draw->allow_wayland_tearing = true;
    draw->block_on_depleted_buffers = false;
 
    draw->cur_blit_source = -1;
@@ -418,6 +426,7 @@ loader_dri3_drawable_init(xcb_connection_t *conn,
    if (draw->ext->config) {
       unsigned char adaptive_sync = 0;
       unsigned char block_on_depleted_buffers = 0;
+      unsigned char allow_wayland_tearing = 0;
 
       draw->ext->config->configQueryb(draw->dri_screen_render_gpu,
                                       "adaptive_sync",
@@ -430,6 +439,12 @@ loader_dri3_drawable_init(xcb_connection_t *conn,
                                       &block_on_depleted_buffers);
 
       draw->block_on_depleted_buffers = block_on_depleted_buffers;
+
+      draw->ext->config->configQueryb(draw->dri_screen_render_gpu,
+                                      "allow_wayland_tearing",
+                                      &allow_wayland_tearing);
+
+      draw->allow_wayland_tearing = allow_wayland_tearing;
    }
 
    if (!draw->adaptive_sync)
@@ -1126,8 +1141,12 @@ loader_dri3_swap_buffers_msc(struct loader_dri3_drawable *draw,
        */
       uint32_t options = XCB_PRESENT_OPTION_NONE;
       if (draw->swap_interval <= 0)
-         options |= XCB_PRESENT_OPTION_ASYNC;
-
+            options |= XCB_PRESENT_OPTION_ASYNC;
+         
+      if(draw->allow_wayland_tearing)
+         if(draw->swap_interval == 0)
+            if(draw->has_async_may_tear)
+               options |= XCB_PRESENT_OPTION_ASYNC_MAY_TEAR;
       /* If we need to populate the new back, but need to reuse the back
        * buffer slot due to lack of local blit capabilities, make sure
        * the server doesn't flip and we deadlock.
@@ -1826,6 +1845,15 @@ dri3_update_drawable(struct loader_dri3_drawable *draw)
          draw->window = root_win;
       else
          draw->window = draw->drawable;
+      
+      xcb_present_query_capabilities_cookie_t present_query_cookie;
+      xcb_present_query_capabilities_reply_t *present_query_reply;
+      present_query_cookie = xcb_present_query_capabilities(draw->conn, draw->window);
+      present_query_reply = xcb_present_query_capabilities_reply(draw->conn, present_query_cookie, NULL);
+      if (present_query_reply) {
+         draw->has_async_may_tear = present_query_reply->capabilities & XCB_PRESENT_CAPABILITY_ASYNC_MAY_TEAR;
+         free(present_query_reply);
+      }
    }
    dri3_flush_present_events(draw);
    mtx_unlock(&draw->mtx);

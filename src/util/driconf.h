@@ -445,6 +445,10 @@
 #define DRI_CONF_SHADER_SPILLING_RATE(def) \
    DRI_CONF_OPT_I(shader_spilling_rate, def, 0, 100, \
                   "Speed up shader compilation by increasing number of spilled registers after ra_allocate failure")
+
+#define DRI_CONF_ALLOW_WAYLAND_TEARING(def) \
+   DRI_CONF_OPT_B(allow_wayland_tearing, def, \
+                  "Allow tearing for Wayland clients")
 /**
  * \brief Miscellaneous configuration options
  */

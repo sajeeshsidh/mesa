@@ -178,7 +178,9 @@ struct loader_dri3_drawable {
    bool block_on_depleted_buffers;
    bool queries_buffer_age;
    int swap_interval;
-
+   bool has_async_may_tear;
+   bool allow_wayland_tearing;
+   
    struct loader_dri3_extensions *ext;
    const struct loader_dri3_vtable *vtable;
 

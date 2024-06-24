@@ -4,6 +4,7 @@ DRI_CONF_SECTION_PERFORMANCE
    DRI_CONF_OPT_I(mesa_glthread_app_profile, -1, -1, 1, \
                   "Set an app profile enablement for glthread")
    DRI_CONF_MESA_NO_ERROR(false)
+   DRI_CONF_ALLOW_WAYLAND_TEARING(true)
 DRI_CONF_SECTION_END
 
 DRI_CONF_SECTION_QUALITY
