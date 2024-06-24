@@ -267,6 +267,73 @@ ycbcr_conversion_lookup(const void *data, uint32_t set, uint32_t binding, uint32
    return ycbcr_samplers + array_index;
 }
 
+/* This is the same as lower_bit_size_callback() below, except divergence information is unknown. */
+static bool
+might_lower_bit_size(nir_shader *shader)
+{
+   nir_foreach_function_impl(impl, shader) {
+      nir_foreach_block(block, impl) {
+         nir_foreach_instr(instr, block) {
+            if (instr->type != nir_instr_type_alu)
+               continue;
+            nir_alu_instr *alu = nir_instr_as_alu(instr);
+
+            /* If an instruction is not scalarized by this point,
+             * it can be emitted as packed instruction */
+            if (alu->def.num_components > 1)
+               continue;
+
+            if (alu->def.bit_size & (8 | 16)) {
+               switch (alu->op) {
+               case nir_op_bitfield_select:
+               case nir_op_imul_high:
+               case nir_op_umul_high:
+               case nir_op_uadd_carry:
+               case nir_op_usub_borrow:
+               case nir_op_iabs:
+               case nir_op_imax:
+               case nir_op_umax:
+               case nir_op_imin:
+               case nir_op_umin:
+               case nir_op_ishr:
+               case nir_op_ushr:
+               case nir_op_ishl:
+               case nir_op_isign:
+               case nir_op_uadd_sat:
+               case nir_op_usub_sat:
+               case nir_op_iadd_sat:
+               case nir_op_isub_sat:
+                  return true;
+               default:
+                  break;
+               }
+            }
+
+            if (nir_src_bit_size(alu->src[0].src) & (8 | 16)) {
+               switch (alu->op) {
+               case nir_op_bit_count:
+               case nir_op_find_lsb:
+               case nir_op_ufind_msb:
+               case nir_op_ilt:
+               case nir_op_ige:
+               case nir_op_ieq:
+               case nir_op_ine:
+               case nir_op_ult:
+               case nir_op_uge:
+               case nir_op_bitz:
+               case nir_op_bitnz:
+                  return true;
+               default:
+                  break;
+               }
+            }
+         }
+      }
+   }
+
+   return false;
+}
+
 static unsigned
 lower_bit_size_callback(const nir_instr *instr, void *_)
 {
@@ -438,9 +505,6 @@ radv_postprocess_nir(struct radv_device *device, const struct radv_graphics_stat
           * radv_nir_apply_pipeline_layout. */
          if (stage->args.ac.inline_push_const_mask)
             NIR_PASS(_, stage->nir, nir_opt_constant_folding);
-
-         /* Gather info again, to update whether 8/16-bit are used. */
-         nir_shader_gather_info(stage->nir, nir_shader_get_entrypoint(stage->nir));
       }
    }
 
@@ -582,13 +646,34 @@ radv_postprocess_nir(struct radv_device *device, const struct radv_graphics_stat
    NIR_PASS_V(stage->nir, ac_nir_lower_intrinsics_to_args, gfx_level, radv_select_hw_stage(&stage->info, gfx_level),
               &stage->args.ac);
    NIR_PASS_V(stage->nir, radv_nir_lower_abi, gfx_level, stage, gfx_state, pdev->info.address32_hi);
+
+   bool vectorizable_vs_inputs = stage->stage == MESA_SHADER_VERTEX && !stage->info.vs.use_per_attribute_vb_descs;
+   if ((io_to_mem || lowered_ngg || vectorizable_vs_inputs) && !stage->key.optimisations_disabled) {
+      NIR_PASS(_, stage->nir, nir_opt_constant_folding);
+      NIR_PASS(_, stage->nir, nir_opt_cse);
+      nir_variable_mode modes = nir_var_mem_shared | nir_var_shader_out | nir_var_mem_task_payload;
+      if (vectorizable_vs_inputs || stage->stage != MESA_SHADER_VERTEX)
+         modes |= nir_var_shader_in;
+      const nir_load_store_vectorize_options late_vectorize_opts = {
+         .modes = modes,
+         .callback = ac_nir_mem_vectorize_callback,
+         .cb_data = &gfx_level,
+         .robust_modes = 0,
+         /* On GFX6, read2/write2 is out-of-bounds if the offset register is negative, even if
+          * the final offset is not.
+          */
+         .has_shared2_amd = gfx_level >= GFX7,
+      };
+      NIR_PASS(_, stage->nir, nir_opt_load_store_vectorize, &late_vectorize_opts);
+   }
+
    radv_optimize_nir_algebraic(
       stage->nir, io_to_mem || lowered_ngg || stage->stage == MESA_SHADER_COMPUTE || stage->stage == MESA_SHADER_TASK,
       gfx_level >= GFX7);
 
    NIR_PASS(_, stage->nir, nir_lower_fp16_casts, nir_lower_fp16_split_fp64);
 
-   if (stage->nir->info.bit_sizes_int & (8 | 16)) {
+   if (might_lower_bit_size(stage->nir)) {
       if (gfx_level >= GFX8) {
          NIR_PASS(_, stage->nir, nir_convert_to_lcssa, true, true);
          nir_divergence_analysis(stage->nir);

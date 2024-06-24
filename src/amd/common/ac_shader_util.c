@@ -128,6 +128,8 @@ ac_nir_mem_vectorize_callback(unsigned align_mul, unsigned align_offset, unsigne
       align = align_mul;
 
    switch (low->intrinsic) {
+   case nir_intrinsic_load_buffer_amd:
+   case nir_intrinsic_store_buffer_amd:
    case nir_intrinsic_load_global:
    case nir_intrinsic_load_global_constant:
    case nir_intrinsic_store_global:
