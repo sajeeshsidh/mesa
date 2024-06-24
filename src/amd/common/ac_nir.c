@@ -594,13 +594,33 @@ ac_nir_export_parameters(nir_builder *b,
    }
 }
 
+unsigned
+ac_nir_map_io_location(unsigned location,
+                       uint64_t mask,
+                       ac_nir_map_io_driver_location map_io)
+{
+   /* Unlinked shaders:
+    * We are unaware of the inputs of the next stage while lowering outputs.
+    * The driver needs to pass a callback to map varyings to a fixed location.
+    */
+   if (map_io)
+      return map_io(location);
+
+   /* Linked shaders:
+    * Take advantage of knowledge of the inputs of the next stage when lowering outputs.
+    * Map varyings to a prefix sum of the IO mask to save space in LDS or VRAM.
+    */
+   assert(mask & BITFIELD64_BIT(location));
+   return util_bitcount64(mask & BITFIELD64_MASK(location));
+}
+
 /**
  * This function takes an I/O intrinsic like load/store_input,
  * and emits a sequence that calculates the full offset of that instruction,
  * including a stride to the base and component offsets.
  */
 nir_def *
-ac_nir_calc_io_offset_mapped(nir_builder *b,
+ac_nir_calc_io_off(nir_builder *b,
                              nir_intrinsic_instr *intrin,
                              nir_def *base_stride,
                              unsigned component_stride,
@@ -620,21 +640,6 @@ ac_nir_calc_io_offset_mapped(nir_builder *b,
    unsigned const_op = nir_intrinsic_component(intrin) * component_stride;
 
    return nir_iadd_imm_nuw(b, nir_iadd_nuw(b, base_op, offset_op), const_op);
-}
-
-nir_def *
-ac_nir_calc_io_offset(nir_builder *b,
-                      nir_intrinsic_instr *intrin,
-                      nir_def *base_stride,
-                      unsigned component_stride,
-                      ac_nir_map_io_driver_location map_io)
-{
-   unsigned base = nir_intrinsic_base(intrin);
-   unsigned semantic = nir_intrinsic_io_semantics(intrin).location;
-   unsigned mapped_driver_location = map_io ? map_io(semantic) : base;
-
-   return ac_nir_calc_io_offset_mapped(b, intrin, base_stride, component_stride,
-                                       mapped_driver_location);
 }
 
 bool
